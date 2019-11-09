@@ -60,7 +60,7 @@ function PolySynth:onLoadGraph(channelCount)
 
     local adsr = self:createObject("ADSR", "adsr"..i)
     local vca = self:createObject("Multiply", "vca"..i)
-    local sum = self.createObject("Sum", "sum"..i)
+    local sum = self:createObject("Sum", "sum"..i)
     connect(osc, "Out", vca, "Right")
     connect(adsr, "Out", vca, "Left")
     connect(vca, "Out", sum, "Left")
