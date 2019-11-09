@@ -1,2 +1,2 @@
 # er-301-custom-units
-Some Custom Units for the ER-301
+Some custom units for the ER-301. ATM these are all WIP and should not be used.
