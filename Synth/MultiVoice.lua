@@ -20,15 +20,18 @@ function MultiVoice:init(args)
 end
 
 function MultiVoice:onLoadGraph(channelCount)
-  local level = self:createObject("GainBias", "level")
-  local levelRange = self:createObject("MinMax", "levelRange")
-  connect(level, "Out", levelRange, "In")
-  self:createMonoBranch("level", level, "In", level, "Out")
+  local voiceMixer = self:createObject("Mixer", "voiceMixer", self.voiceCount)
+  connect(voiceMixer, "Out", self, "Out1")
 
   local f0 = self:createObject("GainBias", "f0")
   local f0Range = self:createObject("MinMax", "f0Range")
   connect(f0, "Out", f0Range, "In")
   self:createMonoBranch("f0", f0, "In", f0, "Out")
+
+  local detune = self:createObject("ConstantOffset", "detune")
+  local detuneRange = self:createObject("MinMax", "detuneRange")
+  connect(detune, "Out", detuneRange, "In")
+  self:createMonoBranch("detune", detune, "In", detune, "Out")
 
   local cutoff = self:createObject("GainBias", "cutoff")
   local cutoffRange = self:createObject("MinMax", "cutoffRange")
@@ -69,54 +72,60 @@ function MultiVoice:onLoadGraph(channelCount)
   connect(release, "Out", releaseRange, "In")
   self:createMonoBranch("release", release, "In", release, "Out")
 
-  local sums = {}
   for i = 1, self.voiceCount do
     local tune = self:createObject("ConstantOffset", "tune"..i)
     local tuneRange = self:createObject("MinMax", "tuneRange"..i)
     connect(tune, "Out", tuneRange, "In")
     self:createMonoBranch("tune"..i, tune, "In", tune, "Out")
 
-    local osc = self:createObject("SawtoothOscillator", "osc"..i)
-    connect(tune, "Out", osc, "V/Oct")
-    connect(f0, "Out", osc, "Fundamental")
+    local oscA = self:createObject("SawtoothOscillator", "oscA"..i)
+    local oscB = self:createObject("SawtoothOscillator", "oscB"..i)
+    local detuneSum = self:createObject("Sum", "detuneSum"..i)
 
-    local levelVca = self:createObject("Multiply", "levelVca"..i)
-    local filterVca = self:createObject("Multiply", "filterVca"..i)
-    local adsr = self:createObject("ADSR", "adsr"..i)
-    local vca = self:createObject("Multiply", "vca"..i)
-    local filter = self:createObject("StereoLadderFilter", "filter"..i)
-    local sum = self:createObject("Sum", "sum"..i)
-    connect(level, "Out", levelVca, "Left")
-    connect(osc, "Out", levelVca, "Right")
+    connect(tune, "Out", detuneSum, "Left")
+    connect(detune, "Out", detuneSum, "Right")
 
-    connect(adsr, "Out", vca, "Left")
-    connect(levelVca, "Out", vca, "Right")
+    connect(f0, "Out", oscA, "Fundamental")
+    connect(tune, "Out", oscA, "V/Oct")
+    connect(f0, "Out", oscB, "Fundamental")
+    connect(detuneSum, "Out", oscB, "V/Oct")
 
-    connect(adsr, "Out", filterVca, "Left")
-    connect(fenv, "Out", filterVca, "Right")
-    connect(filterVca, "Out", filter, "V/Oct")
-    connect(cutoff, "Out", filter, "Fundamental")
-    connect(clipper, "Out", filter, "Resonance")
+    local mixer = self:createObject("Mixer", "mixer"..i, 2)
+    mixer:hardSet("Gain1", 0.5)
+    mixer:hardSet("Gain2", 0.5)
 
-    connect(vca, "Out", filter, "Left In")
-    connect(filter, "Left Out", sum, "Left")
-    sums[i] = sum
+    connect(oscA, "Out", mixer, "In1")
+    connect(oscB, "Out", mixer, "In2")
 
     local gate = self:createObject("Comparator", "gate"..i)
     gate:setGateMode()
     self:createMonoBranch("gate"..i, gate, "In", gate, "Out")
+
+    local adsr = self:createObject("ADSR", "adsr"..i)
+    local vca = self:createObject("Multiply", "vca"..i)
 
     connect(gate, "Out", adsr, "Gate")
     connect(attack, "Out", adsr, "Attack")
     connect(decay, "Out", adsr, "Decay")
     connect(sustain, "Out", adsr, "Sustain")
     connect(release, "Out", adsr, "Release")
-  end
 
-  for i = 2, self.voiceCount do
-    connect(sums[i - 1], "Out", sums[i], "Right")
+    connect(adsr, "Out", vca, "Left")
+    connect(mixer, "Out", vca, "Right")
+
+    local fenvVca = self:createObject("Multiply", "fenvVca"..i)
+    local filter = self:createObject("StereoLadderFilter", "filter"..i)
+
+    connect(adsr, "Out", fenvVca, "Left")
+    connect(fenv, "Out", fenvVca, "Right")
+    connect(fenvVca, "Out", filter, "V/Oct")
+    connect(cutoff, "Out", filter, "Fundamental")
+    connect(clipper, "Out", filter, "Resonance")
+
+    connect(vca, "Out", filter, "Left In")
+    connect(filter, "Left Out", voiceMixer, "In"..i)
+    voiceMixer:hardSet("Gain"..i, 1 / self.voiceCount)
   end
-  connect(sums[self.voiceCount], "Out", self, "Out1")
 end
 
 function MultiVoice:onLoadViews(objects, branches)
@@ -150,18 +159,6 @@ function MultiVoice:onLoadViews(objects, branches)
 
   local controlCount = (self.voiceCount * 2) + 1
 
-  controls.level = GainBias {
-    button = "level",
-    description = "Voice Level",
-    branch = branches.level,
-    gainbias = objects.level,
-    range = objects.levelRange,
-    biasMap = Encoder.getMap("[-1,1]"),
-    initialBias = 0.15
-  }
-  views.expanded[controlCount] = "level"
-  controlCount = controlCount + 1
-
   controls.freq = GainBias {
     button = "f0",
     description = "Fundamental",
@@ -175,6 +172,16 @@ function MultiVoice:onLoadViews(objects, branches)
     scaling = app.octaveScaling
   }
   views.expanded[controlCount] = "freq"
+  controlCount = controlCount + 1
+
+  controls.detune = Pitch {
+    button = "detune",
+    description = "Detune",
+    branch = branches.detune,
+    offset = objects.detune,
+    range = objects.detuneRange
+  }
+  views.expanded[controlCount] = "detune"
   controlCount = controlCount + 1
 
   controls.cutoff = GainBias {
