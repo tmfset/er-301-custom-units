@@ -10,18 +10,16 @@ local OutputScope = require "Unit.ViewControl.OutputScope"
 local Encoder = require "Encoder"
 local ply = app.SECTION_PLY
 
-local PolySynth = Class{}
-PolySynth:include(Unit)
+local MultiVoice = Class{}
+MultiVoice:include(Unit)
 
-function PolySynth:init(args)
+function MultiVoice:init(args)
   self.voiceCount = args.voiceCount or app.error("%s.init: voiceCount is missing.", self)
-  args.title = "Poly Synth "..self.voiceCount
-  args.mnemonic = "PS%s"..self.voiceCount
-  args.version = 0
+  args.version = 1
   Unit.init(self, args)
 end
 
-function PolySynth:onLoadGraph(channelCount)
+function MultiVoice:onLoadGraph(channelCount)
   local level = self:createObject("GainBias", "level")
   local levelRange = self:createObject("MinMax", "levelRange")
   connect(level, "Out", levelRange, "In")
@@ -46,10 +44,10 @@ function PolySynth:onLoadGraph(channelCount)
   connect(clipper, "Out", resRange, "In")
   self:createMonoBranch("Q", res, "In", res, "Out")
 
-  local envAmount = self:createObject("GainBias", "envAmount")
-  local envAmountRange = self:createObject("MinMax", "envAmountRange")
-  connect(envAmount, "Out", envAmountRange, "In")
-  self:createMonoBranch("envAmount", envAmount, "In", envAmount, "Out")
+  local fenv = self:createObject("GainBias", "fenv")
+  local fenvRange = self:createObject("MinMax", "fenvRange")
+  connect(fenv, "Out", fenvRange, "In")
+  self:createMonoBranch("fenv", fenv, "In", fenv, "Out")
 
   local attack = self:createObject("GainBias", "attack")
   local attackRange = self:createObject("MinMax", "attackRange")
@@ -95,7 +93,7 @@ function PolySynth:onLoadGraph(channelCount)
     connect(levelVca, "Out", vca, "Right")
 
     connect(adsr, "Out", filterVca, "Left")
-    connect(envAmount, "Out", filterVca, "Right")
+    connect(fenv, "Out", filterVca, "Right")
     connect(filterVca, "Out", filter, "V/Oct")
     connect(cutoff, "Out", filter, "Fundamental")
     connect(clipper, "Out", filter, "Resonance")
@@ -121,7 +119,7 @@ function PolySynth:onLoadGraph(channelCount)
   connect(sums[self.voiceCount], "Out", self, "Out1")
 end
 
-function PolySynth:onLoadViews(objects, branches)
+function MultiVoice:onLoadViews(objects, branches)
   local controls = {}
   local views = { expanded = {}, collapsed = {} }
 
@@ -154,12 +152,12 @@ function PolySynth:onLoadViews(objects, branches)
 
   controls.level = GainBias {
     button = "level",
-    description = "Level",
+    description = "Voice Level",
     branch = branches.level,
     gainbias = objects.level,
     range = objects.levelRange,
     biasMap = Encoder.getMap("[-1,1]"),
-    initialBias = 0.5
+    initialBias = 0.15
   }
   views.expanded[controlCount] = "level"
   controlCount = controlCount + 1
@@ -208,16 +206,16 @@ function PolySynth:onLoadViews(objects, branches)
   views.expanded[controlCount] = "resonance"
   controlCount = controlCount + 1
 
-  controls.envAmount = GainBias {
-    button = "envAmount",
+  controls.fenv = GainBias {
+    button = "fenv",
     description = "Filter Env Amount",
-    branch = branches.envAmount,
-    gainbias = objects.envAmount,
-    range = objects.envAmountRange,
+    branch = branches.fenv,
+    gainbias = objects.fenv,
+    range = objects.fenvRange,
     biasMap = Encoder.getMap("[-1,1]"),
     initialBias = 0.5
   }
-  views.expanded[controlCount] = "envAmount"
+  views.expanded[controlCount] = "fenv"
   controlCount = controlCount + 1
 
   controls.attack = GainBias {

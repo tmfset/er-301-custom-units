@@ -1,2 +1,3 @@
-# er-301-custom-units
-Some custom units for the ER-301. ATM these are all WIP and should not be used.
+## Simple Synthesizers
+
+A collection of simple synthesizer units for the ER-301. To install, simply copy the entire `Synth` directory to your SD card under `er-301/libs`.
