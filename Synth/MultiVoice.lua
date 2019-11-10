@@ -272,4 +272,4 @@ function MultiVoice:onLoadViews(objects, branches)
   return controls, views
 end
 
-return PolySynth
+return MultiVoice
