@@ -22,10 +22,34 @@ function PolySynth:init(args)
 end
 
 function PolySynth:onLoadGraph(channelCount)
+  local level = self:createObject("GainBias", "level")
+  local levelRange = self:createObject("MinMax", "levelRange")
+  connect(level, "Out", levelRange, "In")
+  self:createMonoBranch("level", level, "In", level, "Out")
+
   local f0 = self:createObject("GainBias", "f0")
   local f0Range = self:createObject("MinMax", "f0Range")
   connect(f0, "Out", f0Range, "In")
   self:createMonoBranch("f0", f0, "In", f0, "Out")
+
+  local cutoff = self:createObject("GainBias", "cutoff")
+  local cutoffRange = self:createObject("MinMax", "cutoffRange")
+  connect(cutoff, "Out", cutoffRange, "In")
+  self:createMonoBranch("cutoff", cutoff, "In", cutoff, "Out")
+
+  local res = self:createObject("GainBias", "res")
+  local resRange = self:createObject("MinMax", "resRange")
+  local clipper = self:createObject("Clipper", "clipper")
+  clipper:setMaximum(0.999)
+  clipper:setMinimum(0)
+  connect(res, "Out", clipper, "In")
+  connect(clipper, "Out", resRange, "In")
+  self:createMonoBranch("Q", res, "In", res, "Out")
+
+  local envAmount = self:createObject("GainBias", "envAmount")
+  local envAmountRange = self:createObject("MinMax", "envAmountRange")
+  connect(envAmount, "Out", envAmountRange, "In")
+  self:createMonoBranch("envAmount", envAmount, "In", envAmount, "Out")
 
   local attack = self:createObject("GainBias", "attack")
   local attackRange = self:createObject("MinMax", "attackRange")
@@ -54,16 +78,30 @@ function PolySynth:onLoadGraph(channelCount)
     connect(tune, "Out", tuneRange, "In")
     self:createMonoBranch("tune"..i, tune, "In", tune, "Out")
 
-    local osc = self:createObject("SineOscillator", "osc"..i)
+    local osc = self:createObject("SawtoothOscillator", "osc"..i)
     connect(tune, "Out", osc, "V/Oct")
     connect(f0, "Out", osc, "Fundamental")
 
+    local levelVca = self:createObject("Multiply", "levelVca"..i)
+    local filterVca = self:createObject("Multiply", "filterVca"..i)
     local adsr = self:createObject("ADSR", "adsr"..i)
     local vca = self:createObject("Multiply", "vca"..i)
+    local filter = self:createObject("StereoLadderFilter", "filter"..i)
     local sum = self:createObject("Sum", "sum"..i)
-    connect(osc, "Out", vca, "Right")
+    connect(level, "Out", levelVca, "Left")
+    connect(osc, "Out", levelVca, "Right")
+
     connect(adsr, "Out", vca, "Left")
-    connect(vca, "Out", sum, "Left")
+    connect(levelVca, "Out", vca, "Right")
+
+    connect(adsr, "Out", filterVca, "Left")
+    connect(envAmount, "Out", filterVca, "Right")
+    connect(filterVca, "Out", filter, "V/Oct")
+    connect(cutoff, "Out", filter, "Fundamental")
+    connect(clipper, "Out", filter, "Resonance")
+
+    connect(vca, "Out", filter, "Left In")
+    connect(filter, "Left Out", sum, "Left")
     sums[i] = sum
 
     local gate = self:createObject("Comparator", "gate"..i)
@@ -114,6 +152,18 @@ function PolySynth:onLoadViews(objects, branches)
 
   local controlCount = (self.voiceCount * 2) + 1
 
+  controls.level = GainBias {
+    button = "level",
+    description = "Level",
+    branch = branches.level,
+    gainbias = objects.level,
+    range = objects.levelRange,
+    biasMap = Encoder.getMap("[-1,1]"),
+    initialBias = 0.5
+  }
+  views.expanded[controlCount] = "level"
+  controlCount = controlCount + 1
+
   controls.freq = GainBias {
     button = "f0",
     description = "Fundamental",
@@ -127,6 +177,47 @@ function PolySynth:onLoadViews(objects, branches)
     scaling = app.octaveScaling
   }
   views.expanded[controlCount] = "freq"
+  controlCount = controlCount + 1
+
+  controls.cutoff = GainBias {
+    button = "cutoff",
+    branch = branches.cutoff,
+    description = "Filter Cutoff",
+    gainbias = objects.cutoff,
+    range = objects.cutoffRange,
+    biasMap = Encoder.getMap("filterFreq"),
+    biasUnits = app.unitHertz,
+    initialBias = 440,
+    gainMap = Encoder.getMap("freqGain"),
+    scaling = app.octaveScaling
+  }
+  views.expanded[controlCount] = "cutoff"
+  controlCount = controlCount + 1
+
+  controls.resonance = GainBias {
+    button = "Q",
+    branch = branches.Q,
+    description = "Resonance",
+    gainbias = objects.res,
+    range = objects.resRange,
+    biasMap = Encoder.getMap("unit"),
+    biasUnits = app.unitNone,
+    initialBias = 0.25,
+    gainMap = Encoder.getMap("[-10,10]")
+  }
+  views.expanded[controlCount] = "resonance"
+  controlCount = controlCount + 1
+
+  controls.envAmount = GainBias {
+    button = "envAmount",
+    description = "Filter Env Amount",
+    branch = branches.envAmount,
+    gainbias = objects.envAmount,
+    range = objects.envAmountRange,
+    biasMap = Encoder.getMap("[-1,1]"),
+    initialBias = 0.5
+  }
+  views.expanded[controlCount] = "envAmount"
   controlCount = controlCount + 1
 
   controls.attack = GainBias {
