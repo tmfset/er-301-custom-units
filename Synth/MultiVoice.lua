@@ -14,6 +14,7 @@ local MultiVoice = Class{}
 MultiVoice:include(Unit)
 
 function MultiVoice:init(args)
+  self.roundRobin = true
   self.voiceCount = args.voiceCount or app.error("%s.init: voiceCount is missing.", self)
   args.version = 1
   Unit.init(self, args)
@@ -22,6 +23,29 @@ end
 function MultiVoice:onLoadGraph(channelCount)
   local voiceMixer = self:createObject("Mixer", "voiceMixer", self.voiceCount)
   connect(voiceMixer, "Out", self, "Out1")
+
+  local gate = self:createObject("Comparator", "gate")
+  gate:setGateMode()
+  self:createMonoBranch("gate", gate, "In", gate, "Out")
+
+  local tune = self:createObject("ConstantOffset", "tune")
+  local tuneRange = self:createObject("MinMax", "tuneRange")
+  connect(tune, "Out", tuneRange, "In")
+  self:createMonoBranch("tune", tune, "In", tune, "Out")
+
+  local switch = self:createObject("Comparator", "switch")
+  switch:setTriggerOnFallMode()
+  connect(gate, "Out", switch, "In")
+
+  local rrGate = self:createObject("RoundRobin", "rrGate", self.voiceCount)
+  connect(switch, "Out", rrGate, "Trigger")
+  connect(gate, "Out", rrGate, "Signal")
+  rrGate:compile()
+
+  local rrTune = self:createObject("RoundRobin", "rrTune", self.voiceCount)
+  connect(switch, "Out", rrTune, "Trigger")
+  connect(tune, "Out", rrTune, "Signal")
+  rrTune:compile()
 
   local f0 = self:createObject("GainBias", "f0")
   local f0Range = self:createObject("MinMax", "f0Range")
@@ -73,20 +97,30 @@ function MultiVoice:onLoadGraph(channelCount)
   self:createMonoBranch("release", release, "In", release, "Out")
 
   for i = 1, self.voiceCount do
-    local tune = self:createObject("ConstantOffset", "tune"..i)
-    local tuneRange = self:createObject("MinMax", "tuneRange"..i)
-    connect(tune, "Out", tuneRange, "In")
-    self:createMonoBranch("tune"..i, tune, "In", tune, "Out")
+    local vGate = self:createObject("Comparator", "gate"..i)
+    vGate:setGateMode()
+
+    local vTune = self:createObject("ConstantOffset", "tune"..i)
+    local vTuneRange = self:createObject("MinMax", "tuneRange"..i)
+    connect(vTune, "Out", vTuneRange, "In")
+
+    if self.roundRobin then
+      connect(rrGate, "Out"..i, vGate, "In")
+      connect(rrTune, "Out"..i, vTune, "In")
+    else
+      self:createMonoBranch("gate"..i, vGate, "In", vGate, "Out")
+      self:createMonoBranch("tune"..i, vTune, "In", vTune, "Out")
+    end
 
     local oscA = self:createObject("SawtoothOscillator", "oscA"..i)
     local oscB = self:createObject("SawtoothOscillator", "oscB"..i)
     local detuneSum = self:createObject("Sum", "detuneSum"..i)
 
-    connect(tune, "Out", detuneSum, "Left")
+    connect(vTune, "Out", detuneSum, "Left")
     connect(detune, "Out", detuneSum, "Right")
 
     connect(f0, "Out", oscA, "Fundamental")
-    connect(tune, "Out", oscA, "V/Oct")
+    connect(vTune, "Out", oscA, "V/Oct")
     connect(f0, "Out", oscB, "Fundamental")
     connect(detuneSum, "Out", oscB, "V/Oct")
 
@@ -97,14 +131,10 @@ function MultiVoice:onLoadGraph(channelCount)
     connect(oscA, "Out", mixer, "In1")
     connect(oscB, "Out", mixer, "In2")
 
-    local gate = self:createObject("Comparator", "gate"..i)
-    gate:setGateMode()
-    self:createMonoBranch("gate"..i, gate, "In", gate, "Out")
-
     local adsr = self:createObject("ADSR", "adsr"..i)
     local vca = self:createObject("Multiply", "vca"..i)
 
-    connect(gate, "Out", adsr, "Gate")
+    connect(vGate, "Out", adsr, "Gate")
     connect(attack, "Out", adsr, "Attack")
     connect(decay, "Out", adsr, "Decay")
     connect(sustain, "Out", adsr, "Sustain")
@@ -131,33 +161,54 @@ end
 function MultiVoice:onLoadViews(objects, branches)
   local controls = {}
   local views = { expanded = {}, collapsed = {} }
+  local controlCount = 1
 
   controls.scope = OutputScope {
     monitor = self,
     width = 4 * ply,
   }
 
-  for i = 1, self.voiceCount do
-    controls["gate"..i] = Gate {
-      button = "gate"..i,
-      description = "Gate "..i,
-      branch = branches["gate"..i],
-      comparator = objects["gate"..i]
+  if self.roundRobin then
+    controls.gate = Gate {
+      button = "gate",
+      description = "Round Robin Gate",
+      branch = branches.gate,
+      comparator = objects.gate
     }
+    views.expanded[controlCount] = "gate"
+    controlCount = controlCount + 1
 
-    controls["tune"..i] = Pitch {
-      button = "V/oct"..i,
-      description = "V/oct "..i,
-      branch = branches["tune"..i],
-      offset = objects["tune"..i],
-      range = objects["tuneRange"..i]
+    controls.tune = Pitch {
+      button = "V/oct",
+      description = "Round Robin V/oct",
+      branch = branches.tune,
+      offset = objects.tune,
+      range = objects.tuneRange
     }
+    views.expanded[controlCount] = "tune"
+    controlCount = controlCount + 1
+  else
+    for i = 1, self.voiceCount do
+      controls["gate"..i] = Gate {
+        button = "gate"..i,
+        description = "Gate "..i,
+        branch = branches["gate"..i],
+        comparator = objects["gate"..i]
+      }
+      views.expanded[controlCount] = "gate"..i
+      controlCount = controlCount + 1
 
-    views.expanded[((i - 1) * 2) + 1] = "gate"..i
-    views.expanded[((i - 1) * 2) + 2] = "tune"..i
+      controls["tune"..i] = Pitch {
+        button = "V/oct"..i,
+        description = "V/oct "..i,
+        branch = branches["tune"..i],
+        offset = objects["tune"..i],
+        range = objects["tuneRange"..i]
+      }
+      views.expanded[controlCount] = "tune"..i
+      controlCount = controlCount + 1
+    end
   end
-
-  local controlCount = (self.voiceCount * 2) + 1
 
   controls.freq = GainBias {
     button = "f0",
