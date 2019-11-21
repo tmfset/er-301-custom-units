@@ -1,5 +1,5 @@
 local Class = require "Base.Class"
-local MultiVoice = require "Synth.MultiVoice"
+local MultiVoice = require "SimpleSynth.MultiVoice"
 
 local OneVoiceSaw = Class {}
 OneVoiceSaw:include(MultiVoice)
