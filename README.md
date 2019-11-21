@@ -2,17 +2,30 @@
 
 A collection of **simple polyphonic synthesizer** units for the ER-301, built and tested on firmware **v0.4.26**.
 
-### Installation
-To install, download this repo and copy the `SimpleSynth` directory to your SD card under `ER-301/libs`.
+These units are built utilizing the ER-301 **Middle Layer SDK**. Although they would be easy enough to patch manually through the UI, the SDK gives us an incredible efficiency boost. The three voice unit uses about 13% CPU, which is a significant reduction from what a comparable UI patch would necessitate.
 
-### Overview
+As a result, we can use the simple synthesizers as **macro** units during patch creation, extending the already massive utility of the ER-301.
+
+### Installation
+To install, simply download this repo and copy the `SimpleSynth` directory to your SD card under `ER-301/libs`.
 
 The new units will be available on the insert screen.
 
 ![](screenshots/SimpleSynthInsert.png)
 ![](screenshots/SimpleSynthLoaded.png)
 
-The following parameters are available:
+### Patching Ideas
+
+1. Use an external midi-to-cv module to send multiple gates and pitches to the ER-301 to use it as a true polyphonic synthesizer.
+
+2. Set the gate mode for each voice to "toggle" (simply hold the M button to quickly edit a control) and use the unit as an oscillator+filter bank.
+
+3. Patch a single gate CV to all the voice gates and manually set the V/Oct tuning to trigger chords.
+
+4. Use the fantastic ER-301 hold mode to set different chord values in the unit and manually interpolate between them ala the [THX sound](https://www.youtube.com/watch?v=FWkJ86JqlPA) (with much fewer voices of course :P).
+
+
+### Parameter Overview
 
 Parameter | Description
 --------- | -----------
