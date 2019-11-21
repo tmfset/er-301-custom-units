@@ -103,24 +103,25 @@ function MultiVoice:connectVoice(voice, controls)
   connect(voice.gate, "Out", voice.adsr, "Gate")
   voice.gate:setGateMode()
 
-  connect(voice.adsr, "Out", voice.fenvVca, "Left")
-  connect(voice.adsr, "Out", voice.vca, "Left")
-  connect(voice.mixer, "Out", voice.vca, "Right")
   connect(controls.attack, "Out", voice.adsr, "Attack")
   connect(controls.decay, "Out", voice.adsr, "Decay")
   connect(controls.sustain, "Out", voice.adsr, "Sustain")
   connect(controls.release, "Out", voice.adsr, "Release")
 
+  connect(voice.mixer, "Out", voice.filter, "Left In")
+  connect(voice.adsr, "Out", voice.fenvVca, "Left")
   connect(controls.fenv, "Out", voice.fenvVca, "Right")
   connect(voice.fenvVca, "Out", voice.filter, "V/Oct")
   connect(controls.cutoff, "Out", voice.filter, "Fundamental")
   connect(controls.clipper, "Out", voice.filter, "Resonance")
-  connect(voice.vca, "Out", voice.filter, "Left In")
+
+  connect(voice.adsr, "Out", voice.vca, "Left")
+  connect(voice.filter, "Left Out", voice.vca, "Right")
 
   self:createMonoBranch("gate"..voice.index, voice.gate, "In", voice.gate, "Out")
   self:createMonoBranch("tune"..voice.index, voice.tune, "In", voice.tune, "Out")
 
-  return voice.filter, "Left Out"
+  return voice.vca, "Out"
 end
 
 function MultiVoice:onLoadGraph(channelCount)
