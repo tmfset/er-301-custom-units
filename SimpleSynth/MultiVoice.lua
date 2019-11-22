@@ -21,6 +21,9 @@ end
 
 function MultiVoice:createControls()
   return {
+    rrGate       = self:createObject("Comparator", "rrGate"),
+    rrTune       = self:createObject("ConstantOffset", "rrTune"),
+    rrTuneRange  = self:createObject("MinMax", "rrTuneRange"),
     f0           = self:createObject("GainBias", "f0"),
     f0Range      = self:createObject("MinMax", "f0Range"),
     detune       = self:createObject("ConstantOffset", "detune"),
@@ -44,6 +47,7 @@ function MultiVoice:createControls()
 end
 
 function MultiVoice:connectControls(controls)
+  connect(controls.rrTune, "Out", controls.rrTuneRange, "In")
   connect(controls.f0, "Out", controls.f0Range, "In")
   connect(controls.detune, "Out", controls.detuneRange, "In")
   connect(controls.cutoff, "Out", controls.cutoffRange, "In")
@@ -55,9 +59,12 @@ function MultiVoice:connectControls(controls)
   connect(controls.sustain, "Out", controls.sustainRange, "In")
   connect(controls.release, "Out", controls.releaseRange, "In")
 
+  controls.rrGate:setGateMode()
   controls.clipper:setMaximum(0.999)
   controls.clipper:setMinimum(0)
 
+  self:createMonoBranch("rrGate", controls.rrGate, "In", controls.rrGate, "Out")
+  self:createMonoBranch("rrTune", controls.rrTune, "In", controls.rrTune, "Out")
   self:createMonoBranch("f0", controls.f0, "In", controls.f0, "Out")
   self:createMonoBranch("detune", controls.detune, "In", controls.detune, "Out")
   self:createMonoBranch("cutoff", controls.cutoff, "In", controls.cutoff, "Out")
@@ -72,13 +79,18 @@ end
 function MultiVoice:createVoice(i)
   return {
     index     = i,
-    tune      = self:createObject("ConstantOffset", "tune"..i),
-    tuneRange = self:createObject("MinMax", "tuneRange"..i),
+    gate      = self:createObject("Multiply", "gate"..i),
+    tune      = self:createObject("TrackAndHold", "tune"..i),
+
+    enable    = self:createObject("Comparator", "enable"..i),
+    disable   = self:createObject("Comparator", "disable"..i),
+    toggle    = self:createObject("Sum", "toggle"..i),
+    isActive  = self:createObject("Comparator", "isActive"..i),
+
     oscA      = self:createObject("SawtoothOscillator", "oscA"..i),
     oscB      = self:createObject("SawtoothOscillator", "oscB"..i),
     detuneSum = self:createObject("Sum", "detuneSum"..i),
     mixer     = self:createObject("Mixer", "mixer"..i, 2),
-    gate      = self:createObject("Comparator", "gate"..i),
     adsr      = self:createObject("ADSR", "adsr"..i),
     vca       = self:createObject("Multiply", "vca"..i),
     fenvVca   = self:createObject("Multiply", "fenvVca"..i),
@@ -86,10 +98,26 @@ function MultiVoice:createVoice(i)
   }
 end
 
-function MultiVoice:connectVoice(voice, controls)
+function MultiVoice:connectVoice(voice, controls, prior)
+  connect(prior.isActive, "Out", voice.enable, "In")
+  voice.enable:setTriggerOnFallMode()
+
+  connect(voice.gate, "Out", voice.disable, "In")
+  voice.disable:setTriggerOnFallMode()
+
+  connect(voice.enable, "Out", voice.toggle, "Left")
+  connect(voice.disable, "Out", voice.toggle, "Right")
+  connect(voice.toggle, "Out", voice.isActive, "In")
+  voice.isActive:setToggleMode()
+
+  connect(controls.rrGate, "Out", voice.gate, "Left")
+  connect(voice.isActive, "Out", voice.gate, "Right")
+
+  connect(controls.rrTune, "Out", voice.tune, "In")
+  connect(voice.isActive, "Out", voice.tune, "Track")
+
   connect(controls.f0, "Out", voice.oscA, "Fundamental")
   connect(controls.f0, "Out", voice.oscB, "Fundamental")
-  connect(voice.tune, "Out", voice.tuneRange, "In")
   connect(voice.tune, "Out", voice.detuneSum, "Left")
   connect(controls.detune, "Out", voice.detuneSum, "Right")
   connect(voice.tune, "Out", voice.oscA, "V/Oct")
@@ -101,8 +129,6 @@ function MultiVoice:connectVoice(voice, controls)
   voice.mixer:hardSet("Gain2", 0.5)
 
   connect(voice.gate, "Out", voice.adsr, "Gate")
-  voice.gate:setGateMode()
-
   connect(controls.attack, "Out", voice.adsr, "Attack")
   connect(controls.decay, "Out", voice.adsr, "Decay")
   connect(controls.sustain, "Out", voice.adsr, "Sustain")
@@ -118,9 +144,7 @@ function MultiVoice:connectVoice(voice, controls)
   connect(voice.adsr, "Out", voice.vca, "Left")
   connect(voice.filter, "Left Out", voice.vca, "Right")
 
-  self:createMonoBranch("gate"..voice.index, voice.gate, "In", voice.gate, "Out")
-  self:createMonoBranch("tune"..voice.index, voice.tune, "In", voice.tune, "Out")
-
+  -- self:createMonoBranch("isActive"..voice.index, voice.isActive, "In", voice.isActive, "Out")
   return voice.vca, "Out"
 end
 
@@ -131,33 +155,32 @@ function MultiVoice:onLoadGraph(channelCount)
   local controls = self:createControls()
   self:connectControls(controls)
 
+  local voices = {}
   for i = 1, self.voiceCount do
-    local voice = self:createVoice(i)
-    local out, key = self:connectVoice(voice, controls)
+    voices[i] = self:createVoice(i)
+  end
+
+  for i = 1, self.voiceCount do
+    local current = voices[i]
+    local prior = voices[(i - 2) % self.voiceCount + 1]
+    local out, key = self:connectVoice(current, controls, prior)
 
     connect(out, key, voiceMixer, "In"..i)
     voiceMixer:hardSet("Gain"..i, 1 / self.voiceCount)
   end
+
+  voices[1].isActive:hardSet("State", 1)
 end
 
-function MultiVoice:setVoiceViews(i, objects, branches, controls, views)
-  controls["gate"..i] = Gate {
-    button      = "gate"..i,
-    description = "Gate "..i,
-    branch      = branches["gate"..i],
-    comparator  = objects["gate"..i]
-  }
-  views.expanded[#views.expanded + 1] = "gate"..i
-
-  controls["tune"..i] = Pitch {
-    button      = "V/oct"..i,
-    description = "V/oct "..i,
-    branch      = branches["tune"..i],
-    offset      = objects["tune"..i],
-    range       = objects["tuneRange"..i]
-  }
-  views.expanded[#views.expanded + 1] = "tune"..i
-end
+-- function MultiVoice:setVoiceViews(i, objects, branches, controls, views)
+--   controls["isActive"..i] = Gate {
+--     button      = "isActive"..i,
+--     description = "Gate "..i,
+--     branch      = branches["isActive"..i],
+--     comparator  = objects["isActive"..i]
+--   }
+--   views.expanded[#views.expanded + 1] = "isActive"..i
+-- end
 
 function MultiVoice:setPitchViews(objects, branches, controls, views)
   controls.freq = GainBias {
@@ -283,9 +306,26 @@ function MultiVoice:onLoadViews(objects, branches)
     width = 4 * ply,
   }
 
-  for i = 1, self.voiceCount do
-    self:setVoiceViews(i, objects, branches, controls, views)
-  end
+  controls["rrGate"] = Gate {
+    button      = "rrGate",
+    description = "Gate",
+    branch      = branches["rrGate"],
+    comparator  = objects["rrGate"]
+  }
+  views.expanded[#views.expanded + 1] = "rrGate"
+
+  controls["rrTune"] = Pitch {
+    button      = "V/oct",
+    description = "V/oct",
+    branch      = branches["rrTune"],
+    offset      = objects["rrTune"],
+    range       = objects["rrTuneRange"]
+  }
+  views.expanded[#views.expanded + 1] = "rrTune"
+
+  -- for i = 1, self.voiceCount do
+  --   self:setVoiceViews(i, objects, branches, controls, views)
+  -- end
 
   self:setPitchViews(objects, branches, controls, views)
   self:setFilterViews(objects, branches, controls, views)
