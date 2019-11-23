@@ -14,6 +14,14 @@ The new units will be available on the insert screen.
 ![](screenshots/SimpleSynthInsert.png)
 ![](screenshots/SimpleSynthLoaded.png)
 
+The following units are available:
+
+1. **Polyphonic Saw**
+2. **Polyphonic Triangle**
+3. **Polyphonic Single Cycle**
+
+Each with 1, 2, 3, 4, and 8 voice variations.
+
 ### Patching Ideas
 
 1. Use an external midi-to-cv module to send multiple gates and pitches to the ER-301 to use it as a true polyphonic synthesizer.
