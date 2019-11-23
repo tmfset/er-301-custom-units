@@ -20,12 +20,15 @@ MultiVoice:include(Unit)
 
 function MultiVoice:init(args)
   self.voiceCount = args.voiceCount or app.error("%s.init: voiceCount is missing.", self)
+  self.oscType = args.oscType or app.error("%s.init: oscType is missing.", self)
+  self.isSingleCycle = self.oscType == "SingleCycle"
+
   args.version = 1
   Unit.init(self, args)
 end
 
 function MultiVoice:createControls()
-  return {
+  local controls = {
     f0           = self:createObject("GainBias", "f0"),
     f0Range      = self:createObject("MinMax", "f0Range"),
     detune       = self:createObject("ConstantOffset", "detune"),
@@ -46,6 +49,15 @@ function MultiVoice:createControls()
     release      = self:createObject("GainBias", "release"),
     releaseRange = self:createObject("MinMax", "releaseRange")
   }
+
+  if self.isSingleCycle then
+    controls.phase      = self:createObject("GainBias","phase")
+    controls.phaseRange = self:createObject("MinMax","phaseRange")
+    controls.scan       = self:createObject("GainBias","scan")
+    controls.scanRange  = self:createObject("MinMax","scanRange")
+  end
+
+  return controls
 end
 
 function MultiVoice:connectControls(controls)
@@ -72,6 +84,14 @@ function MultiVoice:connectControls(controls)
   self:createMonoBranch("decay", controls.decay, "In", controls.decay, "Out")
   self:createMonoBranch("sustain", controls.sustain, "In", controls.sustain, "Out")
   self:createMonoBranch("release", controls.release, "In", controls.release, "Out")
+
+  if self.isSingleCycle then
+    connect(controls.phase, "Out", controls.phaseRange, "In")
+    connect(controls.scan, "Out", controls.scanRange, "In")
+
+    self:createMonoBranch("phase", controls.phase, "In", controls.phase, "Out")
+    self:createMonoBranch("scan", controls.scan, "In", controls.scan, "Out")
+  end
 end
 
 function MultiVoice:createVoice(i)
@@ -79,8 +99,8 @@ function MultiVoice:createVoice(i)
     index     = i,
     tune      = self:createObject("ConstantOffset", "tune"..i),
     tuneRange = self:createObject("MinMax", "tuneRange"..i),
-    oscA      = self:createObject("SingleCycle", "oscA"..i),
-    oscB      = self:createObject("SingleCycle", "oscB"..i),
+    oscA      = self:createObject(self.oscType, "oscA"..i),
+    oscB      = self:createObject(self.oscType, "oscB"..i),
     detuneSum = self:createObject("Sum", "detuneSum"..i),
     mixer     = self:createObject("Mixer", "mixer"..i, 2),
     gate      = self:createObject("Comparator", "gate"..i),
@@ -126,6 +146,13 @@ function MultiVoice:connectVoice(voice, controls)
   self:createMonoBranch("gate"..voice.index, voice.gate, "In", voice.gate, "Out")
   self:createMonoBranch("tune"..voice.index, voice.tune, "In", voice.tune, "Out")
 
+  if self.isSingleCycle then
+    connect(controls.phase, "Out", voice.oscA, "Phase")
+    connect(controls.phase, "Out", voice.oscB, "Phase")
+    connect(controls.scan, "Out", voice.oscA, "Slice Select")
+    connect(controls.scan, "Out", voice.oscB, "Slice Select")
+  end
+
   return voice.vca, "Out"
 end
 
@@ -160,6 +187,7 @@ function MultiVoice:setSample(sample)
     self.sample:release(self)
     self.sample = nil
   end
+
   self.sample = sample
   if self.sample then
     self.sample:claim(self)
@@ -172,13 +200,14 @@ function MultiVoice:setSample(sample)
   if self.slicingView then
     self.slicingView:setSample(sample)
   end
+
   self:notifyControls("setSample",sample)
 end
 
 function MultiVoice:showSampleEditor()
   if self.sample then
-    if self.slicingView==nil then
-      self.slicingView = SlicingView(self,self.objects["oscA1"])
+    if self.slicingView == nil then
+      self.slicingView = SlicingView(self, self.objects["oscA1"])
       self.slicingView:setSample(self.sample)
     end
     self.slicingView:show()
@@ -202,6 +231,7 @@ function MultiVoice:doAttachSampleFromCard()
       self:setSample(sample)
     end
   end
+
   local Pool = require "Sample.Pool"
   Pool.chooseFileFromCard(self.loadInfo.id,task)
 end
@@ -210,6 +240,7 @@ function MultiVoice:doAttachSampleFromPool()
   local chooser = SamplePoolInterface(self.loadInfo.id,"choose")
   chooser:setDefaultChannelCount(self.channelCount)
   chooser:highlight(self.sample)
+
   local task = function(sample)
     if sample then
       local Overlay = require "Overlay"
@@ -217,11 +248,16 @@ function MultiVoice:doAttachSampleFromPool()
       self:setSample(sample)
     end
   end
-  chooser:subscribe("done",task)
+
+  chooser:subscribe("done", task)
   chooser:show()
 end
 
 function MultiVoice:onLoadMenu(objects, branches)
+  if not self.isSingleCycle then
+    return {}, {}, {}
+  end
+
   local menu = {
     "sampleHeader",
     "selectFromCard",
@@ -237,49 +273,53 @@ function MultiVoice:onLoadMenu(objects, branches)
     },
     selectFromCard = Task {
       description = "Select from Card",
-      task = function() self:doAttachSampleFromCard() end
+      task        = function() self:doAttachSampleFromCard() end
     },
     selectFromPool = Task {
       description = "Select from Pool",
-      task = function() self:doAttachSampleFromPool() end
+      task        = function() self:doAttachSampleFromPool() end
     },
     detachBuffer = Task {
       description = "Detach Buffer",
-      task = function() self:doDetachSample() end
+      task        = function() self:doDetachSample() end
     },
     editSample = Task {
       description = "Edit Buffer",
-      task = function() self:showSampleEditor() end
+      task        = function() self:showSampleEditor() end
     }
   }
 
   local sub = {}
   if self.sample then
-    sub[1] = {
-      position = app.GRID5_LINE1,
-      justify = app.justifyLeft,
-      text = "Attached Sample:"
-    }
-    sub[2] = {
-      position = app.GRID5_LINE2,
-      justify = app.justifyLeft,
-      text = "+ "..self.sample:getFilenameForDisplay(24)
-    }
-    sub[3] = {
-      position = app.GRID5_LINE3,
-      justify = app.justifyLeft,
-      text = "+ "..self.sample:getDurationText()
-    }
-    sub[4] = {
-      position = app.GRID5_LINE4,
-      justify = app.justifyLeft,
-      text = string.format("+ %s %s %s",self.sample:getChannelText(), self.sample:getSampleRateText(), self.sample:getMemorySizeText())
+    sub = {
+      {
+        position = app.GRID5_LINE1,
+        justify  = app.justifyLeft,
+        text     = "Attached Sample:"
+      },
+      {
+        position = app.GRID5_LINE2,
+        justify  = app.justifyLeft,
+        text     = "+ "..self.sample:getFilenameForDisplay(24)
+      },
+      {
+        position = app.GRID5_LINE3,
+        justify  = app.justifyLeft,
+        text     = "+ "..self.sample:getDurationText()
+      },
+      {
+        position = app.GRID5_LINE4,
+        justify  = app.justifyLeft,
+        text     = string.format("+ %s %s %s", self.sample:getChannelText(), self.sample:getSampleRateText(), self.sample:getMemorySizeText())
+      }
     }
   else
-    sub[1] = {
-      position = app.GRID5_LINE3,
-      justify = app.justifyCenter,
-      text = "No sample attached."
+    sub = {
+      {
+        position = app.GRID5_LINE3,
+        justify  = app.justifyCenter,
+        text     = "No sample attached."
+      }
     }
   end
 
@@ -305,7 +345,7 @@ function MultiVoice:setVoiceViews(i, objects, branches, controls, views)
   views.expanded[#views.expanded + 1] = "tune"..i
 end
 
-function MultiVoice:setPitchViews(objects, branches, controls, views)
+function MultiVoice:setOscViews(objects, branches, controls, views)
   controls.freq = GainBias {
     button      = "f0",
     description = "Fundamental",
@@ -328,6 +368,30 @@ function MultiVoice:setPitchViews(objects, branches, controls, views)
     range       = objects.detuneRange
   }
   views.expanded[#views.expanded + 1] = "detune"
+
+  if self.isSingleCycle then
+    controls.phase = GainBias {
+      button      = "phase",
+      description = "Phase Offset",
+      branch      = branches.phase,
+      gainbias    = objects.phase,
+      range       = objects.phaseRange,
+      biasMap     = Encoder.getMap("[-1,1]"),
+      initialBias = 0.0,
+    }
+    views.expanded[#views.expanded + 1] = "phase"
+
+    controls.scan = GainBias {
+      button      = "scan",
+      description = "Table Scan",
+      branch      = branches.scan,
+      gainbias    = objects.scan,
+      range       = objects.scanRange,
+      biasMap     = Encoder.getMap("[0,1]"),
+      initialBias = 0,
+    }
+    views.expanded[#views.expanded + 1] = "scan"
+  end
 end
 
 function MultiVoice:setFilterViews(objects, branches, controls, views)
@@ -433,7 +497,7 @@ function MultiVoice:onLoadViews(objects, branches)
     self:setVoiceViews(i, objects, branches, controls, views)
   end
 
-  self:setPitchViews(objects, branches, controls, views)
+  self:setOscViews(objects, branches, controls, views)
   self:setFilterViews(objects, branches, controls, views)
   self:setAdsrViews(objects, branches, controls, views)
 
