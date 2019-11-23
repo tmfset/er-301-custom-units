@@ -32,6 +32,8 @@ Each with 1, 2, 3, 4, and 8 voice variations.
 
 4. Use the fantastic ER-301 hold mode to set different chord values in the unit and manually interpolate between them ala the [THX sound](https://www.youtube.com/watch?v=FWkJ86JqlPA) (with much fewer voices of course :P).
 
+5. Create a cheap (as in CPU) bass synth by using two mixers to layer a 1 voice **single cycle** square and a 1 voice **saw**.
+
 
 ### Parameter Overview
 
