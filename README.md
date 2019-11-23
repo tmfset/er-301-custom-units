@@ -32,7 +32,9 @@ Parameter | Description
 **gate*N*** | The **gate** input for the **N**th voice. Each voice has it's own ADSR envelope triggered by this gate. Switch this gate to toggle mode to convert the unit into an oscillator bank.
 **V/Oct*N*** | The **V/Oct** for the **N**th voice.
 **f0** | The **fundamental frequency** for all voices.
-**detune** | The **pitch offset** of the second oscillator in all voices. Each voice is comprised of **two saw waves**.
+**detune** | The **pitch offset** of the second oscillator in all voices. Each voice is comprised of **two oscillators**.
+**phase** | The **phase offset** of the single cycle oscillator.
+**scan** | Selects the sample to use when multiple samples are loaded into the single cycle oscillator.
 **cutoff** | The **base filter cutoff** for all voices. Each voice has it's own **low-pass ladder filter**.
 **Q** | The **filter resonance** for all voices. Starts to self resonate around 0.6.
 **fenv** | The **filter envelope amount** for all voices. Determines how much the ADSR for each voice affects the filter **cutoff**. Can also be set to negative values to "duck" the filter.
