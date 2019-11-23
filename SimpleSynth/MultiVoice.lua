@@ -173,7 +173,7 @@ function MultiVoice:onLoadGraph(channelCount)
 end
 
 function MultiVoice:setVoiceSample(sample, i)
-  if sample==nil or sample:getChannelCount()==0 then
+  if sample == nil or sample:getChannelCount()==0 then
     self.objects["oscA"..i]:setSample(nil, nil)
     self.objects["oscB"..i]:setSample(nil, nil)
   else
@@ -183,6 +183,10 @@ function MultiVoice:setVoiceSample(sample, i)
 end
 
 function MultiVoice:setSample(sample)
+  if not self.isSingleCycle then
+    return
+  end
+
   if self.sample then
     self.sample:release(self)
     self.sample = nil
@@ -502,6 +506,34 @@ function MultiVoice:onLoadViews(objects, branches)
   self:setAdsrViews(objects, branches, controls, views)
 
   return controls, views
+end
+
+function MultiVoice:serialize()
+  local t = Unit.serialize(self)
+  local sample = self.sample
+  if sample then
+    t.sample = SamplePool.serializeSample(sample)
+  end
+  return t
+end
+
+function MultiVoice:deserialize(t)
+  Unit.deserialize(self,t)
+  if t.sample then
+    local sample = SamplePool.deserializeSample(t.sample)
+    if sample then
+      self:setSample(sample)
+    else
+      local Utils = require "Utils"
+      app.log("%s:deserialize: failed to load sample.",self)
+      Utils.pp(t.sample)
+    end
+  end
+end
+
+function MultiVoice:onRemove()
+  self:setSample(nil)
+  Unit.onRemove(self)
 end
 
 return MultiVoice
