@@ -132,38 +132,62 @@ function MultiVoice:connectControls(controls)
 end
 
 function MultiVoice:createVoice(i)
-  local voice = {
-    index     = i,
-    oscA      = self:createObject(self.oscType, "oscA"..i),
-    oscB      = self:createObject(self.oscType, "oscB"..i),
-    detuneSum = self:createObject("Sum", "detuneSum"..i),
-    mixer     = self:createObject("Mixer", "mixer"..i, 2),
-    adsr      = self:createObject("ADSR", "adsr"..i),
-    vca       = self:createObject("Multiply", "vca"..i),
-    fenvVca   = self:createObject("Multiply", "fenvVca"..i),
-    filter    = self:createObject("StereoLadderFilter", "filter"..i)
+  return {
+    index      = i,
+    rrIsActive = self:createObject("BumpMap", "rrIsActive"..i),
+    rrGate     = self:createObject("Multiply", "rrGate"..i),
+    rrTune     = self:createObject("TrackAndHold", "rrTune"..i),
+
+    gate       = self:createObject("Comparator", "gate"..i),
+    tune       = self:createObject("ConstantOffset", "tune"..i),
+    tuneRange  = self:createObject("MinMax", "tuneRange"..i),
+
+    cGate      = self:createObject("Sum", "cGate"..i),
+    cTune      = self:createObject("Sum", "cTune"..i),
+
+    oscA       = self:createObject(self.oscType, "oscA"..i),
+    oscB       = self:createObject(self.oscType, "oscB"..i),
+    detuneSum  = self:createObject("Sum", "detuneSum"..i),
+    mixer      = self:createObject("Mixer", "mixer"..i, 2),
+    adsr       = self:createObject("ADSR", "adsr"..i),
+    vca        = self:createObject("Multiply", "vca"..i),
+    fenvVca    = self:createObject("Multiply", "fenvVca"..i),
+    filter     = self:createObject("StereoLadderFilter", "filter"..i)
   }
-
-  if self.isRoundRobin then
-    voice.isActive = self:createObject("BumpMap", "isActive"..i)
-    voice.gate     = self:createObject("Multiply", "gate"..i)
-    voice.tune     = self:createObject("TrackAndHold", "tune"..i)
-  else
-    voice.gate      = self:createObject("Comparator", "gate"..i)
-    voice.tune      = self:createObject("ConstantOffset", "tune"..i)
-    voice.tuneRange = self:createObject("MinMax", "tuneRange"..i)
-  end
-
-  return voice
 end
 
 function MultiVoice:connectVoice(voice, controls)
+  -- Set round robin controls
+  connect(controls.rrCount, "Out", voice.rrIsActive, "In")
+  voice.rrIsActive:hardSet("Center", (voice.index - 1) / (self.voiceCount - 1))
+  voice.rrIsActive:hardSet("Width", 1 / ((self.voiceCount - 1) * 2))
+  voice.rrIsActive:hardSet("Height", 1)
+  voice.rrIsActive:hardSet("Fade", 0.001)
+
+  connect(controls.rrGate, "Out", voice.rrGate, "Left")
+  connect(voice.rrIsActive, "Out", voice.rrGate, "Right")
+
+  connect(controls.rrTune, "Out", voice.rrTune, "In")
+  connect(voice.rrGate, "Out", voice.rrTune, "Track")
+
+  -- Set normal controls
+  connect(voice.tune, "Out", voice.tuneRange, "In")
+  voice.gate:setGateMode()
+
+  -- Combine the controls
+  connect(voice.rrGate, "Out", voice.cGate, "Left")
+  connect(voice.gate, "Out", voice.cGate, "Right")
+
+  connect(voice.rrTune, "Out", voice.cTune, "Left")
+  connect(voice.tune, "Out", voice.cTune, "Right")
+
+  -- Set remaining dsp
   connect(controls.f0, "Out", voice.oscA, "Fundamental")
   connect(controls.f0, "Out", voice.oscB, "Fundamental")
 
-  connect(voice.tune, "Out", voice.detuneSum, "Left")
+  connect(voice.cTune, "Out", voice.detuneSum, "Left")
   connect(controls.detune, "Out", voice.detuneSum, "Right")
-  connect(voice.tune, "Out", voice.oscA, "V/Oct")
+  connect(voice.cTune, "Out", voice.oscA, "V/Oct")
   connect(voice.detuneSum, "Out", voice.oscB, "V/Oct")
 
   connect(voice.oscA, "Out", voice.mixer, "In1")
@@ -171,7 +195,7 @@ function MultiVoice:connectVoice(voice, controls)
   voice.mixer:hardSet("Gain1", 0.5)
   voice.mixer:hardSet("Gain2", 0.5)
 
-  connect(voice.gate, "Out", voice.adsr, "Gate")
+  connect(voice.cGate, "Out", voice.adsr, "Gate")
   connect(controls.attack, "Out", voice.adsr, "Attack")
   connect(controls.decay, "Out", voice.adsr, "Decay")
   connect(controls.sustain, "Out", voice.adsr, "Sustain")
@@ -194,25 +218,8 @@ function MultiVoice:connectVoice(voice, controls)
     connect(controls.scan, "Out", voice.oscB, "Slice Select")
   end
 
-  if self.isRoundRobin then
-    connect(controls.rrCount, "Out", voice.isActive, "In")
-    voice.isActive:hardSet("Center", (voice.index - 1) / (self.voiceCount - 1))
-    voice.isActive:hardSet("Width", 1 / ((self.voiceCount - 1) * 2))
-    voice.isActive:hardSet("Height", 1)
-    voice.isActive:hardSet("Fade", 0.001)
-
-    connect(controls.rrGate, "Out", voice.gate, "Left")
-    connect(voice.isActive, "Out", voice.gate, "Right")
-
-    connect(controls.rrTune, "Out", voice.tune, "In")
-    connect(voice.gate, "Out", voice.tune, "Track")
-  else
-    connect(voice.tune, "Out", voice.tuneRange, "In")
-    voice.gate:setGateMode()
-
-    self:createMonoBranch("gate"..voice.index, voice.gate, "In", voice.gate, "Out")
-    self:createMonoBranch("tune"..voice.index, voice.tune, "In", voice.tune, "Out")
-  end
+  self:createMonoBranch("gate"..voice.index, voice.gate, "In", voice.gate, "Out")
+  self:createMonoBranch("tune"..voice.index, voice.tune, "In", voice.tune, "Out")
 
   return voice.vca, "Out"
 end
@@ -320,116 +327,135 @@ function MultiVoice:doAttachSampleFromPool()
   chooser:show()
 end
 
-function MultiVoice:onLoadMenu(objects, branches)
-  if not self.isSingleCycle then
-    return {}, {}, {}
-  end
+function MultiVoice:showVoiceControls()
+  self:switchView("voiceControls")
+end
 
-  local menu = {
-    "sampleHeader",
-    "selectFromCard",
-    "selectFromPool",
-    "detachBuffer",
-    "editSample",
-    "interpolation"
+function MultiVoice:setExtendedMenu(objects, branches, controls, menu, sub)
+  controls.extendedControlsHeader = MenuHeader {
+    description = "View Extended Controls"
   }
+  menu[#menu + 1] = "extendedControlsHeader"
 
-  local controls = {
-    sampleHeader = MenuHeader {
-      description = "Sample Menu"
-    },
-    selectFromCard = Task {
-      description = "Select from Card",
-      task        = function() self:doAttachSampleFromCard() end
-    },
-    selectFromPool = Task {
-      description = "Select from Pool",
-      task        = function() self:doAttachSampleFromPool() end
-    },
-    detachBuffer = Task {
-      description = "Detach Buffer",
-      task        = function() self:doDetachSample() end
-    },
-    editSample = Task {
-      description = "Edit Buffer",
-      task        = function() self:showSampleEditor() end
-    }
+  controls.showVoiceControls = Task {
+    description = "voice controls",
+    task = function() self:showVoiceControls() end
   }
+  menu[#menu + 1] = "showVoiceControls"
+end
 
-  local sub = {}
+function MultiVoice:setSampleMenu(objects, branches, controls, menu, sub)
+  controls.sampleHeader = MenuHeader {
+    description = "Sample Menu"
+  }
+  menu[#menu + 1] = "sampleHeader"
+
+  controls.selectFromCard = Task {
+    description = "Select from Card",
+    task        = function() self:doAttachSampleFromCard() end
+  }
+  menu[#menu + 1] = "selectFromCard"
+
+  controls.selectFromPool = Task {
+    description = "Select from Pool",
+    task        = function() self:doAttachSampleFromPool() end
+  }
+  menu[#menu + 1] = "selectFromPool"
+
+  controls.detachBuffer = Task {
+    description = "Detach Buffer",
+    task        = function() self:doDetachSample() end
+  }
+  menu[#menu + 1] = "detachBuffer"
+
+  controls.editSample = Task {
+    description = "Edit Buffer",
+    task        = function() self:showSampleEditor() end
+  }
+  menu[#menu + 1] = "editSample"
+
   if self.sample then
-    sub = {
-      {
-        position = app.GRID5_LINE1,
-        justify  = app.justifyLeft,
-        text     = "Attached Sample:"
-      },
-      {
-        position = app.GRID5_LINE2,
-        justify  = app.justifyLeft,
-        text     = "+ "..self.sample:getFilenameForDisplay(24)
-      },
-      {
-        position = app.GRID5_LINE3,
-        justify  = app.justifyLeft,
-        text     = "+ "..self.sample:getDurationText()
-      },
-      {
-        position = app.GRID5_LINE4,
-        justify  = app.justifyLeft,
-        text     = string.format("+ %s %s %s", self.sample:getChannelText(), self.sample:getSampleRateText(), self.sample:getMemorySizeText())
-      }
+    sub[#sub + 1] = {
+      position = app.GRID5_LINE1,
+      justify  = app.justifyLeft,
+      text     = "Attached Sample:"
+    }
+
+    sub[#sub + 1] = {
+      position = app.GRID5_LINE2,
+      justify  = app.justifyLeft,
+      text     = "+ "..self.sample:getFilenameForDisplay(24)
+    }
+
+    sub[#sub + 1] = {
+      position = app.GRID5_LINE3,
+      justify  = app.justifyLeft,
+      text     = "+ "..self.sample:getDurationText()
+    }
+
+    sub[#sub + 1] = {
+      position = app.GRID5_LINE4,
+      justify  = app.justifyLeft,
+      text     = string.format("+ %s %s %s", self.sample:getChannelText(), self.sample:getSampleRateText(), self.sample:getMemorySizeText())
     }
   else
-    sub = {
-      {
-        position = app.GRID5_LINE3,
-        justify  = app.justifyCenter,
-        text     = "No sample attached."
-      }
+    sub[#sub + 1] = {
+      position = app.GRID5_LINE3,
+      justify  = app.justifyCenter,
+      text     = "No sample attached."
     }
+  end
+end
+
+function MultiVoice:onLoadMenu(objects, branches)
+  local controls, menu, sub = {}, {}, {}
+
+  self:setExtendedMenu(objects, branches, controls, menu, sub)
+
+  if self.isSingleCycle then
+    self:setSampleMenu(objects, branches, controls, menu, sub)
   end
 
   return controls, menu, sub
 end
 
+function MultiVoice:setRoundRobinViews(objects, branches, controls, views)
+  controls.rrGate = Gate {
+    button      = "gate",
+    description = "Round Robin Gate",
+    branch      = branches.rrGate,
+    comparator  = objects.rrGate
+  }
+  views.expanded[#views.expanded + 1] = "rrGate"
+
+  controls.rrTune = Pitch {
+    button      = "V/oct",
+    description = "Round Robin V/oct",
+    branch      = branches.rrTune,
+    offset      = objects.rrTune,
+    range       = objects.rrTuneRange
+  }
+  views.expanded[#views.expanded + 1] = "rrTune"
+end
+
 function MultiVoice:setVoiceViews(objects, branches, controls, views)
-  if self.isRoundRobin then
-    controls.rrGate = Gate {
-      button      = "gate",
-      description = "Round Robin Gate",
-      branch      = branches.rrGate,
-      comparator  = objects.rrGate
+  for i = 1, self.voiceCount do
+    controls["gate"..i] = Gate {
+      button      = "gate"..i,
+      description = "Gate "..i,
+      branch      = branches["gate"..i],
+      comparator  = objects["gate"..i]
     }
-    views.expanded[#views.expanded + 1] = "rrGate"
+    views.voiceControls[#views.voiceControls + 1] = "gate"..i
 
-    controls.rrTune = Pitch {
-      button      = "V/oct",
-      description = "Round Robin V/oct",
-      branch      = branches.rrTune,
-      offset      = objects.rrTune,
-      range       = objects.rrTuneRange
+    controls["tune"..i] = Pitch {
+      button      = "V/oct"..i,
+      description = "V/oct "..i,
+      branch      = branches["tune"..i],
+      offset      = objects["tune"..i],
+      range       = objects["tuneRange"..i]
     }
-    views.expanded[#views.expanded + 1] = "rrTune"
-  else
-    for i = 1, self.voiceCount do
-      controls["gate"..i] = Gate {
-        button      = "gate"..i,
-        description = "Gate "..i,
-        branch      = branches["gate"..i],
-        comparator  = objects["gate"..i]
-      }
-      views.expanded[#views.expanded + 1] = "gate"..i
-
-      controls["tune"..i] = Pitch {
-        button      = "V/oct"..i,
-        description = "V/oct "..i,
-        branch      = branches["tune"..i],
-        offset      = objects["tune"..i],
-        range       = objects["tuneRange"..i]
-      }
-      views.expanded[#views.expanded + 1] = "tune"..i
-    end
+    views.voiceControls[#views.voiceControls + 1] = "tune"..i
   end
 end
 
@@ -574,13 +600,14 @@ end
 
 function MultiVoice:onLoadViews(objects, branches)
   local controls = {}
-  local views = { expanded = {}, collapsed = {} }
+  local views = { expanded = {}, voiceControls = {}, collapsed = { "scope" } }
 
   controls.scope = OutputScope {
     monitor = self,
     width = 4 * ply,
   }
 
+  self:setRoundRobinViews(objects, branches, controls, views)
   self:setVoiceViews(objects, branches, controls, views)
   self:setOscViews(objects, branches, controls, views)
   self:setFilterViews(objects, branches, controls, views)
