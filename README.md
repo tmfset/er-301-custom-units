@@ -2,7 +2,7 @@
 
 A collection of **simple polyphonic synthesizer** units for the ER-301, built and tested on firmware **v0.4.26**.
 
-These units are built utilizing the ER-301 **Middle Layer SDK**. Although they would be easy enough to patch manually through the UI, the SDK gives us an incredible efficiency boost. The three voice unit uses about 13% CPU, which is a significant reduction from what a comparable UI patch would necessitate.
+These units are built utilizing the ER-301 **Middle Layer SDK**. Although they would be easy enough to patch manually through the UI, the SDK gives us an incredible efficiency boost. The three voice unit uses about 15% CPU, which is a significant reduction from what a comparable UI patch would necessitate.
 
 As a result, we can use the simple synthesizers as **macro** units during patch creation, extending the already massive utility of the ER-301.
 
