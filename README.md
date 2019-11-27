@@ -14,17 +14,6 @@ The new units will be available on the insert screen.
 ![](screenshots/TriangleInsert.png)
 ![](screenshots/SingleCycleInsert.png)
 
-![](screenshots/TriangleNormal.png)
-![](screenshots/SingleCycleNormal.png)
-
-![](screenshots/TriangleWave.png)
-![](screenshots/SingleCycleWave.png)
-
-![](screenshots/TriangleMenu.png)
-![](screenshots/SingleCycleMenu.png)
-
-![](screenshots/TriangleVoiceInputs.png)
-
 The following units are available:
 
 1. **Polyphonic Saw**
@@ -73,3 +62,16 @@ Parameter | Description
 --------- | -----------
 **gate*N*** | The **gate** input for the **N**th voice. Switch this gate to toggle mode to convert the unit into an oscillator bank.
 **V/oct*N*** | The **V/Oct** offset for the **N**th voice. Stacks with the **round robin** offset from the normal view.
+
+### Screenshots
+
+![](screenshots/TriangleNormal.png)
+![](screenshots/SingleCycleNormal.png)
+
+![](screenshots/TriangleWave.png)
+![](screenshots/SingleCycleWave.png)
+
+![](screenshots/TriangleMenu.png)
+![](screenshots/SingleCycleMenu.png)
+
+![](screenshots/TriangleVoiceInputs.png)
