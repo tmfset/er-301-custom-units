@@ -20,7 +20,7 @@ The following units are available:
 2. **Polyphonic Triangle**
 3. **Polyphonic Single Cycle**
 
-Each with 1, 2, 3, 4, and 8 voice variations.
+Each with 1, 3, 4, and 6 voice variations.
 
 ### Patching Ideas
 
@@ -34,14 +34,15 @@ Each with 1, 2, 3, 4, and 8 voice variations.
 
 5. Create a cheap (as in CPU) bass synth by using two mixers to layer a 1 voice **single cycle** square and a 1 voice **saw**.
 
+6. Patch an arpeggiator into the round robin inputs for hours of fun!
 
-### Parameter Overview
+### Normal Parameter Overview
 
 Parameter | Description
 --------- | -----------
-**gate*N*** | The **gate** input for the **N**th voice. Each voice has it's own ADSR envelope triggered by this gate. Switch this gate to toggle mode to convert the unit into an oscillator bank.
-**V/Oct*N*** | The **V/Oct** for the **N**th voice.
-**f0** | The **fundamental frequency** for all voices.
+**gate** | The **gate** input triggers each voice by **round robin**. The **tune** input is held when the gate drops; so playing _legato_ will only use a single voice. Each voice has it's own ADSR envelope triggered by this gate.
+**V/oct** | The **V/oct** offset applied to the current voice in the **round robin**.
+**f0** | The **fundamental frequency** for the oscillators in all voices.
 **detune** | The **pitch offset** of the second oscillator in all voices. Each voice is comprised of **two oscillators**.
 **phase** | The **phase offset** of the single cycle oscillator.
 **scan** | Selects the sample to use when multiple samples are loaded into the single cycle oscillator.
@@ -52,3 +53,12 @@ Parameter | Description
 **D** | The ADSR **decay** value for all voices.
 **S** | The ADSR **sustain** level for all voices. Can also be used as an overall level control in certain situations.
 **R** | The ADSR **release** level for all voices.
+
+### Voice Input Parameter Overview
+
+The individual voice **gate** and **tune** controls are broken out in this view so they can be assigned individually.
+
+Parameter | Description
+--------- | -----------
+**gate*N*** | The **gate** input for the **N**th voice. Switch this gate to toggle mode to convert the unit into an oscillator bank.
+**V/oct*N*** | The **V/Oct** offset for the **N**th voice. Stacks with the **round robin** offset from the normal view.
