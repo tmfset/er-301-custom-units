@@ -11,14 +11,19 @@ To install, simply download this repo and copy the `SimpleSynth` directory to yo
 
 The new units will be available on the insert screen.
 
-![](screenshots/TriangleWave.png)
-![](screenshots/SingleCycleWave.png)
+![](screenshots/TriangleInsert.png)
+![](screenshots/SingleCycleInsert.png)
 
 ![](screenshots/TriangleNormal.png)
 ![](screenshots/SingleCycleNormal.png)
 
+![](screenshots/TriangleWave.png)
+![](screenshots/SingleCycleWave.png)
+
 ![](screenshots/TriangleMenu.png)
 ![](screenshots/SingleCycleMenu.png)
+
+![](screenshots/TriangleVoiceInputs.png)
 
 The following units are available:
 
