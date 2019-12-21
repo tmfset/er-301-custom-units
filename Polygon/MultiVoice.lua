@@ -271,15 +271,14 @@ function MultiVoice:connectVoice(voice, controls)
   connect(voice.pOsc, "Out", voice.mixer, "In1")
 
   -- Hard sync
-  --connect(voice.pOsc, "Out", voice.sync, "In")
-  -- voice.syncComp:setTriggerMode()
-  -- connect(voice.pOsc, "Out", voice.hSyncSum, "Left")
-  -- connect(controls.pointFive, "Out", voice.hSyncSum, "Right")
-  -- connect(voice.hSyncSum, "Out", voice.syncComp, "In")
-  -- connect(voice.syncComp, "Out", voice.syncVca, "Left")
-  -- connect(controls.hardSync, "Out", voice.syncVca, "Right")
-  -- connect(voice.sync, "Out", voice.cSync, "Left")
-  -- connect(voice.syncVca, "Out", voice.cSync, "Right")
+  voice.syncComp:setTriggerMode()
+  connect(voice.pOsc, "Out", voice.hSyncSum, "Left")
+  connect(controls.pointFive, "Out", voice.hSyncSum, "Right")
+  connect(voice.hSyncSum, "Out", voice.syncComp, "In")
+  connect(voice.syncComp, "Out", voice.syncVca, "Left")
+  connect(controls.hardSync, "Out", voice.syncVca, "Right")
+  connect(voice.sync, "Out", voice.cSync, "Left")
+  connect(voice.syncVca, "Out", voice.cSync, "Right")
 
   -- Oscillator mix
   voice.mixer:hardSet("Gain1", self.averageOscLevel)
