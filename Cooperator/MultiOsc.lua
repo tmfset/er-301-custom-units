@@ -81,6 +81,8 @@ function MultiOsc:createOsc(type, suffix)
 end
 
 function MultiOsc:createHardSync(args)
+  local clock = self:createObject("ClockInHertz","clock")
+  tie(clock, "Frequency", freq, "Out")
   local pointFive = self:createObject("Constant", "pointFive")
   pointFive:hardSet("Value", 0.5)
 
