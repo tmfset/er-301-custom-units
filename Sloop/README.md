@@ -1,78 +1,43 @@
-Sloop! :boat:
+## Sloop! :boat:
 
-A **synchronized looper** unit for the ER-301, built and tested on firmware **vx.x.xx**.
+A **clock synced looper** unit for the ER-301, built and tested on firmware **vx.x.xx**.
 
-I originally prototyped this unit through the UI but quickly discovered I couldn't handle the feature complexity without some serious abstraction. Thankfully the **Middle Layer SDK** allows for exactly that, allowing for a feature rich native looping utility!
+I originally prototyped this unit through the UI but quickly discovered I couldn't handle the feature complexity without some serious abstraction. Thankfully the **Middle Layer SDK** allows for exactly that, so I present to you a feature rich native looping utility!
 
-Installation
+### Installation
 
-To install, simply download this repo and copy the Sloop directory to your SD card under ER-301/libs.
+To install, simply download this repo and copy the `Sloop` directory to your SD card under `ER-301/libs`.
 
-The new unit will be available on the insert screen under Recording and Loopers.
+The new unit will be available on the insert screen under **Recording and Loopers**.
 
-Patching Ideas
+### Patching Ideas
 
-4 Bar Looper - This is the default configuration of the unit. Simply connect a clock that triggers once per bar.
+1. **4 Bar Looper** This is the default unit configuration. Connect an empty buffer, a **clock** that triggers once per bar, and a trigger to the **record** input. After **engaging** the unit, trigger the **record** input to write the incoming signal to the buffer for the next four bars. Once complete it will continue to play back the newly filled buffer. Trigger again to add overdubs!
 
-Parameter Overview
+2. **2 Step Recorder** As before connect an empty buffer and **clock** and **engage** the unit. Set the **steps** to 8 and the **rSteps** to 2. When the **record** input is triggered the incoming signal will be added to the buffer fo the next 2 steps only. Adjust the **fade** parameter to taste in order to avoid sudden level drops after the 2 steps are up.
 
-clock
+3. **Random Sample** Using a relatively fast **clock**, set **steps** to 16 and **rSteps** to 1. Randomly trigger the **record** input to capture clock synced segments from the incoming signal. Adjust **fadeIn** and **fadeIn** to taste to avoid clicking induced from the sudden buffer writes.
 
-The clock input the looper will be synchronized with.
+### Parameter Overview
 
-engage
+Parameter | Description
+--------- | -----------
+**clock** | The **clock** signal to sync the looper with.
+**engage** | Activate to **engage** the looper. When toggled, playback will begin on the _next_ **clock** tick. Similarly, when disabled it will only stop on the _next_ **clock** tick. In addition, all internal counters will be paused while the unit is **disengaged**, so when re-engaged it will continue playing from where it left off.
+**reset** | **reset** the internal counter on the next **clock** tick, sending the play/record head back to the beginning of the buffer.
+**record** | Start **recording** on the next **clock** tick and continue for **rSteps**.
+**steps** | The number of **steps** to take while playing before automatically resetting the play head to the beginning of the buffer.
+**rSteps** | The number of steps to **record** for after triggered.
+**rFdbk** | Optionally reduces the buffer level when recording over it. With a value of 1, newly recorded data will be layered on top of the existing buffer data. With a value of 0, the data in the buffer will be completely overwritten when the record head passes over it.
+**rFadeIn** | After triggering a record, **rFadeIn** determines how long it will take for the record level to reach it's maximum. This can be used to avoid clicks when recording audio already in motion.
+**rFadeOut** | After a **record** finishes, **rFadeOut** determines how long it will take for the recording level to drop to zero. This can be used to add natural tails to the recording so there isn't a sudden drop at the end of the loop.
 
-Toggle to engage the looper playback. When the engage latch is toggled, playback will begin on the next clock tick. Similarly, when disabled it will stop on the next clock tick.
-
-The internal looper clocks will only tick when the engage latch is active, so if playback is stopped for a while it will continue from the step it was on before resetting.
-
-reset
-
-Trigger a reset on the next clock tick.
-
-record
-
-Trigger loop recording on the next clock tick. The unit will then record for rSteps beats.
-
-steps
-
-The number of clock ticks before the looper resets from the beginning, i.e. the loop length.
-
-rSteps
-
-The number of clock ticks to keep recording active after it is triggered.
-
-feedback
-
-How much should the already recorded level be reduced when the record head passes over it? With a value of 1, newly recorded data will be layer on top of the existing buffer data. With a value less than one, the data in the buffer will slowly fade out.
-
-fade
-
-How long to fade out the input after the record head finishes. This is intended to smooth out recordings instead of having a hard cut at the end.
-
-Configuration
-
-New... 
-
-Create a new buffer.
-
-Pool...
-
-Select an existing buffer from the pool.
-
-Card...
-
-Load a sample from the SD card and it as the loop buffer.
-
-Edit...
-
-Open the buffer editor to modify it (trim, normalize, etc.)
-
-Detach!
-
-Detach the attached buffer.
-
-Zero!
-
-Zero the attached buffer. Provides a quick way to clear the active loop.
-
+### Configuration
+Option | Description
+-------|------------
+**New...** | Create and attach a new buffer with a specfied length.
+**Pool...** | Attach an existing buffer from the pool.
+**Card...** | Load a sample from the SD card and attach it.
+**Edit...** | Edit the attached buffer, with options to trim, normalize, etc.
+**Detach!** | Detach the active buffer.
+**Zero!** | Zero the attached buffer. Provides a quick way to clear the active loop.
