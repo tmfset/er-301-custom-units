@@ -4,11 +4,15 @@ A **clock synced looper** unit for the ER-301, built and tested on firmware **v0
 
 I originally prototyped this unit through the UI but quickly discovered I couldn't handle the feature complexity without some serious abstraction. Thankfully the **Middle Layer SDK** allows for exactly that, so I present to you a feature rich native looping utility!
 
+![](../screenshots/SloopRecord.png)
+
 ### Installation
 
 To install, simply download this repo and copy the `Sloop` directory to your SD card under `ER-301/libs`.
 
 The new unit will be available on the insert screen under **Recording and Loopers**.
+
+![](../screenshots/SloopInsert.png)
 
 ### Patching Ideas
 
