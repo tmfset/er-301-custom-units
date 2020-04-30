@@ -179,6 +179,7 @@ function Sloop:createControls()
     engage   = self:createToggleControl("engage"),
     record   = self:createTriggerControl("record"),
     reset    = self:createTriggerControl("reset"),
+    through  = self:createControl("GainBias", "through"),
     feedback = self:createControl("GainBias", "feedback"),
     fadeIn   = self:createControl("ParameterAdapter", "fadeIn"),
     fadeOut  = self:createControl("ParameterAdapter", "fadeOut")
@@ -234,13 +235,14 @@ function Sloop:onLoadGraph(channelCount)
   local actualRecordLevel = self:mult(recordLevel, engageLatch, "ActualRecordLevel")
   local invRecordLevel = self:iGate(actualRecordLevel, "InvRecordLevel")
 
-  local throughLeft = self:createObject("Multiply", "ThroughLeft")
+  local throughLeft      = self:createObject("Multiply", "ThroughLeft")
+  local throughLeftTotal = self:mult(throughLeft, controls.through, "ThroughLeftTotal")
   connect(self,           "In1", throughLeft, "Left")
   connect(invRecordLevel, "Out", throughLeft, "Right")
 
   local mixLeft = self:createObject("Sum", "MixLeft")
-  connect(throughLeft, "Out",      mixLeft, "Left")
-  connect(head,        "Left Out", mixLeft, "Right")
+  connect(throughLeftTotal, "Out",      mixLeft, "Left")
+  connect(head,             "Left Out", mixLeft, "Right")
 
   local inputLeft = self:createObject("Multiply", "InputLeft")
   connect(self,        "In1", inputLeft, "Left")
@@ -250,13 +252,14 @@ function Sloop:onLoadGraph(channelCount)
   connect(mixLeft,   "Out", self, "Out1")
 
   if channelCount > 1 then
-    local throughRight = self:createObject("Multiply", "ThroughRight")
+    local throughRight      = self:createObject("Multiply", "ThroughRight")
+    local throughRightTotal = self:mult(throughRight, controls.through, "ThroughRightTotal")
     connect(self,           "In2", throughRight, "Left")
     connect(invRecordLevel, "Out", throughRight, "Right")
 
     local mixRight = self:createObject("Sum", "MixRight")
-    connect(throughRight, "Out",       mixRight, "Left")
-    connect(head,         "Right Out", mixRight, "Right")
+    connect(throughRightTotal, "Out",       mixRight, "Left")
+    connect(head,              "Right Out", mixRight, "Right")
 
     local inputRight = self:createObject("Multiply", "InputRight")
     connect(self,        "In2", inputRight, "Left")
@@ -448,7 +451,7 @@ end
 
 function Sloop:onLoadViews(objects, branches)
   local controls, views = {}, {
-    expanded  = { "clock", "engage", "reset", "record", "steps", "rSteps", "rFade", "feedback" },
+    expanded  = { "clock", "engage", "reset", "record", "through", "steps", "rSteps", "feedback", "fadeIn", "fadeOut" },
     collapsed = { "wave5" },
 
     clock     = { "wave3", "clock", "engage" },
@@ -529,6 +532,18 @@ function Sloop:onLoadViews(objects, branches)
     comparator  = objects.reset
   }
 
+  controls.through = GainBias {
+    button        = "through",
+    description   = "Through Level",
+    branch        = branches.through,
+    gainbias      = objects.through,
+    range         = objects.throughRange,
+    biasMap       = Encoder.getMap("[0,1]"),
+    biasUnits     = app.unitNone,
+    biasPrecision = 1,
+    initialBias   = 1
+  }
+
   controls.feedback = GainBias {
     button        = "rFdbk",
     description   = "Feedback",
@@ -542,7 +557,7 @@ function Sloop:onLoadViews(objects, branches)
   }
 
   controls.fadeIn = GainBias {
-    button        = "rFadeIn",
+    button        = "rFdIn",
     description   = "Record Fade In Time",
     branch        = branches.fadeIn,
     gainbias      = objects.fadeIn,
@@ -554,7 +569,7 @@ function Sloop:onLoadViews(objects, branches)
   }
 
   controls.fadeOut = GainBias {
-    button        = "rFadeOut",
+    button        = "rFdOut",
     description   = "Record Fade Out Time",
     branch        = branches.fadeOut,
     gainbias      = objects.fadeOut,
