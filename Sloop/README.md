@@ -1,6 +1,6 @@
 ## Sloop! :boat:
 
-A **clock synced looper** unit for the ER-301, built and tested on firmware **vx.x.xx**.
+A **clock synced looper** unit for the ER-301, built and tested on firmware **v0.5.01**.
 
 I originally prototyped this unit through the UI but quickly discovered I couldn't handle the feature complexity without some serious abstraction. Thankfully the **Middle Layer SDK** allows for exactly that, so I present to you a feature rich native looping utility!
 

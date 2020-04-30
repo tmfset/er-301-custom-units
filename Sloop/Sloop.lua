@@ -474,7 +474,7 @@ function Sloop:onLoadViews(objects, branches)
 
   controls.wave3 = RecordingView {
     head  = objects.head,
-    width = 2 * ply
+    width = 3 * ply
   }
 
   controls.wave5 = RecordingView {
