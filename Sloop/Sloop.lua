@@ -180,7 +180,8 @@ function Sloop:createControls()
     record   = self:createTriggerControl("record"),
     reset    = self:createTriggerControl("reset"),
     feedback = self:createControl("GainBias", "feedback"),
-    fade     = self:createControl("ParameterAdapter", "fade")
+    fadeIn   = self:createControl("ParameterAdapter", "fadeIn"),
+    fadeOut  = self:createControl("ParameterAdapter", "fadeOut")
   }
 end
 
@@ -210,10 +211,15 @@ function Sloop:onLoadGraph(channelCount)
   local punchOutSignal = self:mult(engagedClock, punchOutLatch, "PunchOutSignal")
   local punchLatch     = self:latch(punchInSignal, punchOutSignal, "PunchLatch")
 
-  local recordLevel    = self:createObject("SlewLimiter", "RecordLevel")
-  recordLevel:setOptionValue("Direction", 3) -- Down
-  tie(recordLevel, "Time", controls.fade, "Out")
-  connect(punchLatch, "Out", recordLevel, "In")
+  local recordInSlew  = self:createObject("SlewLimiter", "RecordInSlew")
+  local recordOutSlew = self:createObject("SlewLimiter", "RecordLevel")
+  local recordLevel   = recordOutSlew
+  recordInSlew:setOptionValue("Direction", 1) -- Up
+  recordOutSlew:setOptionValue("Direction", 3) -- Down
+  tie(recordInSlew, "Time", controls.fadeIn, "Out")
+  tie(recordOutSlew, "Time", controls.fadeOut, "Out")
+  connect(punchLatch, "Out", recordInSlew, "In")
+  connect(recordInSlew, "Out", recordOutSlew, "In")
 
   local feedbackDiff   = self:sum(self:mConst(-1), controls.feedback, "FeedbackDiff")
   local feedbackOffset = self:mult(punchLatch, feedbackDiff, "FeedbackOffset")
@@ -445,24 +451,25 @@ function Sloop:onLoadViews(objects, branches)
     expanded  = { "clock", "engage", "reset", "record", "steps", "rSteps", "rFade", "feedback" },
     collapsed = { "wave5" },
 
-    clock     = { "wave2", "clock", "engage", "reset" },
-    engage    = { "wave2", "clock", "engage", "reset" },
-    reset     = { "wave2", "clock", "engage", "reset" },
+    clock     = { "wave3", "clock", "engage" },
+    engage    = { "wave3", "clock", "engage" },
 
-    steps     = { "wave2", "clock", "steps", "rSteps" },
-    rSteps    = { "wave2", "clock", "steps", "rSteps" },
+    reset     = { "wave3", "clock", "reset", "steps" },
+    steps     = { "wave3", "clock", "reset", "steps" },
 
-    record    = { "wave1", "record", "rSteps", "rFade", "feedback" },
-    feedback  = { "wave1", "record", "rSteps", "rFade", "feedback" },
-    rFade     = { "wave1", "record", "rSteps", "rFade", "feedback" }
-  }
-
-  controls.wave1 = RecordingView {
-    head  = objects.head,
-    width = 1 * ply
+    rSteps    = { "wave3", "record", "rSteps" },
+    record    = { "wave3", "record", "rSteps" },
+    feedback  = { "wave3", "record", "feedback" },
+    fadeIn    = { "wave2", "record", "fadeIn", "fadeOut" },
+    fadeOut   = { "wave2", "record", "fadeIn", "fadeOut" }
   }
 
   controls.wave2 = RecordingView {
+    head  = objects.head,
+    width = 2 * ply
+  }
+
+  controls.wave3 = RecordingView {
     head  = objects.head,
     width = 2 * ply
   }
@@ -523,7 +530,7 @@ function Sloop:onLoadViews(objects, branches)
   }
 
   controls.feedback = GainBias {
-    button        = "feedback",
+    button        = "rFdbk",
     description   = "Feedback",
     branch        = branches.feedback,
     gainbias      = objects.feedback,
@@ -534,15 +541,28 @@ function Sloop:onLoadViews(objects, branches)
     initialBias   = 1
   }
 
-  controls.rFade = GainBias {
-    button        = "rFade",
-    description   = "Record Fade Time",
-    branch        = branches.fade,
-    gainbias      = objects.fade,
-    range         = objects.fadeRange,
+  controls.fadeIn = GainBias {
+    button        = "rFadeIn",
+    description   = "Record Fade In Time",
+    branch        = branches.fadeIn,
+    gainbias      = objects.fadeIn,
+    range         = objects.fadeInRange,
     biasMap       = Encoder.getMap("[0,10]"),
     biasUnits     = app.unitSecs,
-    initialBias   = 0.5
+    biasPrecision = 2,
+    initialBias   = 0.01
+  }
+
+  controls.fadeOut = GainBias {
+    button        = "rFadeOut",
+    description   = "Record Fade Out Time",
+    branch        = branches.fadeOut,
+    gainbias      = objects.fadeOut,
+    range         = objects.fadeOutRange,
+    biasMap       = Encoder.getMap("[0,10]"),
+    biasUnits     = app.unitSecs,
+    biasPrecision = 2,
+    initialBias   = 0.1
   }
 
   return controls, views
