@@ -14,9 +14,9 @@ The new unit will be available on the insert screen under **Recording and Looper
 
 1. **4 Bar Looper** This is the default unit configuration. Connect an empty buffer, a **clock** that triggers once per bar, and a trigger to the **record** input. After **engaging** the unit, trigger the **record** input to write the incoming signal to the buffer for the next four bars. Once complete it will continue to play back the newly filled buffer. Trigger again to add overdubs!
 
-2. **2 Step Recorder** As before connect an empty buffer and **clock** and **engage** the unit. Set the **steps** to 8 and the **rSteps** to 2. When the **record** input is triggered the incoming signal will be added to the buffer fo the next 2 steps only. Adjust the **fade** parameter to taste in order to avoid sudden level drops after the 2 steps are up.
+2. **2 Step Recorder** As before connect an empty buffer and **clock** and **engage** the unit. Set the **steps** to 8 and the **rSteps** to 2. When the **record** input is triggered the incoming signal will be added to the buffer fo the next 2 steps only. Adjust the **rFade** parameters to taste in order to avoid sudden level drops after the 2 steps are up.
 
-3. **Random Sample** Using a relatively fast **clock**, set **steps** to 16 and **rSteps** to 1. Randomly trigger the **record** input to capture clock synced segments from the incoming signal. Adjust **fadeIn** and **fadeIn** to taste to avoid clicking induced from the sudden buffer writes.
+3. **Random Sample** Using a relatively fast **clock**, set **steps** to 16 and **rSteps** to 1. Randomly trigger the **record** input to capture clock synced segments from the incoming signal. Adjust **rFadeIn** and **rFadeOut** to taste to avoid clicking induced from the sudden buffer writes.
 
 ### Parameter Overview
 
