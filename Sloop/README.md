@@ -38,7 +38,6 @@ Parameter | Description
 **rFdOut** | After a **record** finishes, **rFdOut** determines how long it will take for the recording level to drop to zero. This can be used to add natural tails to the recording so there isn't a sudden drop at the end of the loop.
 
 ### Configuration
-## Buffer
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Option | Description
 -------|--------|------------
 **Buffer** | | 
