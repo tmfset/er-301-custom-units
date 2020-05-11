@@ -38,11 +38,19 @@ Parameter | Description
 **rFdOut** | After a **record** finishes, **rFdOut** determines how long it will take for the recording level to drop to zero. This can be used to add natural tails to the recording so there isn't a sudden drop at the end of the loop.
 
 ### Configuration
-Option | Description
--------|------------
-**New...** | Create and attach a new buffer with a specfied length.
-**Pool...** | Attach an existing buffer from the pool.
-**Card...** | Load a sample from the SD card and attach it.
-**Edit...** | Edit the attached buffer, with options to trim, normalize, etc.
-**Detach!** | Detach the active buffer.
-**Zero!** | Zero the attached buffer. Provides a quick way to clear the active loop.
+## Buffer
+Header | Option | Description
+-------|--------|------------
+Buffer | | 
+ | **New...** | Create and attach a new buffer with a specfied length.
+ | **Pool...** | Attach an existing buffer from the pool.
+ | **Card...** | Load a sample from the SD card and attach it.
+ | **Edit...** | Edit the attached buffer, with options to trim, normalize, etc.
+ | **Detach!** | Detach the active buffer.
+ | **Zero!** | Zero the attached buffer. Provides a quick way to clear the active loop.
+Record Length | | 
+ | **Fixed** | Enable to lock the record length to the loop length.
+Force Reset On... | | 
+ | **Disengage** | Reset the looper when **engage** is toggled off. Useful for keeping the looper in sync with drum machines when the clock is tied to a run signal.
+ | **Record** | Reset the looper when **record** is triggered. Useful for keeping loop buffers aligned correctly.
+

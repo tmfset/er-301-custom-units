@@ -8,6 +8,7 @@ local Encoder = require "Encoder"
 local SamplePool = require "Sample.Pool"
 local RecordingView = require "builtins.Looper.RecordingView"
 local SamplePoolInterface = require "Sample.Pool.Interface"
+local OptionControl = require "Unit.MenuControl.OptionControl"
 local Task = require "Unit.MenuControl.Task"
 local MenuHeader = require "Unit.MenuControl.Header"
 local ply = app.SECTION_PLY
@@ -15,7 +16,7 @@ local ply = app.SECTION_PLY
 local Sloop = Class{}
 Sloop:include(Unit)
 
-local maxSteps = 32
+local maxSteps = 64
 local initialSteps = 4
 
 function Sloop:init(args)
@@ -172,7 +173,7 @@ function Sloop:createTriggerControl(name)
 end
 
 function Sloop:createControls()
-  return {
+  local controls = {
     length   = self:createControl("GainBias", "length"),
     rLength  = self:createControl("GainBias", "rLength"),
     clock    = self:createTriggerControl("clock"),
@@ -182,33 +183,75 @@ function Sloop:createControls()
     through  = self:createControl("GainBias", "through"),
     feedback = self:createControl("GainBias", "feedback"),
     fadeIn   = self:createControl("ParameterAdapter", "fadeIn"),
-    fadeOut  = self:createControl("ParameterAdapter", "fadeOut")
+    fadeOut  = self:createControl("ParameterAdapter", "fadeOut"),
+
+    resetOnDisengage = self:createObject("Constant", "ResetOnDisengage"),
+    resetOnRecord = self:createObject("Constant", "ResetOnRecord")
   }
+
+  -- Turn on engage by default.
+  controls.engage:simulateRisingEdge()
+
+  self.resetOnDisengage = app.Option("EnableResetOnDisengage")
+  self.resetOnDisengage:set(2)
+
+  self.resetOnRecord = app.Option("EnableResetOnRecord")
+  self.resetOnRecord:set(2)
+
+  self.enableFRecord = app.Option("EnableFixedRecordLength")
+  self.enableFRecord:set(2)
+
+  controls.loopSteps   = self:vStepLength(controls.length, "LoopSteps")
+  controls.recordSteps = self:vStepLength(controls.rLength, "RecordSteps")
+
+  return controls
 end
 
 function Sloop:onLoadGraph(channelCount)
   local controls = self:createControls()
-  local steps    = self:vStepLength(controls.length, "Steps")
-  local rSteps   = self:vStepLength(controls.rLength, "RecordSteps")
 
-  local engageLatch  = self:clockLatch(controls.clock, controls.engage, "EngageLatch")
+  local iEngage = self:iGate(controls.engage, "InvertedEngage")
+  local disengageSignal = self:createObject("Comparator", "Disengage")
+  connect(iEngage, "Out", disengageSignal, "In")
+
+  local resetOnDisengageGate = self:createObject("Comparator", "ResetOnDisengageGate")
+  connect(controls.resetOnDisengage, "Out", resetOnDisengageGate, "In")
+  resetOnDisengageGate:setGateMode()
+  local resetOnDisengageSignal = self:mult(resetOnDisengageGate, disengageSignal, "ResetOnDisengageSignal")
+
+  local engageLatchInput = self:sum(controls.clock, resetOnDisengageSignal, "EngageLatchInput")
+  local engageLatch  = self:clockLatch(engageLatchInput, controls.engage, "EngageLatch")
   local engagedClock = self:mult(controls.clock, engageLatch, "EngagedClock")
 
-  local resetGate   = self:createObject("Comparator", "ResetGate")
-  local resetSignal = self:mult(engagedClock, resetGate, "ResetSignal")
+  local resetGate = self:createObject("Comparator", "ResetGate")
   resetGate:setGateMode()
-
-  local manualResetLatch  = self:latch(controls.reset,  engagedClock, "ManualResetLatch")
-  local endOfCycleLatch   = self:countLatch(steps, engagedClock, resetSignal, "EndOfCycleLatch")
-  local resetGateSum      = self:sum(manualResetLatch, endOfCycleLatch, "ResetGateSum")
-  connect(resetGateSum, "Out", resetGate, "In")
+  local resetClockSignal = self:mult(engagedClock, resetGate, "ResetClockSignal")
+  local resetSignal      = self:sum(resetOnDisengageSignal, resetClockSignal, "ResetSignal")
 
   local punchInSignal     = self:createObject("Multiply", "PunchInSignal")
   local manualRecordLatch = self:latch(controls.record, punchInSignal, "ManualRecordLatch")
   connect(manualRecordLatch, "Out", punchInSignal, "Left")
   connect(engagedClock,      "Out", punchInSignal, "Right")
 
-  local punchOutLatch  = self:countLatch(rSteps, engagedClock, punchInSignal, "PunchOutLatch")
+  local resetGateSum  = self:createObject("Mixer", "ResetGateSum", 3)
+  connect(resetGateSum, "Out", resetGate, "In")
+
+  local resetOnRecordGate = self:createObject("Comparator", "ResetOnRecordGate")
+  connect(controls.resetOnRecord, "Out", resetOnRecordGate, "In")
+  resetOnRecordGate:setGateMode()
+  local resetOnRecordLatch = self:mult(resetOnRecordGate, manualRecordLatch, "ResetonRecordLatch")
+  connect(resetOnRecordLatch, "Out", resetGateSum, "In1")
+  resetGateSum:hardSet("Gain1", 1)
+
+  local manualResetLatch = self:latch(controls.reset,  engagedClock, "ManualResetLatch")
+  connect(manualResetLatch, "Out", resetGateSum, "In2")
+  resetGateSum:hardSet("Gain2", 1)
+
+  local endOfCycleLatch = self:countLatch(controls.loopSteps, engagedClock, resetSignal, "EndOfCycleLatch")
+  connect(endOfCycleLatch, "Out", resetGateSum, "In3")
+  resetGateSum:hardSet("Gain3", 1)
+
+  local punchOutLatch  = self:countLatch(controls.recordSteps, engagedClock, punchInSignal, "PunchOutLatch")
   local punchOutSignal = self:mult(engagedClock, punchOutLatch, "PunchOutSignal")
   local punchLatch     = self:latch(punchInSignal, punchOutSignal, "PunchLatch")
 
@@ -367,7 +410,7 @@ end
 function Sloop:onLoadMenu(objects, branches)
   local controls, sub, menu = {}, {}, {}
 
-  local bufferMenuDescription = "Buffer Menu"
+  local bufferMenuDescription = "Buffer"
   if self.sample then
     local bufferName = self.sample:getFilenameForDisplay(24)
     local bufferLength = self.sample:getDurationText()
@@ -417,6 +460,64 @@ function Sloop:onLoadMenu(objects, branches)
     menu[#menu + 1] = "zeroBuffer"
   end
 
+  controls.recordingHeader = MenuHeader {
+    description = "Record Length"
+  }
+  menu[#menu + 1] = "recordingHeader"
+
+  controls.recordLength = OptionControl {
+    description = "Fixed",
+    descriptionWidth = 2,
+    option      = self.enableFRecord,
+    choices     = { "yes", "no" },
+    onUpdate    = function (choice)
+      local recordLength = objects.rLength:getParameter("Bias")
+      local loopLength = objects.length:getParameter("Bias")
+      if choice == "yes" then
+        recordLength:tie(loopLength)
+      else
+        recordLength:untie()
+        recordLength:softSet(loopLength:value())
+      end
+    end
+  }
+  menu[#menu + 1] = "recordLength"
+
+  controls.resetHeader = MenuHeader {
+    description = "Force Reset On..."
+  }
+  menu[#menu + 1] = "resetHeader"
+
+  controls.resetOnDisengage = OptionControl {
+    description = "Disengage",
+    descriptionWidth = 2,
+    option      = self.resetOnDisengage,
+    choices     = { "yes", "no" },
+    onUpdate    = function (choice)
+      if choice == "yes" then
+        objects.ResetOnDisengage:hardSet("Value", 1)
+      else
+        objects.ResetOnDisengage:hardSet("Value", 0)
+      end
+    end
+  }
+  menu[#menu + 1] = "resetOnDisengage"
+
+  controls.resetOnRecord = OptionControl {
+    description = "Record",
+    descriptionWidth = 2,
+    option      = self.resetOnRecord,
+    choices     = { "yes", "no" },
+    onUpdate    = function (choice)
+      if choice == "yes" then
+        objects.ResetOnRecord:hardSet("Value", 1)
+      else
+        objects.ResetOnRecord:hardSet("Value", 0)
+      end
+    end
+  }
+  menu[#menu + 1] = "resetOnRecord"
+
   if self.sample then
     sub[#sub + 1] = {
       position = app.GRID5_LINE1,
@@ -451,21 +552,24 @@ end
 
 function Sloop:onLoadViews(objects, branches)
   local controls, views = {}, {
-    expanded  = { "clock", "engage", "reset", "record", "through", "steps", "rSteps", "feedback", "fadeIn", "fadeOut" },
-    collapsed = { "wave5" },
+    expanded  = { "clock", "record", "steps", "rSteps", "feedback" },
+    collapsed = { "wave2", "through" },
 
-    clock     = { "wave3", "clock", "engage" },
-    engage    = { "wave3", "clock", "engage" },
+    clock     = { "wave2", "clock", "engage", "reset" },
 
-    reset     = { "wave3", "clock", "reset", "steps" },
-    steps     = { "wave3", "clock", "reset", "steps" },
+    record    = { "wave2", "record", "steps", "rSteps" },
+    steps     = { "wave2", "record", "steps", "rSteps" },
+    rSteps    = { "wave2", "record", "steps", "rSteps" },
 
-    rSteps    = { "wave3", "record", "rSteps" },
-    record    = { "wave3", "record", "rSteps" },
-    feedback  = { "wave3", "record", "feedback" },
-    fadeIn    = { "wave2", "record", "fadeIn", "fadeOut" },
-    fadeOut   = { "wave2", "record", "fadeIn", "fadeOut" }
+    feedback  = { "wave2", "feedback", "fadeIn", "fadeOut" }
   }
+
+  local intMap = function (min, max)
+    local map = app.LinearDialMap(min,max)
+    map:setSteps(5, 1, 0.25, 0.25)
+    map:setRounding(1)
+    return map
+  end
 
   controls.wave2 = RecordingView {
     head  = objects.head,
@@ -477,18 +581,13 @@ function Sloop:onLoadViews(objects, branches)
     width = 3 * ply
   }
 
-  controls.wave5 = RecordingView {
-    head  = objects.head,
-    width = 5 * ply
-  }
-
   controls.steps = GainBias {
     button        = "steps",
     description   = "Cycle Length",
     branch        = branches.length,
     gainbias      = objects.length,
     range         = objects.lengthRange,
-    biasMap       = Encoder.getMap("int[1,"..maxSteps.."]"),
+    biasMap       = intMap(1, maxSteps),
     biasPrecision = 0,
     initialBias   = initialSteps,
   }
@@ -499,7 +598,7 @@ function Sloop:onLoadViews(objects, branches)
     branch        = branches.rLength,
     gainbias      = objects.rLength,
     range         = objects.rLengthRange,
-    biasMap       = Encoder.getMap("int[1,"..maxSteps.."]"),
+    biasMap       = intMap(1, maxSteps),
     biasPrecision = 0,
     initialBias   = initialSteps,
   }
@@ -580,15 +679,22 @@ function Sloop:onLoadViews(objects, branches)
     initialBias   = 0.1
   }
 
+  self:showMenu(true)
+
   return controls, views
 end
 
 function Sloop:serialize()
   local t = Unit.serialize(self)
   if self.sample then
-    t.sample = SamplePool.serializeSample(self.sample)
+    t.sample         = SamplePool.serializeSample(self.sample)
     t.samplePosition = self.objects.head:getPosition()
   end
+
+  t.resetOnDisengage = self.resetOnDisengage:value()
+  t.resetOnRecord    = self.resetOnRecord:value()
+  t.enableFRecord    = self.enableFRecord:value()
+
   return t
 end
 
@@ -607,6 +713,10 @@ function Sloop:deserialize(t)
       Utils.pp(t.sample)
     end
   end
+
+  self.resetOnDisengage:set(t.resetOnDisengage)
+  self.resetOnRecord:set(t.resetOnRecord)
+  self.enableFRecord:set(t.enableFRecord)
 end
 
 function Sloop:onRemove()
