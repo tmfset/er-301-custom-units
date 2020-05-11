@@ -39,18 +39,18 @@ Parameter | Description
 
 ### Configuration
 ## Buffer
-Header | Option | Description
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Option | Description
 -------|--------|------------
-Buffer | | 
-" | **New...** | Create and attach a new buffer with a specfied length.
-" | **Pool...** | Attach an existing buffer from the pool.
-" | **Card...** | Load a sample from the SD card and attach it.
-" | **Edit...** | Edit the attached buffer, with options to trim, normalize, etc.
-" | **Detach!** | Detach the active buffer.
-" | **Zero!** | Zero the attached buffer. Provides a quick way to clear the active loop.
-Record Length | | 
-"  | **Fixed** | Enable to lock the record length to the loop length.
-Force Reset On... | | 
-"  | **Disengage** | Reset the looper when **engage** is toggled off. Useful for keeping the looper in sync with drum machines when the clock is tied to a run signal.
-"  | **Record** | Reset the looper when **record** is triggered. Useful for keeping loop buffers aligned correctly.
+**Buffer** | | 
+&nbsp; | **New...** | Create and attach a new buffer with a specfied length.
+&nbsp; | **Pool...** | Attach an existing buffer from the pool.
+&nbsp; | **Card...** | Load a sample from the SD card and attach it.
+&nbsp; | **Edit...** | Edit the attached buffer, with options to trim, normalize, etc.
+&nbsp; | **Detach!** | Detach the active buffer.
+&nbsp; | **Zero!** | Zero the attached buffer. Provides a quick way to clear the active loop.
+**Record Length** | | 
+&nbsp;  | **Fixed** | Enable to lock the record length to the loop length.
+**Force Reset On...** | | 
+&nbsp;  | **Disengage** | Reset the looper when **engage** is toggled off. Useful for keeping the looper in sync with drum machines when the clock is tied to a run signal.
+&nbsp;  | **Record** | Reset the looper when **record** is triggered. Useful for keeping loop buffers aligned correctly.
 
