@@ -193,13 +193,13 @@ function Sloop:createControls()
   controls.engage:simulateRisingEdge()
 
   self.resetOnDisengage = app.Option("EnableResetOnDisengage")
-  self.resetOnDisengage:set(2)
+  self.resetOnDisengage:set(2) -- no
 
   self.resetOnRecord = app.Option("EnableResetOnRecord")
-  self.resetOnRecord:set(2)
+  self.resetOnRecord:set(2) -- no
 
   self.enableFRecord = app.Option("EnableFixedRecordLength")
-  self.enableFRecord:set(2)
+  self.enableFRecord:set(2) -- no
 
   controls.loopSteps   = self:vStepLength(controls.length, "LoopSteps")
   controls.recordSteps = self:vStepLength(controls.rLength, "RecordSteps")
@@ -266,7 +266,7 @@ function Sloop:onLoadGraph(channelCount)
   connect(recordInSlew, "Out", recordOutSlew, "In")
 
   local feedbackDiff   = self:sum(self:mConst(-1), controls.feedback, "FeedbackDiff")
-  local feedbackOffset = self:mult(punchLatch, feedbackDiff, "FeedbackOffset")
+  local feedbackOffset = self:mult(recordLevel, feedbackDiff, "FeedbackOffset")
   local feedback       = self:sum(self:mConst(1), feedbackOffset, "Feedback")
 
   local head = self:createObject("FeedbackLooper", "head", channelCount)
@@ -474,10 +474,10 @@ function Sloop:onLoadMenu(objects, branches)
       local recordLength = objects.rLength:getParameter("Bias")
       local loopLength = objects.length:getParameter("Bias")
       if choice == "yes" then
+        recordLength:softSet(loopLength:value())
         recordLength:tie(loopLength)
       else
         recordLength:untie()
-        recordLength:softSet(loopLength:value())
       end
     end
   }
