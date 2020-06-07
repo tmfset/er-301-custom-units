@@ -190,7 +190,7 @@ function Sloop:createControls()
   }
 
   -- Turn on engage by default.
-  controls.engage:simulateRisingEdge()
+  controls.engage:setOptionValue("State", 1)
 
   self.resetOnDisengage = app.Option("EnableResetOnDisengage")
   self.resetOnDisengage:set(2) -- no
