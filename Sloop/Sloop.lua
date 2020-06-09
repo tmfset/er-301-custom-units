@@ -146,7 +146,7 @@ function Sloop:newCounter(start, finish, stepSize, gain, name)
   return counter
 end
 
-function Sloop:latchV2(input, reset, suffix)
+function Sloop:latch(input, reset, suffix)
   local name = function (str) return "Latch"..str..suffix end
 
   local gate    = self:toggle(name("Gate"))
@@ -159,25 +159,6 @@ function Sloop:latchV2(input, reset, suffix)
   connect(inputSignal, "Out", gate, "In")
 
   return gate
-end
-
--- A basic latch with reset.
-function Sloop:latch(input, reset, suffix)
-  return self:latchV2(input, reset, suffix)
-
-  -- local name = function (str) return "Latch"..str..suffix end
-
-  -- local inputTrig = self:cTrig(input, name("InputTrig"))
-  -- local resetTrig = self:cTrig(reset, name("ResetTrig"))
-
-  -- local gate        = self:newCounter(0, 1, name("Gate"))
-  -- local notGate     = self:logicalNot(gate, name("InvGate"))
-  -- local inputSignal = self:mult(inputTrig, notGate, name("InputSignal"))
-
-  -- connect(inputSignal, "Out", gate, "In")
-  -- connect(resetTrig,   "Out", gate, "Reset")
-
-  -- return gate
 end
 
 function Sloop:vFinishCounter(start, finish, stepSize, gain, suffix)
@@ -238,8 +219,8 @@ function Sloop:clockGate(clock, gate, suffix)
   return self:latch(input, reset, name("Latch"))
 end
 
-function Sloop:countDown(clock, length, reset, suffix)
-  local name = function (str) return "CountDown"..str..suffix end
+function Sloop:countDownGate(clock, length, reset, suffix)
+  local name = function (str) return "CountDownGate"..str..suffix end
 
   local steps   = self:sum(length, self:mConst(-1), name("Steps"))
   local counter = self:vFinishCounter(0, steps, -1, 0.25, name("CountDown"))
@@ -250,7 +231,14 @@ function Sloop:countDown(clock, length, reset, suffix)
   connect(input, "Out", counter, "In")
   connect(reset, "Out", counter, "Reset")
 
-  return self:mult(clock, stop, name("Output"))
+  return stop
+end
+
+function Sloop:countDown(clock, length, reset, suffix)
+  local name = function (str) return "CountDown"..str..suffix end
+
+  local gate = self:countDownGate(clock, length, reset, name("Gate"))
+  return self:mult(clock, gate, name("Output"))
 end
 
 -- A count gate. After a reset trigger, the output goes high for `length`
@@ -266,40 +254,30 @@ function Sloop:countGate(clock, length, reset, suffix)
   return self:latch(resetSignal, countDown, name("Output"))
 end
 
-
--- function Sloop:countGate(clock, length, reset, suffix)
---   local name = function (str) return "CountGate"..str..suffix end
-
---   local steps   = self:sum(length, self:mConst(-1), name("Steps"))
---   local counter = self:vFinishCounter(0, steps, -1, 0.25, name("CountDown"))
-
---   local wait    = self:cGate(counter, name("Gate"))
---   local stop    = self:logicalNot(wait, name("NotGate"))
-
---   local resetTrig   = self:cTrig(reset, name("ResetTrigger"))
---   local resetLatch  = self:latch(resetTrig, clock, name("ResetLatch"))
---   local resetSignal = self:mult(resetLatch, clock, name("ResetSignal"))
---   connect(resetSignal, "Out", counter, "Reset")
-
---   local stopSignal = self:mult(clock, stop, name("Stop"))
---   local output     = self:latch(resetSignal, stopSignal, name("Output"))
-
---   local inputSignal = self:mult(wait, clock, name("InputSignal"))
---   connect(inputSignal, "Out", counter, "In")
-
---   return output
--- end
-
--- When `gate` goes high, output goes high on the next clock tick. Output
--- remains high for `length` clock ticks or until the next clock tick after the
--- gate drops.
 function Sloop:clockCountGate(clock, length, gate, suffix)
   local name = function (str) return "ClockCountGate"..str..suffix end
 
-  local clockGate = self:clockGate(clock, gate, name("ClockGate"))
-  local countGate = self:countGate(clock, length, gate, name("CountGate"))
+  local notGate = self:logicalNot(gate, name("NotGate"))
 
-  return self:logicalOr(clockGate, countGate, name("Output"))
+  local startTrig   = self:cTrig(gate, name("StartTrigger"))
+  local startLatch  = self:latch(startTrig, clock, name("StartLatch"))
+  local startSignal = self:mult(startLatch, clock, name("StartSignal"))
+
+  local countDownEnd  = self:countDownGate(clock, length, startSignal, name("CountDownEnd"))
+  local counting = self:latch(startSignal, countDownEnd, name("Counting"))
+  local notCounting = self:logicalNot(counting, name("NotCounting"))
+
+  local disabled = self:mult(notCounting, notGate, name("Disabled"))
+  local stopSignal = self:mult(disabled, clock, name("StopSignal"))
+
+  local output = self:latch(startSignal, stopSignal, name("Output"))
+
+  return {
+    start = startSignal,
+    gate = output,
+    last = self:mult(output, disabled, name("Last")),
+    stop = self:mult(output, stopSignal, name("ActualStop"))
+  }
 end
 
 function Sloop:createControl(type, name)
@@ -375,25 +353,26 @@ function Sloop:onLoadGraph(channelCount)
   local engagedClock    = self:mult(controls.clock, controls.engage, "EngagedClock")
 
   local punch     = self:clockCountGate(engagedClock, controls.rLength, controls.record, "Punch")
-  local punchSlew = self:slew(punch, controls.fadeIn, controls.fadeOut, "Punch")
+  local punchSlew = self:slew(punch.gate, controls.fadeIn, controls.fadeOut, "Punch")
 
-  local resetOnRecord     = self:mult(controls.record, controls.resetOnRecordGate, "ResetOnRecord")
-  local resetOnRecordGate = self:latch(resetOnRecord, punch, "ManualPunchLatch")
-  local resetByForceGate  = self:latch(controls.reset, engagedClock, "ManualResetLatch")
-  local resetGate         = self:logicalOr(resetOnRecordGate, resetByForceGate, "ResetGate")
+  local resetOnRecord    = self:logicalOr(controls.resetOnRecordGate, controls.continuousModeGate, "ResetOnRecord")
+  local resetByForceGate = self:latch(controls.reset, engagedClock, "ManualResetLatch")
 
-  local continuousRecord = self:mult(punch, controls.continuousModeGate, "ContinuousRecord")
+  local reset = self:createObject("Mixer", "Reset", 5)
+  self:addToMix(reset, 1, self:mult(resetOnRecord, punch.start, "ResetonRecordSignal"))
+  self:addToMix(reset, 2, self:mult(resetByForceGate, engagedClock, "ResetGate"))
+  self:addToMix(reset, 3, self:mult(disengageSignal, controls.resetOnDisengageGate, "ResetOnDisengageSignal"))
+  self:addToMix(reset, 4, self:mult(punch.stop, controls.continuousModeGate, "ContinuousReset"))
+
+  local continuousRecord    = self:mult(punch.gate, controls.continuousModeGate, "ContinuousRecord")
   local notContinuousRecord = self:logicalNot(continuousRecord, "NotContinuousRecord")
+  local naturalEndOfCycle   = self:countDown(engagedClock, controls.length, reset, "NaturalEndOfCycle")
+  self:addToMix(reset, 5, self:mult(notContinuousRecord, naturalEndOfCycle, "EndOfCycle"))
 
-  local reset = self:createObject("Mixer", "Reset", 3)
-  self:addToMix(reset, 1, self:mult(resetGate, engagedClock, "ResetFromGate"))
-  self:addToMix(reset, 2, self:mult(disengageSignal, controls.resetOnDisengageGate, "ResetOnDisengageSignal"))
-
-  local naturalEndOfCycle = self:countDown(engagedClock, controls.length, reset, "NaturalEndOfCycle")
-  self:addToMix(reset, 3, self:mult(notContinuousRecord, naturalEndOfCycle, "EndOfCycle"))
-
-  local continuousClock = self:mult(continuousRecord, engagedClock, "ContinuousClock")
+  local continuousInc   = self:latch(punch.start, punch.last, "ContinuousInc")
+  local continuousClock = self:mult(continuousInc, engagedClock, "ContinuousClock")
   connect(continuousClock, "Out", controls.continuousCount, "In")
+
   local resetContinuous = self:mult(continuousRecord, reset, "ResetContinuous")
   connect(resetContinuous, "Out", controls.continuousCount, "Reset")
 
@@ -407,9 +386,6 @@ function Sloop:onLoadGraph(channelCount)
   local engagedRecordLevel = self:mult(punchSlew, engaged, "EngagedRecordLevel")
   local invRecordLevel     = self:logicalNot(engagedRecordLevel, "InvRecordLevel")
   local duckDry            = self:mult(controls.through, invRecordLevel, "DuckDry")
-
-  --local cgt = self:countGate(engagedClock, controls.rLength, controls.record, "TestCountGate")
-  --connect(punch, "Out", self, "Out1")
 
   self:output("Left", 1, {
     duckDry   = duckDry,
@@ -644,17 +620,23 @@ function Sloop:onLoadMenu(objects, branches)
     option           = self._controls.continuousModeOption,
     choices          = { "continuous", "normal" },
     onUpdate         = function (choice)
-      local loopLength = self._controls.length:getParameter("Bias")
-      local continuousCount = self._controls.continuousCount:getParameter("Value")
-      if choice == "continuous" then
-        continuousCount:softSet(loopLength:value())
-        loopLength:tie(continuousCount)
+      local length  = self._controls.length:getParameter("Bias")
+      local counter = self._controls.continuousCount:getParameter("Value")
 
-        self._controls.resetOnRecordGate:hardSet("Value", 1)
-        self._controls.continuousModeGate:hardSet("Value", 1)
-      else
-        loopLength:untie()
-        self._controls.continuousModeGate:hardSet("Value", 0)
+      local gate      = self._controls.continuousModeGate:getParameter("Value")
+      local isGateOn  = gate:value() == 1
+      local isGateOff = not isGateOn
+
+      if choice == "continuous" and isGateOff then
+        gate:hardSet(1)
+        counter:hardSet(length:value())
+        length:tie(counter)
+      end
+
+      if choice == "normal" and isGateOn then
+        gate:hardSet(0)
+        length:untie()
+        length:hardSet(counter:value())
       end
     end
   }
@@ -887,9 +869,9 @@ function Sloop:serialize()
     t.samplePosition = self.objects.head:getPosition()
   end
 
-  t.resetOnDisengage = self.resetOnDisengage:value()
-  t.resetOnRecord    = self.resetOnRecord:value()
-  t.enableFRecord    = self.enableFRecord:value()
+  t.resetOnDisengage = self._controls.resetOnRecordOption:value()
+  t.resetOnRecord    = self._controls.resetOnRecordOption:value()
+  t.enableFRecord    = self._controls.fixedRecordOption:value()
 
   return t
 end
@@ -910,9 +892,9 @@ function Sloop:deserialize(t)
     end
   end
 
-  self.resetOnDisengage:set(t.resetOnDisengage)
-  self.resetOnRecord:set(t.resetOnRecord)
-  self.enableFRecord:set(t.enableFRecord)
+  self._controls.resetOnDisengageOption:set(t.resetOnDisengage)
+  self._controls.resetOnRecordOption:set(t.resetOnRecord)
+  self._controls.fixedRecordOption:set(t.enableFRecord)
 end
 
 function Sloop:onRemove()
