@@ -154,12 +154,13 @@ end
 
 -- A clocked gate. When `gate` is high, output goes high on the next clock
 -- tick. When `gate` is low, output goes low on the next clock tick.
-function Sloop:clockGate(clock, gate, suffix)
+function Sloop:clockGate(clock, gate, forceReset, suffix)
   local name = function (str) return "ClockGate"..str..suffix end
 
-  local input   = self:mult(clock, gate, name("Input"))
-  local invGate = self:logicalNot(gate, name("InvGate"))
-  local reset   = self:mult(clock, invGate, name("Reset"))
+  local input      = self:mult(clock, gate, name("Input"))
+  local invGate    = self:logicalNot(gate, name("InvGate"))
+  local clockReset = self:mult(clock, invGate, name("clockReset"))
+  local reset      = self:logicalOr(clockReset, forceReset, name("Reset"))
 
   return self:latch(input, reset, name("Latch"))
 end
@@ -280,10 +281,12 @@ end
 function Sloop:onLoadGraph(channelCount)
   local controls = self:createControls()
 
-  local engaged         = self:clockGate(controls.clock, controls.engage, "Engaged")
-  local disengaged      = self:logicalNot(engaged, "Disengaged")
-  local disengageSignal = self:cTrig(disengaged, "DisengageSignal")
-  local engagedClock    = self:mult(controls.clock, controls.engage, "EngagedClock")
+  local disengaged       = self:logicalNot(controls.engage, "Disengaged")
+  local disengageSignal  = self:cTrig(disengaged, "DisengageSignal")
+  local resetOnDisengage = self:mult(disengageSignal, controls.resetOnDisengageGate, "ResetOnDisengageSignal")
+
+  local engaged      = self:clockGate(controls.clock, controls.engage, resetOnDisengage, "Engaged")
+  local engagedClock = self:mult(controls.clock, controls.engage, "EngagedClock")
 
   local punch     = self:clockCountGate(engagedClock, controls.rLength, controls.record, controls.continuousModeGate, "Punch")
   local punchSlew = self:slew(punch.gate, controls.fadeIn, controls.fadeOut, "Punch")
@@ -294,7 +297,7 @@ function Sloop:onLoadGraph(channelCount)
   local reset = self:createObject("Mixer", "Reset", 5)
   self:addToMix(reset, 1, self:mult(resetOnRecord, punch.start, "ResetonRecordSignal"))
   self:addToMix(reset, 2, self:mult(resetByForceGate, engagedClock, "ResetGate"))
-  self:addToMix(reset, 3, self:mult(disengageSignal, controls.resetOnDisengageGate, "ResetOnDisengageSignal"))
+  self:addToMix(reset, 3, resetOnDisengage)
   self:addToMix(reset, 4, self:mult(punch.stop, controls.continuousModeGate, "ContinuousReset"))
 
   local continuousRecord    = self:mult(punch.gate, controls.continuousModeGate, "ContinuousRecord")
