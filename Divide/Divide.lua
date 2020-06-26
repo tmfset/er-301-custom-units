@@ -86,7 +86,7 @@ function Divide:vFinishCounter(start, finish, stepSize, gain, suffix)
   return counter
 end
 
-function Divide:controls()
+function Divide:createControls()
   local clock = self:createObject("Comparator", "clock")
   clock:setTriggerMode()
   connect(self, "In1", clock, "In")
@@ -108,15 +108,16 @@ function Divide:controls()
 end
 
 function Divide:onLoadGraph(channelCount)
-  local controls = self:controls()
+  local controls = self:createControls()
 
   local steps   = self:sum(controls.divide, self:mConst(-1), "steps")
   local counter = self:vFinishCounter(0, steps, 1, 1, "counter")
   connect(controls.clock, "Out", counter, "In")
   connect(controls.reset, "Out", counter, "Reset")
 
-  local gate   = self:toGate(counter, "gate")
-  local output = self:mult(controls.clock, gate, "output")
+  local gate    = self:toGate(counter, "gate")
+  local notGate = self:logicalNot(gate, "notGate")
+  local output  = self:mult(controls.clock, notGate, "output")
   connect(output, "Out", self, "Out1")
 end
 
@@ -159,7 +160,7 @@ function Divide:onLoadViews(objects, branches)
     button        = "divide",
     description   = "Divide By",
     branch        = branches.divide,
-    gainBias      = objects.divide,
+    gainbias      = objects.divide,
     range         = objects.divideRange,
     gainMap       = intMap(-self.max, self.max),
     biasMap       = intMap(1, self.max),

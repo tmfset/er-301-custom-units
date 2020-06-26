@@ -4,6 +4,6 @@ return {
   keyword = "divide",
   units   = {
     { category = "Timing" },
-    { title = "Clock Divider", moduleName = "Divide", keywords = "clock, divider" }
+    { title = "Divide", moduleName = "Divide", keywords = "clock, divider" }
   }
 }
