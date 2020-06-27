@@ -253,6 +253,7 @@ function Sloop:createControls()
     feedback = self:createControl("GainBias", "feedback"),
     fadeIn   = self:createControl("ParameterAdapter", "fadeIn"),
     fadeOut  = self:createControl("ParameterAdapter", "fadeOut"),
+    speed    = self:createControl("GainBias", "speed"),
 
     resetOnDisengageGate   = self:createObject("Constant", "ResetOnDisengage"),
     resetOnDisengageOption = app.Option("EnableResetOnDisengage"),
@@ -315,29 +316,33 @@ function Sloop:onLoadGraph(channelCount)
   local easedFeedback = self:easeIn(punchSlew, controls.feedback, "EasedFeedback")
   local feedback = self:mult(notContinuousRecord, easedFeedback, "Feedback")
 
-  local head = self:looper(channelCount, {
+  local rHead = self:recorder(channelCount, {
     feedback = feedback,
     engage   = engaged,
     reset    = reset,
     record   = punchSlew
   })
 
-  local engagedRecordLevel = self:mult(punchSlew, engaged, "EngagedRecordLevel")
-  local invRecordLevel     = self:logicalNot(engagedRecordLevel, "InvRecordLevel")
-  local duckDry            = self:mult(controls.through, invRecordLevel, "DuckDry")
-
-  self:output("Left", 1, {
-    duckDry   = duckDry,
-    wet       = head,
-    wetOutlet = "Left Out"
+  local pHead = self:player(channelCount, {
+    reset = reset,
+    speed = self:mult(engaged, controls.speed, "PlaybackSpeed")
   })
 
+  local recordLevel    = self:mult(punchSlew, engaged, "EngagedRecordLevel")
+  local notRecordLevel = self:logicalNot(recordLevel, "InvRecordLevel")
+  local throughLevel   = self:mult(controls.through, notRecordLevel, "ThroughLevel")
+
+  local outputArgs = {
+    throughLevel   = throughLevel,
+    recordLevel    = recordLevel,
+    notRecordLevel = notRecordLevel,
+    rHead          = rHead,
+    pHead          = pHead
+  }
+
+  self:output("Left", 1, outputArgs)
   if channelCount > 1 then
-    self:output("Right", 2, {
-      duckDry   = duckDry,
-      wet       = head,
-      wetOutlet = "Right Out"
-    })
+    self:output("Right", 2, outputArgs)
   end
 end
 
@@ -366,8 +371,8 @@ function Sloop:slew(input, fadeIn, fadeOut, suffix)
   return slewOut
 end
 
-function Sloop:looper(channelCount, args)
-  local head = self:createObject("FeedbackLooper", "head", channelCount)
+function Sloop:recorder(channelCount, args)
+  local head = self:createObject("FeedbackLooper", "rHead", channelCount)
   connect(args.feedback, "Out", head, "Feedback")
   connect(args.engage,   "Out", head, "Engage")
   connect(args.reset,    "Out", head, "Reset")
@@ -388,17 +393,34 @@ function Sloop:looper(channelCount, args)
   return head
 end
 
+function Sloop:player(channelCount, args)
+  local head = self:createObject("VariSpeedHead", "pHead", channelCount)
+  connect(args.reset, "Out", head, "Trigger")
+  connect(args.speed, "Out", head, "Speed")
+
+  return head
+end
+
 function Sloop:output(suffix, channel, args)
   local name = function (str) return str..suffix end
 
-  local dry = self:createObject("Multiply", name("Dry"))
-  connect(self,         "In"..channel, dry, "Left")
-  connect(args.duckDry, "Out",         dry, "Right")
+  local mix = self:createObject("Mixer", name("Mix"), 3)
+  connect(mix, "Out", self, "Out"..channel)
 
-  local mix = self:createObject("Sum", name("Mix"))
-  connect(dry,     "Out",           mix,  "Left")
-  connect(args.wet, args.wetOutlet, mix,  "Right")
-  connect(mix,     "Out",           self, "Out"..channel)
+  local throughOut = self:createObject("Multiply", name("ThroughOut"))
+  connect(self,              "In"..channel, throughOut, "Left")
+  connect(args.throughLevel, "Out",         throughOut, "Right")
+  self:addToMix(mix, 1, throughOut)
+
+  local recordOut = self:createObject("Multiply", name("RecordOut"))
+  connect(args.rHead,       suffix.." Out", recordOut, "Left")
+  connect(args.recordLevel, "Out",          recordOut, "Right")
+  self:addToMix(mix, 2, recordOut)
+
+  local playOut = self:createObject("Multiply", name("PlayOut"))
+  connect(args.pHead,          suffix.." Out", playOut, "Left")
+  connect(args.notRecordLevel, "Out",          playOut, "Right")
+  self:addToMix(mix, 3, playOut)
 end
 
 function Sloop:setSample(sample)
@@ -410,9 +432,11 @@ function Sloop:setSample(sample)
 
   if sample then
     self.sample:claim(self)
-    self.objects.head:setSample(sample.pSample)
+    self.objects.rHead:setSample(sample.pSample)
+    self.objects.pHead:setSample(sample.pSample)
   else
-    self.objects.head:setSample(nil)
+    self.objects.rHead:setSample(nil)
+    self.objects.pHead:setSample(nil)
   end
 
   if self.sampleEditor then
@@ -477,14 +501,15 @@ end
 function Sloop:doZeroBuffer()
   local Overlay = require "Overlay"
   Overlay.mainFlashMessage("Buffer zeroed.")
-  self.objects.head:zeroBuffer()
+  self.objects.rHead:zeroBuffer()
+  self.objects.pHead:zeroBuffer()
 end
 
 function Sloop:showSampleEditor()
   if self.sample then
     if self.sampleEditor == nil then
       local SampleEditor = require "Sample.Editor"
-      self.sampleEditor = SampleEditor(self, self.objects.head)
+      self.sampleEditor = SampleEditor(self, self.objects.rHead)
       self.sampleEditor:setSample(self.sample)
       self.sampleEditor:setPointerLabel("R")
     end
@@ -669,7 +694,7 @@ end
 
 function Sloop:onLoadViews(objects, branches)
   local controls, views = {}, {
-    expanded  = { "clock", "record", "steps", "feedback", "through" },
+    expanded  = { "clock", "record", "steps", "feedback", "through", "speed" },
     collapsed = { "wave2" },
 
     clock     = { "wave2", "clock", "engage", "reset" },
@@ -687,12 +712,12 @@ function Sloop:onLoadViews(objects, branches)
   end
 
   controls.wave2 = RecordingView {
-    head  = objects.head,
+    head  = objects.rHead,
     width = 2 * ply
   }
 
   controls.wave3 = RecordingView {
-    head  = objects.head,
+    head  = objects.rHead,
     width = 3 * ply
   }
 
@@ -796,6 +821,18 @@ function Sloop:onLoadViews(objects, branches)
     initialBias   = config.initialFadeOut
   }
 
+  controls.speed = GainBias {
+    button        = "speed",
+    description   = "Playback Speed",
+    branch        = branches.speed,
+    gainbias      = objects.speed,
+    range         = objects.speedRange,
+    biasMap       = Encoder.getMap("speed"),
+    biasUnits     = app.unitNone,
+    biasPrecision = 2,
+    initialBias   = 1
+  }
+
   self:showMenu(true)
 
   return controls, views
@@ -805,7 +842,8 @@ function Sloop:serialize()
   local t = Unit.serialize(self)
   if self.sample then
     t.sample         = SamplePool.serializeSample(self.sample)
-    t.samplePosition = self.objects.head:getPosition()
+    t.samplePosition = self.objects.rHead:getPosition()
+    t.playPosition   = self.objects.pHead:getPosition()
   end
 
   t.resetOnDisengage = self._controls.resetOnRecordOption:value()
@@ -823,7 +861,8 @@ function Sloop:deserialize(t)
     if sample then
       self:setSample(sample)
       if t.samplePosition then
-        self.objects.head:setPosition(t.samplePosition)
+        self.objects.rHead:setPosition(t.samplePosition)
+        self.objects.pHead:setPosition(t.playPosition)
       end
     else
       local Utils = require "Utils"
