@@ -2,6 +2,7 @@
 local app = app
 local Class = require "Base.Class"
 local Unit = require "Unit"
+local SlicingView = require "SlicingView"
 local GainBias = require "Unit.ViewControl.GainBias"
 local Gate = require "Unit.ViewControl.Gate"
 local Encoder = require "Encoder"
@@ -254,6 +255,7 @@ function Sloop:createControls()
     fadeIn   = self:createControl("ParameterAdapter", "fadeIn"),
     fadeOut  = self:createControl("ParameterAdapter", "fadeOut"),
     speed    = self:createControl("GainBias", "speed"),
+    slice    = self:createControl("GainBias", "slice"),
 
     resetOnDisengageGate   = self:createObject("Constant", "ResetOnDisengage"),
     resetOnDisengageOption = app.Option("EnableResetOnDisengage"),
@@ -325,7 +327,8 @@ function Sloop:onLoadGraph(channelCount)
 
   local pHead = self:player(channelCount, {
     reset = reset,
-    speed = self:mult(engaged, controls.speed, "PlaybackSpeed")
+    speed = self:mult(engaged, controls.speed, "PlaybackSpeed"),
+    slice = controls.slice
   })
 
   local recordLevel    = self:mult(punchSlew, engaged, "EngagedRecordLevel")
@@ -397,6 +400,7 @@ function Sloop:player(channelCount, args)
   local head = self:createObject("VariSpeedHead", "pHead", channelCount)
   connect(args.reset, "Out", head, "Trigger")
   connect(args.speed, "Out", head, "Speed")
+  connect(args.slice, "Out", head, "Slice Select")
 
   return head
 end
@@ -433,14 +437,14 @@ function Sloop:setSample(sample)
   if sample then
     self.sample:claim(self)
     self.objects.rHead:setSample(sample.pSample)
-    self.objects.pHead:setSample(sample.pSample)
+    self.objects.pHead:setSample(sample.pSample, sample.slices.pSlices)
   else
     self.objects.rHead:setSample(nil)
-    self.objects.pHead:setSample(nil)
+    self.objects.pHead:setSample(nil, nil)
   end
 
-  if self.sampleEditor then
-    self.sampleEditor:setSample(sample)
+  if self.slicingView then
+    self.slicingView:setSample(sample)
   end
 
   self:notifyControls("setSample", sample)
@@ -507,13 +511,12 @@ end
 
 function Sloop:showSampleEditor()
   if self.sample then
-    if self.sampleEditor == nil then
-      local SampleEditor = require "Sample.Editor"
-      self.sampleEditor = SampleEditor(self, self.objects.rHead)
-      self.sampleEditor:setSample(self.sample)
-      self.sampleEditor:setPointerLabel("R")
+    if self.slicingView == nil then
+      self.slicingView = SlicingView(self, self.objects.pHead)
+      self.slicingView:setSample(self.sample)
+      --self.slicingView:setPointerLabel("P")
     end
-    self.sampleEditor:show()
+    self.slicingView:show()
   else
     local Overlay = require "Overlay"
     Overlay.mainFlashMessage("You must first select a sample.")
@@ -694,7 +697,7 @@ end
 
 function Sloop:onLoadViews(objects, branches)
   local controls, views = {}, {
-    expanded  = { "clock", "record", "steps", "feedback", "through", "speed" },
+    expanded  = { "clock", "record", "steps", "feedback", "through", "speed", "slice" },
     collapsed = { "wave2" },
 
     clock     = { "wave2", "clock", "engage", "reset" },
@@ -831,6 +834,15 @@ function Sloop:onLoadViews(objects, branches)
     biasUnits     = app.unitNone,
     biasPrecision = 2,
     initialBias   = 1
+  }
+
+  controls.slice = GainBias {
+    button      = "slice",
+    description = "Slice Select",
+    branch      = branches.slice,
+    gainbias    = objects.slice,
+    range       = objects.sliceRange,
+    biasMap     = Encoder.getMap("unit"),
   }
 
   self:showMenu(true)
