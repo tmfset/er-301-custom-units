@@ -796,8 +796,6 @@ function Sloop:onLoadViews(objects, branches)
     initialBias   = config.initialFadeOut
   }
 
-  self:showMenu(true)
-
   return controls, views
 end
 
@@ -808,7 +806,7 @@ function Sloop:serialize()
     t.samplePosition = self.objects.head:getPosition()
   end
 
-  t.resetOnDisengage = self._controls.resetOnRecordOption:value()
+  t.resetOnDisengage = self._controls.resetOnDisengageOption:value()
   t.resetOnRecord    = self._controls.resetOnRecordOption:value()
   t.enableFRecord    = self._controls.fixedRecordOption:value()
   t.continuousMode   = self._controls.continuousModeOption:value()
@@ -836,6 +834,9 @@ function Sloop:deserialize(t)
   self._controls.resetOnRecordOption:set(t.resetOnRecord)
   self._controls.fixedRecordOption:set(t.enableFRecord)
   self._controls.continuousModeOption:set(t.continuousMode)
+
+  -- Reload our menu to get the options and gates in agreement.
+  self:showMenu(true)
 end
 
 function Sloop:onRemove()
