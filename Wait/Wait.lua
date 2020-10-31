@@ -86,3 +86,5 @@ function Wait:onLoadViews(objects, branches)
 
   return controls, views
 end
+
+return Wait

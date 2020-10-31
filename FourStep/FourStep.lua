@@ -102,3 +102,5 @@ function FourStep:onLoadViews(objects, branches)
 
   return controls, views
 end
+
+return FourStep
