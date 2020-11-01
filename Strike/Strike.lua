@@ -41,9 +41,17 @@ function Strike:createTriggerControl(name)
   return gate
 end
 
+function Strike:createToggleControl(name)
+  local gate = self:createObject("Comparator", name)
+  gate:setMode(1)
+  self:createMonoBranch(name, gate, "In", gate, "Out")
+  return gate
+end
+
 function Strike:createControls()
   self._controls = {
     strike = self:createTriggerControl("strike"),
+    loop   = self:createToggleControl("loop"),
     lift   = self:createControl("GainBias", "lift"),
     cutoff = self:createControl("GainBias", "cutoff"),
     Q      = self:createControl("GainBias", "Q"),
@@ -111,6 +119,15 @@ function Strike:clip(input, name)
   local clip = self:createObject("Clipper", name)
   connect(input, "Out", clip, "In")
   return clip
+end
+
+function Strike:logicalGateOr(left, right, suffix)
+  local sum = self:sum(left, right, "Or"..suffix)
+  return self:clip(sum, "LogicalOrClip"..suffix)
+end
+
+function Strike:logicalAnd(left, right, suffix)
+  return self:mult(left, right, suffix)
 end
 
 function Strike:logicalOr(left, right, suffix)
@@ -229,16 +246,17 @@ end
 function Strike:latch(input, reset, suffix)
   local name = function (str) return "Latch"..str..suffix end
 
-  local high = self:toggle(name("Gate"))
-  local low  = self:logicalNot(high, name("NotGate"))
+  local high = self:createObject("Counter", name("High"))
+  high:hardSet("Start", 0)
+  high:hardSet("Finish", 1)
+  high:hardSet("Step Size", 1)
+  high:setOptionValue("Processing Rate", 2) -- sample rate
+  high:setOptionValue("Wrap", 0)
 
-  local onSignal  = self:mult(low, input, name("On"))
-  local offSignal = self:mult(high, reset, name("Off"))
+  connect(input, "Out", high, "In")
+  connect(reset, "Out", high, "Reset")
 
-  local inputSignal = self:sum(onSignal, offSignal, name("Input"))
-  connect(inputSignal, "Out", high, "In")
-
-  return high, low
+  return high
 end
 
 function Strike:loadSample()
@@ -314,7 +332,7 @@ function Strike:curve(to, direction, time, curve, suffix)
   return slew, head
 end
 
-function Strike:envelope(gate, attack, aCurve, decay, dCurve, suffix)
+function Strike:envelope(gate, loop, attack, aCurve, decay, dCurve, suffix)
   local name = function (str) return str..suffix end
 
   local trigger = self:cTrig(gate, name("Trigger"))
@@ -324,13 +342,15 @@ function Strike:envelope(gate, attack, aCurve, decay, dCurve, suffix)
   eor:hardSet("Hysteresis", 0)
   eor:setTriggerMode()
 
-  -- rise input = fall curve or rising gate
-  -- fall input = rising gate
+  local eof = self:createObject("Comparator", name("EOF"))
+  eof:hardSet("Threshold", 0.995)
+  eof:hardSet("Hysteresis", 0)
+  eof:setTriggerMode()
 
-  local map = self:sampleMap(name("Map"))
+
 
   local riseLatch = self:latch(trigger, eor, name("RiseLatch"))
-  local rising    = self:logicalOr(gate, riseLatch, name("Rising"))
+  local rising    = self:logicalGateOr(gate, riseLatch, name("Rising"))
   local notRising = self:logicalNot(rising, name("NotRising"))
 
   local fall, fallHead = self:curve(rising, "down", decay, dCurve, name("Fall"))
@@ -343,6 +363,7 @@ function Strike:envelope(gate, attack, aCurve, decay, dCurve, suffix)
   local riseMask = self:mult(rise, rising, name("RiseMask"))
 
   local head = self:pick(rising, riseHead, fallHead, name("Head"))
+  local map = self:sampleMap(name("Map"))
   connect(head, "Out", map, "In")
 
   local slew = self:logicalOr(riseMask, fallMask, name("Slew"))
@@ -357,6 +378,7 @@ function Strike:onLoadGraph(channelCount)
 
   local envelope = self:envelope(
     controls.strike,
+    controls.loop,
     controls.attack,
     controls.aCurve,
     controls.decay,
@@ -382,8 +404,8 @@ function Strike:onLoadGraph(channelCount)
   connect(levelLift, "Out",      vcaLeft, "Left")
   connect(filter,    "Left Out", vcaLeft, "Right")
 
-  -- connect(envelope, "Out", self, "Out1")
-  connect(filter, "Left Out", self, "Out1")
+  connect(envelope, "Out", self, "Out1")
+  -- connect(filter, "Left Out", self, "Out1")
 
   if channelCount > 1 then
     connect(self, "In2", filter, "Right In")
@@ -398,19 +420,27 @@ end
 
 function Strike:onLoadViews(objects, branches)
   local controls, views = {}, {
-    expanded  = { "strike", "lift", "attack", "decay" },
-    collapsed = { "wave3", "strike" },
+    expanded  = { "strike", "loop", "lift", "attack", "decay" },
+    collapsed = { "strike", "loop" },
 
-    strike    = { "wave3", "strike" },
+    strike    = { "wave3", "strike", "loop" },
+    loop      = { "wave3", "strike", "loop" },
     lift      = { "wave2", "lift", "cutoff", "Q" },
-    attack    = { "wave2", "attack", "aCurve" },
-    decay     = { "wave2", "decay", "dCurve" }
+    attack    = { "wave3", "attack", "aCurve" },
+    decay     = { "wave3", "decay", "dCurve" }
   }
 
   local intMap = function (min, max)
     local map = app.LinearDialMap(min, max)
     map:setSteps(5, 0.1, 0.25, 0.25)
     map:setRounding(0.1)
+    return map
+  end
+
+  local fineMap = function (min, max)
+    local map = app.LinearDialMap(min, max)
+    map:setSteps(0.1, 0.01, 0.001, 0.001)
+    map:setRounding(0.001)
     return map
   end
 
@@ -436,15 +466,22 @@ function Strike:onLoadViews(objects, branches)
     comparator  = objects.strike
   }
 
+  controls.loop = Gate {
+    button      = "loop",
+    description = "Loop",
+    branch      = branches.loop,
+    comparator  = objects.loop
+  }
+
   controls.lift = GainBias {
     button        = "lift",
     description   = "How Bright?",
     branch        = branches.lift,
     gainbias      = objects.lift,
     range         = objects.liftRange,
-    biasMap       = Encoder.getMap("[0,1]"),
+    biasMap       = fineMap(0, 1),
     biasUnits     = app.unitNone,
-    biasPrecision = 2,
+    biasPrecision = 3,
     initialBias   = config.initialLift
   }
 
@@ -467,9 +504,9 @@ function Strike:onLoadViews(objects, branches)
     branch        = branches.Q,
     gainbias      = objects.Q,
     range         = objects.QRange,
-    biasMap       = Encoder.getMap("[0,1]"),
+    biasMap       = fineMap(0, 1),
     biasUnits     = app.unitNone,
-    biasPrecision = 2,
+    biasPrecision = 3,
     initialBias   = config.initialQ
   }
 
@@ -479,9 +516,9 @@ function Strike:onLoadViews(objects, branches)
     branch        = branches.attack,
     gainbias      = objects.attack,
     range         = objects.attackRange,
-    biasMap       = Encoder.getMap("unit"),
+    biasMap       = fineMap(0.01, 10),
     biasUnits     = app.unitSecs,
-    biasPrecision = 2,
+    biasPrecision = 3,
     initialBias   = config.initialAttack
   }
 
@@ -491,8 +528,8 @@ function Strike:onLoadViews(objects, branches)
     branch        = branches.aCurve,
     gainbias      = objects.aCurve,
     range         = objects.aCurveRange,
-    biasMap       = intMap(-1, 1),
-    biasPrecision = 2,
+    biasMap       = fineMap(-1, 1),
+    biasPrecision = 3,
     initialBias   = 0
   }
 
@@ -502,9 +539,9 @@ function Strike:onLoadViews(objects, branches)
     branch        = branches.decay,
     gainbias      = objects.decay,
     range         = objects.decayRange,
-    biasMap       = Encoder.getMap("unit"),
+    biasMap       = fineMap(0.01, 10),
     biasUnits     = app.unitSecs,
-    biasPrecision = 2,
+    biasPrecision = 3,
     initialBias   = config.initialDecay
   }
 
@@ -514,8 +551,8 @@ function Strike:onLoadViews(objects, branches)
     branch        = branches.dCurve,
     gainbias      = objects.dCurve,
     range         = objects.dCurveRange,
-    biasMap       = intMap(-1, 1),
-    biasPrecision = 2,
+    biasMap       = fineMap(-1, 1),
+    biasPrecision = 3,
     initialBias   = 0
   }
 
