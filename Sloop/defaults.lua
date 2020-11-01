@@ -10,5 +10,8 @@ return {
   defaultMode             = 1, -- continuous
   defaultLengthMode       = 1, -- locked
   defaultResetOnDisengage = 2, -- no
-  defaultResetOnRecord    = 2  -- no
+  defaultResetOnRecord    = 2,  -- no
+
+  -- If set, create a buffer automatically on unit start up.
+  defaultBufferLength     = 15 -- seconds
 }

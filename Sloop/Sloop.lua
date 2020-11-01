@@ -11,6 +11,7 @@ local SamplePoolInterface = require "Sample.Pool.Interface"
 local OptionControl = require "Unit.MenuControl.OptionControl"
 local Task = require "Unit.MenuControl.Task"
 local MenuHeader = require "Unit.MenuControl.Header"
+local pool = require "Sample.Pool"
 local ply = app.SECTION_PLY
 
 local config = require "Sloop.defaults"
@@ -222,6 +223,29 @@ function Sloop:createControl(type, name)
   return control
 end
 
+function Sloop:setInitialBuffer(channelCount)
+  if self.sample then
+    return
+  end
+
+  local length = config.defaultBufferLength
+  if not length then
+    return
+  end
+
+  local sample, status = pool.create {
+    channels = channelCount,
+    secs     = length
+  }
+
+  if not sample then
+    local Overlay = require "Overlay"
+    Overlay.mainFlashMessage("Failed to create buffer.", status)
+  end
+
+  self:setSample(sample)
+end
+
 function Sloop:createComparatorControl(name, mode)
   local gate = self:createObject("Comparator", name)
   gate:setMode(mode)
@@ -339,6 +363,11 @@ function Sloop:onLoadGraph(channelCount)
       wetOutlet = "Right Out"
     })
   end
+
+  self:setInitialBuffer(channelCount)
+
+  -- Load our menu to get the options and gates in agreement.
+  self:showMenu(true)
 end
 
 function Sloop:easeIn(by, value, suffix)
