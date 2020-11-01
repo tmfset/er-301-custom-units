@@ -124,33 +124,31 @@ end
 function Sloop:latch(input, reset, suffix)
   local name = function (str) return "Latch"..str..suffix end
 
-  local gate    = self:toggle(name("Gate"))
-  local notGate = self:logicalNot(gate, name("NotGate"))
+  local high = self:createObject("Counter", name("High"))
+  high:hardSet("Start", 0)
+  high:hardSet("Finish", 1)
+  high:hardSet("Step Size", 1)
+  high:hardSet("Gain", 1)
+  high:hardSet("Bias", 0)
+  high:setOptionValue("Processing Rate", 2) -- sample rate
+  high:setOptionValue("Wrap", 2) -- no
 
-  local onSignal  = self:mult(notGate, input, name("On"))
-  local offSignal = self:mult(gate, reset, name("Off"))
+  connect(input, "Out", high, "In")
+  connect(reset, "Out", high, "Reset")
 
-  local inputSignal = self:sum(onSignal, offSignal, name("Input"))
-  connect(inputSignal, "Out", gate, "In")
-
-  return gate
+  return high
 end
 
-function Sloop:vFinishCounter(start, finish, stepSize, gain, suffix)
-  local name = function (str) return "VFinishCounter"..str..suffix end
+-- A latch that outputs the next clock tick after being set by the input.
+function Sloop:clockResetLatch(input, clock, suffix)
+  local name = function (str) return "ClockLatch"..str..suffix end
 
-  local counter = self:createObject("Counter", name("Count"))
-  counter:setOptionValue("Processing Rate", 2) -- Sample Rate
-  counter:hardSet("Start", start)
-  counter:hardSet("Step Size", stepSize)
-  counter:hardSet("Gain", gain)
+  local reset = self:createObject("Multiply", name("Reset"))
+  local latch = self:latch(input, reset, name("Latch"))
+  connect(latch, "Out", reset, "Left")
+  connect(clock, "Out", reset, "Right")
 
-  local finishAdapter = self:createObject("ParameterAdapter", name("Finish"))
-  finishAdapter:hardSet("Gain", 1)
-  connect(finish, "Out", finishAdapter, "In")
-  tie(counter, "Finish", finishAdapter, "Out")
-
-  return counter
+  return reset
 end
 
 -- A clocked gate. When `gate` is high, output goes high on the next clock
@@ -166,11 +164,26 @@ function Sloop:clockGate(clock, gate, forceReset, suffix)
   return self:latch(input, reset, name("Latch"))
 end
 
+function Sloop:adapt(input, gain, bias, suffix)
+  local adapter = self:createObject("ParameterAdapter", "adapt"..suffix)
+  adapter:hardSet("Gain", gain)
+  adapter:hardSet("Bias", bias)
+  connect(input, "Out", adapter, "In")
+  return adapter;
+end
+
 function Sloop:countDownGate(clock, length, reset, suffix)
   local name = function (str) return "CountDownGate"..str..suffix end
 
-  local steps   = self:sum(length, self:mConst(-1), name("Steps"))
-  local counter = self:vFinishCounter(0, steps, -1, 0.25, name("CountDown"))
+  local counter = self:createObject("Counter", name("Count"))
+  counter:setOptionValue("Processing Rate", 2) -- Sample Rate
+  counter:hardSet("Start", 0)
+  counter:hardSet("Step Size", -1)
+  counter:hardSet("Gain", 0.25)
+
+  local finish = self:adapt(length, 1, -1, name("Finish"))
+  tie(counter, "Finish", finish, "Out")
+
   local wait    = self:cGate(counter, name("Gate"))
   local stop    = self:logicalNot(wait, name("NotGate"))
   local input   = self:mult(wait, clock, name("Input"))
@@ -194,8 +207,7 @@ function Sloop:clockCountGate(clock, length, gate, bypass, suffix)
   local notGate = self:logicalNot(gate, name("NotGate"))
 
   local startTrig   = self:cTrig(gate, name("StartTrigger"))
-  local startLatch  = self:latch(startTrig, clock, name("StartLatch"))
-  local startSignal = self:mult(startLatch, clock, name("StartSignal"))
+  local startSignal = self:clockResetLatch(startTrig, clock, name("StartSignal"))
 
   local countDownEnd  = self:countDownGate(clock, length, startSignal, name("CountDownEnd"))
   local counting = self:latch(startSignal, countDownEnd, name("Counting"))
@@ -305,22 +317,24 @@ end
 function Sloop:onLoadGraph(channelCount)
   local controls = self:createControls()
 
+  local clock = self:cTrig(controls.clock, "ClockTrigger")
+
   local disengaged       = self:logicalNot(controls.engage, "Disengaged")
   local disengageSignal  = self:cTrig(disengaged, "DisengageSignal")
   local resetOnDisengage = self:mult(disengageSignal, controls.resetOnDisengageGate, "ResetOnDisengageSignal")
 
-  local engaged      = self:clockGate(controls.clock, controls.engage, resetOnDisengage, "Engaged")
-  local engagedClock = self:mult(controls.clock, controls.engage, "EngagedClock")
+  local engaged      = self:clockGate(clock, controls.engage, resetOnDisengage, "Engaged")
+  local engagedClock = self:mult(clock, controls.engage, "EngagedClock")
 
   local punch     = self:clockCountGate(engagedClock, controls.rLength, controls.record, controls.continuousModeGate, "Punch")
   local punchSlew = self:slew(punch.gate, controls.fadeIn, controls.fadeOut, "Punch")
 
   local resetOnRecord    = self:logicalOr(controls.resetOnRecordGate, controls.continuousModeGate, "ResetOnRecord")
-  local resetByForceGate = self:latch(controls.reset, engagedClock, "ManualResetLatch")
+  local resetByForceTrig = self:clockResetLatch(controls.reset, engagedClock, "ManualResetLatch")
 
   local reset = self:createObject("Mixer", "Reset", 5)
   self:addToMix(reset, 1, self:mult(resetOnRecord, punch.start, "ResetonRecordSignal"))
-  self:addToMix(reset, 2, self:mult(resetByForceGate, engagedClock, "ResetGate"))
+  self:addToMix(reset, 2, resetByForceTrig)
   self:addToMix(reset, 3, resetOnDisengage)
   self:addToMix(reset, 4, self:mult(punch.stop, controls.continuousModeGate, "ContinuousReset"))
 
@@ -368,6 +382,7 @@ function Sloop:onLoadGraph(channelCount)
 
   -- Load our menu to get the options and gates in agreement.
   self:showMenu(true)
+
 end
 
 function Sloop:easeIn(by, value, suffix)
@@ -785,7 +800,7 @@ function Sloop:onLoadViews(objects, branches)
     range         = objects.throughRange,
     biasMap       = Encoder.getMap("[0,1]"),
     biasUnits     = app.unitNone,
-    biasPrecision = 1,
+    biasPrecision = 2,
     initialBias   = config.initialThrough
   }
 
@@ -797,7 +812,7 @@ function Sloop:onLoadViews(objects, branches)
     range         = objects.feedbackRange,
     biasMap       = Encoder.getMap("[0,1]"),
     biasUnits     = app.unitNone,
-    biasPrecision = 1,
+    biasPrecision = 2,
     initialBias   = config.initialFeedback
   }
 
