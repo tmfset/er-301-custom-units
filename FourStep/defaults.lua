@@ -1,3 +1,0 @@
-return {
-  initialAttv = 1
-}

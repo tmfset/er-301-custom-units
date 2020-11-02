@@ -4,6 +4,6 @@ return {
   keyword = "lpg",
   units   = {
     { category = "Filtering" },
-    { title = "Strike", moduleName = "Strike", keywords = "lpg" }
+    { title = "LPG", moduleName = "Strike", keywords = "lpg" },
   }
 }

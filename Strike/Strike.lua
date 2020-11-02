@@ -5,22 +5,16 @@ local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
 local Gate = require "Unit.ViewControl.Gate"
 local Encoder = require "Encoder"
-local SamplePool = require "Sample.Pool"
 local OutputScope = require "Unit.ViewControl.OutputScope"
-local SamplePoolInterface = require "Sample.Pool.Interface"
-local OptionControl = require "Unit.MenuControl.OptionControl"
-local Task = require "Unit.MenuControl.Task"
-local MenuHeader = require "Unit.MenuControl.Header"
-local Path = require "Path"
 local ply = app.SECTION_PLY
 
 local config = require "Strike.defaults"
 
-local Strike = Class{}
+local Strike = Class {}
 Strike:include(Unit)
 
 function Strike:init(args)
-  args.title    = "Strike"
+  args.title    = "LPG"
   args.mnemonic = "lpg"
 
   Unit.init(self, args)
@@ -50,32 +44,23 @@ end
 
 function Strike:createControls()
   self._controls = {
-    strike = self:createTriggerControl("strike"),
-    loop   = self:createToggleControl("loop"),
-    lift   = self:createControl("GainBias", "lift"),
-    cutoff = self:createControl("GainBias", "cutoff"),
-    Q      = self:createControl("GainBias", "Q"),
-    attack = self:createControl("GainBias", "attack"),
-    aCurve = self:createControl("GainBias", "aCurve"),
-    decay  = self:createControl("GainBias", "decay"),
-    dCurve = self:createControl("GainBias", "dCurve"),
+    strike   = self:createTriggerControl("strike"),
+    loop     = self:createToggleControl("loop"),
+
+    lift     = self:createControl("GainBias", "lift"),
+    peak     = self:createControl("GainBias", "peak"),
+    Q        = self:createControl("GainBias", "Q"),
+
+    time     = self:createControl("GainBias", "time"),
+    attack   = self:createControl("GainBias", "attack"),
+    decay    = self:createControl("GainBias", "decay"),
+
+    curve    = self:createControl("GainBias", "curve"),
+    curveIn  = self:createControl("GainBias", "curveIn"),
+    curveOut = self:createControl("GainBias", "curveOut"),
   }
 
   return self._controls
-end
-
--- Create a memoized constant value to be used as an output.
-function Strike:mConst(value)
-  self.constants = self.constants or {}
-
-  if self.constants[value] == nil then
-    local const = self:createObject("Constant", "constant"..value)
-    const:hardSet("Value", value)
-
-    self.constants[value] = const
-  end
-
-  return self.constants[value]
 end
 
 function Strike:adapt(input, suffix)
@@ -100,14 +85,6 @@ function Strike:cTrig(input, suffix)
   return trig
 end
 
-function Strike:toggle(name)
-  local gate = self:createObject("Comparator", name)
-  gate:hardSet("Hysteresis", 0)
-  gate:setToggleMode()
-  return gate
-end
-
--- Add together two outputs.
 function Strike:sum(left, right, suffix)
   local sum = self:createObject("Sum", "sum"..suffix)
   connect(left, "Out", sum, "Left")
@@ -126,24 +103,6 @@ function Strike:logicalGateOr(left, right, suffix)
   return self:clip(sum, "LogicalOrClip"..suffix)
 end
 
-function Strike:logicalAnd(left, right, suffix)
-  return self:mult(left, right, suffix)
-end
-
-function Strike:logicalOr(left, right, suffix)
-  local negateRight = self:mult(self:mConst(-1), right, "Negate"..suffix)
-  local difference = self:sum(left, negateRight, "Sum"..suffix)
-
-  local leftHigh = self:cGate(difference, "LeftHigh"..suffix)
-  local rightHigh = self:logicalNot(leftHigh, "RightHigh"..suffix)
-
-  local leftPart = self:mult(leftHigh, left, "LeftPart"..suffix)
-  local rightPart = self:mult(rightHigh, right, "RightPart"..suffix)
-
-  local out = self:sum(leftPart, rightPart, "Or"..suffix)
-  return out
-end
-
 function Strike:cGainBias(gain, bias, suffix)
   local gb = self:createObject("GainBias", "gainBias"..suffix)
   gb:hardSet("Gain", gain)
@@ -157,14 +116,6 @@ function Strike:logicalNot(input, suffix)
   return gb
 end
 
-function Strike:complement(input, suffix)
-  return self:sum(self:mConst(1), self:nComplement(input, suffix), "c"..suffix)
-end
-
-function Strike:nComplement(input, suffix)
-  return self:sum(self:mConst(-1), input, "nc"..suffix)
-end
-
 function Strike:mult(left, right, suffix)
   local mult = self:createObject("Multiply", "vca"..suffix)
   connect(left, "Out", mult, "Left")
@@ -172,75 +123,20 @@ function Strike:mult(left, right, suffix)
   return mult
 end
 
-function Strike:rectify(input, type, suffix)
-  local r = self:createObject("Rectify", "r"..suffix)
-  r:setOptionValue("Type", type)
-  connect(input, "Out", r, "In")
-  return r;
-end
-
-function Strike:fullRectify(input, suffix)
-  return self:rectify(input, 3, suffix)
-end
-
-function Strike:cBumpMap(center, width, height, fade, name)
-  local bm = self:createObject("BumpMap", name)
-  bm:hardSet("Center", center)
-  bm:hardSet("Width", width)
-  bm:hardSet("Height", height)
-  bm:hardSet("Fade", fade)
-  return bm
-end
-
-function Strike:sineEnv(trigger, duration, skew, suffix)
-  local name = function (str) return str..suffix end
-
-  local trig = self:cTrig(trigger, name("in"))
-
-  local env = self:createObject("SkewedSineEnvelope", name("env"))
-  -- env:hardSet("Level", 1)
-  connect(trig, "Out", env, "Trigger")
-  connect(self:mConst(1), "Out", env, "Level")
-
-  local adaptSkew = self:adapt(self:mConst(skew), name("skew"))
-  tie(env, "Skew", adaptSkew, "Out")
-
-  local adaptDuration = self:adapt(duration, name("duration"))
-  tie(env, "Duration", adaptDuration, "Out")
-
-  return env
-end
-
-function Strike:directionCode(str)
-  local lookup = {
-    up   = 1,
-    down = 3
-  }
-
-  return lookup[str]
-end
-
-function Strike:cSlew(time, direction, name)
-  local slew = self:createObject("SlewLimiter", name)
-  slew:setOptionValue("Direction", self:directionCode(direction))
-
-  local adaptTime = self:adapt(time, name("time"))
-  tie(slew, "Time", adaptTime, "Out")
-
-  return slew
-end
-
 function Strike:slew(input, time, direction, suffix)
-  local name = function (str) return str..suffix end
-
-  local slew = self:createObject("SlewLimiter", name("slew"))
-  slew:setOptionValue("Direction", self:directionCode(direction))
+  local slew = self:createObject("SlewLimiter", "Slew"..suffix)
+  slew:setOptionValue("Direction", direction)
   connect(input, "Out", slew, "In")
-
-  local adaptTime = self:adapt(time, name("time"))
-  tie(slew, "Time", adaptTime, "Out")
-
+  tie(slew, "Time", time, "Out")
   return slew;
+end
+
+function Strike:follow(input, attack, decay, suffix)
+  local follow = self:createObject("EnvelopeFollower", "Follow"..suffix)
+  connect(input, "Out", follow, "In")
+  tie(follow, "Attack Time", attack, "Out")
+  tie(follow, "Release Time", decay, "Out")
+  return follow
 end
 
 function Strike:latch(input, reset, suffix)
@@ -251,7 +147,7 @@ function Strike:latch(input, reset, suffix)
   high:hardSet("Finish", 1)
   high:hardSet("Step Size", 1)
   high:setOptionValue("Processing Rate", 2) -- sample rate
-  high:setOptionValue("Wrap", 0)
+  high:setOptionValue("Wrap", 2)
 
   connect(input, "Out", high, "In")
   connect(reset, "Out", high, "Reset")
@@ -259,42 +155,9 @@ function Strike:latch(input, reset, suffix)
   return high
 end
 
-function Strike:loadSample()
-  if self.sample then
-    return self.sample
-  end
+function Strike:pick(gate, notGate, left, right, suffix)
+  local name = function (str) return "PrePick"..str..suffix end
 
-  local lib      = self.loadInfo.libraryName
-  local filename = config.expFile
-  local path     = Path.join("1:/ER-301/libs", lib, filename)
-  local sample   = SamplePool.load(path)
-
-  if not sample then
-    local Overlay = require "Overlay"
-    Overlay.mainFlashMessage("Could not load %s.", path)
-  end
-
-  self.sample = sample
-  return sample
-end
-
-function Strike:sampleMap(name)
-  local bumpMap = self:createObject("BumpMap", name)
-  bumpMap:setSample(self:loadSample().pSample)
-
-  bumpMap:hardSet("Center", 0)
-  bumpMap:hardSet("Width", 2.0)
-  bumpMap:hardSet("Height", 1.0)
-  bumpMap:hardSet("Fade", 0)
-  bumpMap:setOptionValue("Interpolation", 1) -- none
-
-  return bumpMap
-end
-
-function Strike:pick(gate, left, right, suffix)
-  local name = function (str) return "Pick"..str..suffix end
-
-  local notGate   = self:logicalNot(gate, name("NotGate"))
   local pickLeft  = self:mult(left, gate, name("PickLeft"))
   local pickRight = self:mult(right, notGate, name("PickRight"))
 
@@ -302,12 +165,12 @@ function Strike:pick(gate, left, right, suffix)
 end
 
 -- Mix center and side based on the input;
---    0     gives center signal
---   -1, 1  gives side signal
+--    0 gives center signal
+--    1 gives side signal
 function Strike:mix(input, center, side, suffix)
   local name = function (str) return "Mix"..str..suffix end
 
-  local sideAmount   = self:fullRectify(input, name("SideAmount"))
+  local sideAmount   = input
   local centerAmount = self:logicalNot(sideAmount, name("CenterAmount"))
 
   local sidePart   = self:mult(side, sideAmount, name("SidePart"))
@@ -316,59 +179,48 @@ function Strike:mix(input, center, side, suffix)
   return self:sum(sidePart, centerPart, name("Out"))
 end
 
-function Strike:curve(to, direction, time, curve, suffix)
-  local name = function (str) return "SlewCurve"..str..suffix end
+function Strike:envelope(args, suffix)
+  local name = function (str) return "Envelope"..str..suffix end
 
-  local slew = self:slew(to, time, direction, name("Slew"))
+  local scaledAttack = self:mult(args.time, args.attack, name("ScaledAttack"))
+  local scaledDecay  = self:mult(args.time, args.decay, name("Decay"))
 
-  -- Exponential: read the sample from 0 to -1
-  -- Logarithmic: Read the sample from 0 to 1
-  local expHead = self:sum(self:mConst(-1), slew, name("ExpHead"))
-  local logHead = self:logicalNot(slew, name("LogHead"))
+  local adaptAttack  = self:adapt(scaledAttack, name("AdaptAttack"))
+  local adaptDecay   = self:adapt(scaledDecay, name("AdaptDecay"))
 
-  local isExponential = self:cGate(curve, name("IsExponential"))
-  local head          = self:pick(isExponential, expHead, logHead, name("Head"))
-
-  return slew, head
-end
-
-function Strike:envelope(gate, loop, attack, aCurve, decay, dCurve, suffix)
-  local name = function (str) return str..suffix end
-
-  local trigger = self:cTrig(gate, name("Trigger"))
+  local loopTrigger = self:createObject("Multiply", name("LoopTrigger"))
+  connect(args.loop, "Out", loopTrigger, "Left")
 
   local eor = self:createObject("Comparator", name("EOR"))
   eor:hardSet("Threshold", 0.995)
   eor:hardSet("Hysteresis", 0)
-  eor:setTriggerMode()
+  eor:setGateMode()
 
-  local eof = self:createObject("Comparator", name("EOF"))
-  eof:hardSet("Threshold", 0.995)
-  eof:hardSet("Hysteresis", 0)
-  eof:setTriggerMode()
+  local inputTrigger = self:cTrig(args.gate, name("InputTrigger"))
+  local riseTrigger = self:logicalGateOr(inputTrigger, loopTrigger, name("RiseTrigger"))
 
+  local riseLatch   = self:latch(riseTrigger, eor, name("RiseLatch"))
+  local isRising    = self:logicalGateOr(riseLatch, args.gate, name("IsRising"))
+  local isNotRising = self:logicalNot(isRising, name("IsNotRising"))
 
-
-  local riseLatch = self:latch(trigger, eor, name("RiseLatch"))
-  local rising    = self:logicalGateOr(gate, riseLatch, name("Rising"))
-  local notRising = self:logicalNot(rising, name("NotRising"))
-
-  local fall, fallHead = self:curve(rising, "down", decay, dCurve, name("Fall"))
-  local fallMask = self:mult(fall, notRising, name("FallMask"))
-
-  local riseIn = self:logicalOr(fallMask, rising, name("RiseIn"))
-  local rise, riseHead = self:curve(riseIn, "up", attack, aCurve, name("Rise"))
+  local fall = self:slew(isRising, adaptDecay, 3, name("Fall"))
+  local rise = self:slew(fall, adaptAttack, 1, name("Rise"))
   connect(rise, "Out", eor, "In")
 
-  local riseMask = self:mult(rise, rising, name("RiseMask"))
+  local curve = self:follow(isRising, adaptAttack, adaptDecay, name("Curve"))
 
-  local head = self:pick(rising, riseHead, fallHead, name("Head"))
-  local map = self:sampleMap(name("Map"))
-  connect(head, "Out", map, "In")
+  local curveAmount       = self:pick(isRising, isNotRising, args.curveIn, args.curveOut, name("CurveAmount"))
+  local scaledCurveAmount = self:mult(curveAmount, args.curve, name("ScaledCurveAmount"))
+  local out               = self:mix(scaledCurveAmount, rise, curve, name("Out"))
 
-  local slew = self:logicalOr(riseMask, fallMask, name("Slew"))
-  local amount = self:pick(rising, aCurve, dCurve, name("Amount"))
-  local out = self:mix(amount, slew, map, name("Out"))
+  local outGate = self:createObject("Comparator", name("OutGate"))
+  outGate:hardSet("Threshold", 0.005)
+  outGate:hardSet("Hysteresis", 0)
+  outGate:setGateMode()
+  connect(rise, "Out", outGate, "In")
+
+  local eof = self:logicalNot(outGate, name("EOF"))
+  connect(eof, "Out", loopTrigger, "Right")
 
   return out
 end
@@ -376,73 +228,62 @@ end
 function Strike:onLoadGraph(channelCount)
   local controls = self:createControls()
 
-  local envelope = self:envelope(
-    controls.strike,
-    controls.loop,
-    controls.attack,
-    controls.aCurve,
-    controls.decay,
-    controls.dCurve,
-    "ar"
-  )
+  local envelope = self:envelope({
+    gate     = controls.strike,
+    loop     = controls.loop,
+    time     = controls.time,
+    attack   = controls.attack,
+    decay    = controls.decay,
+    curve    = controls.curve,
+    curveIn  = controls.curveIn,
+    curveOut = controls.curveOut
+  }, "Envelope")
 
-
-  local lift = self:mult(controls.lift, controls.lift, "liftLift")
-  local levelLift = envelope
-  local freqLift  = self:mult(envelope, lift, "adsrLift")
-  local cutoff = self:mult(freqLift, controls.cutoff, "cutoffLift")
+  local lift = self:mult(envelope, controls.lift, "Lift")
+  local peak = self:mult(lift, controls.peak, "Peak")
+  local Q    = controls.Q
 
   local filter = self:createObject("StereoLadderFilter", "filter")
-  -- filter:hardSet("Fundamental", 100000)
-
-  connect(self,     "In1", filter, "Left In")
-  -- connect(freqLift, "Out", filter, "V/Oct")
-  connect(controls.Q, "Out", filter, "Resonance")
-  connect(cutoff, "Out", filter, "Fundamental")
+  connect(Q,    "Out", filter, "Resonance")
+  connect(peak, "Out", filter, "Fundamental")
+  connect(self, "In1", filter, "Left In")
 
   local vcaLeft = self:createObject("Multiply", "vcaLeft")
-  connect(levelLift, "Out",      vcaLeft, "Left")
-  connect(filter,    "Left Out", vcaLeft, "Right")
-
-  connect(envelope, "Out", self, "Out1")
-  -- connect(filter, "Left Out", self, "Out1")
+  connect(envelope, "Out",      vcaLeft, "Left")
+  connect(filter,   "Left Out", vcaLeft, "Right")
+  connect(vcaLeft,  "Out",      self,    "Out1")
 
   if channelCount > 1 then
     connect(self, "In2", filter, "Right In")
 
     local vcaRight = self:createObject("Multiply", "vcaRight")
-    connect(levelLift, "Out",       vcaRight, "Left")
-    connect(filter,    "Right Out", vcaRight, "Right")
-
-    connect(vcaRight, "Out", self, "Out2")
+    connect(envelope, "Out",       vcaRight, "Left")
+    connect(filter,   "Right Out", vcaRight, "Right")
+    connect(vcaRight, "Out",       self,     "Out2")
   end
 end
 
 function Strike:onLoadViews(objects, branches)
   local controls, views = {}, {
-    expanded  = { "strike", "loop", "lift", "attack", "decay" },
-    collapsed = { "strike", "loop" },
+    expanded  = { "strike", "loop", "lift", "time", "curve" },
+    collapsed = { "loop", "lift", "time" },
 
     strike    = { "wave3", "strike", "loop" },
     loop      = { "wave3", "strike", "loop" },
-    lift      = { "wave2", "lift", "cutoff", "Q" },
-    attack    = { "wave3", "attack", "aCurve" },
-    decay     = { "wave3", "decay", "dCurve" }
+    lift      = { "wave2", "lift", "peak", "Q" },
+    time      = { "wave2", "time", "attack", "decay" },
+    curve     = { "wave2", "curve", "curveIn", "curveOut" }
   }
 
-  local intMap = function (min, max)
+  local createMap = function (min, max, superCourse, course, fine, superFine, rounding)
     local map = app.LinearDialMap(min, max)
-    map:setSteps(5, 0.1, 0.25, 0.25)
-    map:setRounding(0.1)
+    map:setSteps(superCourse, course, fine, superFine)
+    map:setRounding(rounding)
     return map
   end
 
-  local fineMap = function (min, max)
-    local map = app.LinearDialMap(min, max)
-    map:setSteps(0.1, 0.01, 0.001, 0.001)
-    map:setRounding(0.001)
-    return map
-  end
+  local fineMap     = createMap(0, 1, 0.1, 0.01, 0.001, 0.001, 0.001)
+  local fineMapTime = createMap(0, 10, 0.1, 0.01, 0.001, 0.001, 0.001)
 
   controls.wave1 = OutputScope {
     monitor = self,
@@ -468,7 +309,7 @@ function Strike:onLoadViews(objects, branches)
 
   controls.loop = Gate {
     button      = "loop",
-    description = "Loop",
+    description = "Keep Going!",
     branch      = branches.loop,
     comparator  = objects.loop
   }
@@ -479,35 +320,47 @@ function Strike:onLoadViews(objects, branches)
     branch        = branches.lift,
     gainbias      = objects.lift,
     range         = objects.liftRange,
-    biasMap       = fineMap(0, 1),
+    biasMap       = fineMap,
     biasUnits     = app.unitNone,
     biasPrecision = 3,
     initialBias   = config.initialLift
   }
 
-  controls.cutoff = GainBias {
-    button      = "cutoff",
-    branch      = branches.cutoff,
-    description = "Filter Cutoff",
-    gainbias    = objects.cutoff,
-    range       = objects.cutoffRange,
+  controls.peak = GainBias {
+    button      = "peak",
+    branch      = branches.peak,
+    description = "Peak Frequency",
+    gainbias    = objects.peak,
+    range       = objects.peakRange,
     biasMap     = Encoder.getMap("filterFreq"),
     biasUnits   = app.unitHertz,
-    initialBias = 440,
+    initialBias = config.initialPeak,
     gainMap     = Encoder.getMap("freqGain"),
     scaling     = app.octaveScaling
   }
 
   controls.Q = GainBias {
     button        = "Q",
-    description   = "Resonance",
+    description   = "Peak Resonance",
     branch        = branches.Q,
     gainbias      = objects.Q,
     range         = objects.QRange,
-    biasMap       = fineMap(0, 1),
+    biasMap       = fineMap,
     biasUnits     = app.unitNone,
     biasPrecision = 3,
     initialBias   = config.initialQ
+  }
+
+  controls.time = GainBias {
+    button        = "time",
+    description   = "How Long?",
+    branch        = branches.time,
+    gainbias      = objects.time,
+    range         = objects.timeRange,
+    biasMap       = fineMap,
+    biasUnits     = app.unitNone,
+    biasPrecision = 3,
+    initialBias   = config.initialTime
   }
 
   controls.attack = GainBias {
@@ -516,21 +369,10 @@ function Strike:onLoadViews(objects, branches)
     branch        = branches.attack,
     gainbias      = objects.attack,
     range         = objects.attackRange,
-    biasMap       = fineMap(0.01, 10),
+    biasMap       = fineMapTime,
     biasUnits     = app.unitSecs,
     biasPrecision = 3,
     initialBias   = config.initialAttack
-  }
-
-  controls.aCurve = GainBias {
-    button        = "aCurve",
-    description   = "Attack Curve",
-    branch        = branches.aCurve,
-    gainbias      = objects.aCurve,
-    range         = objects.aCurveRange,
-    biasMap       = fineMap(-1, 1),
-    biasPrecision = 3,
-    initialBias   = 0
   }
 
   controls.decay = GainBias {
@@ -539,21 +381,43 @@ function Strike:onLoadViews(objects, branches)
     branch        = branches.decay,
     gainbias      = objects.decay,
     range         = objects.decayRange,
-    biasMap       = fineMap(0.01, 10),
+    biasMap       = fineMapTime,
     biasUnits     = app.unitSecs,
     biasPrecision = 3,
     initialBias   = config.initialDecay
   }
 
-  controls.dCurve = GainBias {
-    button        = "dCurve",
-    description   = "Attack Curve",
-    branch        = branches.dCurve,
-    gainbias      = objects.dCurve,
-    range         = objects.dCurveRange,
-    biasMap       = fineMap(-1, 1),
+  controls.curve = GainBias {
+    button        = "curve",
+    description   = "How Curved?",
+    branch        = branches.curve,
+    gainbias      = objects.curve,
+    range         = objects.curveRange,
+    biasMap       = fineMap,
     biasPrecision = 3,
-    initialBias   = 0
+    initialBias   = config.initialCurve
+  }
+
+  controls.curveIn = GainBias {
+    button        = "curveIn",
+    description   = "Attack Curve",
+    branch        = branches.curveIn,
+    gainbias      = objects.curveIn,
+    range         = objects.curveInRange,
+    biasMap       = fineMap,
+    biasPrecision = 3,
+    initialBias   = config.initialCurveIn
+  }
+
+  controls.curveOut = GainBias {
+    button        = "curveOut",
+    description   = "Decay Curve",
+    branch        = branches.curveOut,
+    gainbias      = objects.curveOut,
+    range         = objects.curveOutRange,
+    biasMap       = fineMap,
+    biasPrecision = 3,
+    initialBias   = config.initialCurveOut
   }
 
   return controls, views

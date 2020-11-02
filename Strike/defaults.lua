@@ -1,7 +1,13 @@
 return {
-  expFile       = "exp-10.0.wav",
-  initialLift   = 1,
-  initialQ      = 0,
-  initialAttack = 0.01,
-  initialDecay  = 0.5
+  initialLift     = 0.5,
+  initialPeak     = 13290,
+  initialQ        = 0,
+
+  initialTime     = 0.5,
+  initialAttack   = 0.2,
+  initialDecay    = 2,
+
+  initialCurve    = 1,
+  initialCurveIn  = 0,
+  initialCurveOut = 1
 }
