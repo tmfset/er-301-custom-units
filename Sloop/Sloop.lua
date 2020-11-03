@@ -247,7 +247,8 @@ function Sloop:setInitialBuffer(channelCount)
 
   local sample, status = pool.create {
     channels = channelCount,
-    secs     = length
+    secs     = length,
+    root     = "sloop"
   }
 
   if not sample then
@@ -539,14 +540,21 @@ function Sloop:showSampleEditor()
   end
 end
 
-function Sloop:onLoadMenu(objects, branches)
-  local controls, sub, menu = {}, {}, {}
-
-  local bufferMenuDescription = "Buffer"
+function Sloop:describeBuffer()
   if self.sample then
-    local bufferName = self.sample:getFilenameForDisplay(24)
+    local bufferName = self.sample:getFilenameForDisplay(30)
     local bufferLength = self.sample:getDurationText()
-    bufferMenuDescription = bufferMenuDescription.." ("..bufferName..", "..bufferLength..")"
+    return bufferLength..", "..bufferName
+  end
+end
+
+function Sloop:setCreateBufferMenu(controls, menu)
+  local bufferMenuDescription = ""
+
+  if self.sample then
+    bufferMenuDescription = "Modify Buffer"
+  else
+    bufferMenuDescription = "Attach a Buffer!"
   end
 
   controls.bufferHeader = MenuHeader {
@@ -571,29 +579,44 @@ function Sloop:onLoadMenu(objects, branches)
     task        = function() self:doAttachSampleFromCard() end
   }
   menu[#menu + 1] = "selectFromCard"
+end
 
-  if self.sample then
-    controls.editBuffer = Task {
-      description = "Edit...",
-      task        = function() self:showSampleEditor() end
-    }
-    menu[#menu + 1] = "editBuffer"
+function Sloop:setModifyBufferMenu(controls, menu)
+  controls.editBuffer = Task {
+    description = "Edit...",
+    task        = function() self:showSampleEditor() end
+  }
+  menu[#menu + 1] = "editBuffer"
 
-    controls.detachBuffer = Task {
-      description = "Detach!",
-      task        = function() self:doDetachBuffer() end
-    }
-    menu[#menu + 1] = "detachBuffer"
+  controls.detachBuffer = Task {
+    description = "Detach!",
+    task        = function() self:doDetachBuffer() end
+  }
+  menu[#menu + 1] = "detachBuffer"
 
-    controls.zeroBuffer = Task {
-      description = "Zero!",
-      task        = function() self:doZeroBuffer() end
-    }
-    menu[#menu + 1] = "zeroBuffer"
+  controls.zeroBuffer = Task {
+    description = "Zero!",
+    task        = function() self:doZeroBuffer() end
+  }
+  menu[#menu + 1] = "zeroBuffer"
+end
+
+function Sloop:onLoadMenu(objects, branches)
+  local controls, sub, menu = {}, {}, {}
+
+  controls.bufferDescription = MenuHeader {
+    description = "At"
+  }
+
+  local attached = ""
+  if not self.sample then
+    self:setCreateBufferMenu(controls, menu)
+  else
+    attached = " ("..self:describeBuffer()..")"
   end
 
   controls.recordingHeader = MenuHeader {
-    description = "Recording"
+    description = "Recording"..attached
   }
   menu[#menu + 1] = "recordingHeader"
 
@@ -606,20 +629,30 @@ function Sloop:onLoadMenu(objects, branches)
       local length  = self._controls.length:getParameter("Bias")
       local counter = self._controls.continuousCount:getParameter("Value")
 
-      local gate      = self._controls.continuousModeGate:getParameter("Value")
-      local isGateOn  = gate:value() == 1
-      local isGateOff = not isGateOn
+      local gate           = self._controls.continuousModeGate:getParameter("Value")
+      local wasContinuous  = gate:value() == 1
+      local wasManual      = not wasContinuous
 
-      if choice == "continuous" and isGateOff then
+      if choice == "continuous" then
         gate:hardSet(1)
-        counter:hardSet(length:value())
+
+        if wasManual then
+          counter:untie()
+          counter:hardSet(length:value())
+        end
+
         length:tie(counter)
       end
 
-      if choice == "manual" and isGateOn then
+      if choice == "manual" then
         gate:hardSet(0)
-        length:untie()
-        length:hardSet(counter:value())
+
+        if wasContinuous then
+          length:untie()
+          length:hardSet(counter:value())
+        end
+
+        counter:tie(length)
       end
     end
   }
@@ -645,16 +678,16 @@ function Sloop:onLoadMenu(objects, branches)
   menu[#menu + 1] = "recordLength"
 
   controls.resetHeader = MenuHeader {
-    description = "Force Reset On..."
+    description = "Reset On..."
   }
   menu[#menu + 1] = "resetHeader"
 
   controls.resetOnDisengage = OptionControl {
-    description = "Disengage",
+    description      = "Disengage",
     descriptionWidth = 2,
-    option      = self._controls.resetOnDisengageOption,
-    choices     = { "yes", "no" },
-    onUpdate    = function (choice)
+    option           = self._controls.resetOnDisengageOption,
+    choices          = { "yes", "no" },
+    onUpdate         = function (choice)
       if choice == "yes" then
         self._controls.resetOnDisengageGate:hardSet("Value", 1)
       else
@@ -665,11 +698,11 @@ function Sloop:onLoadMenu(objects, branches)
   menu[#menu + 1] = "resetOnDisengage"
 
   controls.resetOnRecord = OptionControl {
-    description = "Record",
+    description      = "Record",
     descriptionWidth = 2,
-    option      = self._controls.resetOnRecordOption,
-    choices     = { "yes", "no" },
-    onUpdate    = function (choice)
+    option           = self._controls.resetOnRecordOption,
+    choices          = { "yes", "no" },
+    onUpdate         = function (choice)
       if choice == "yes" then
         self._controls.resetOnRecordGate:hardSet("Value", 1)
       else
@@ -678,6 +711,12 @@ function Sloop:onLoadMenu(objects, branches)
     end
   }
   menu[#menu + 1] = "resetOnRecord"
+
+
+  if self.sample then
+    self:setCreateBufferMenu(controls, menu)
+    self:setModifyBufferMenu(controls, menu)
+  end
 
   if self.sample then
     sub[#sub + 1] = {
