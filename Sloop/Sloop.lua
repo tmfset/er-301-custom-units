@@ -110,14 +110,14 @@ function Sloop:toggle(name)
 end
 
 -- A simple counter.
-function Sloop:newCounter(start, finish, stepSize, gain, name)
+function Sloop:newCounter(start, finish, stepSize, gain, name, default)
   local counter = self:createObject("Counter", name)
   counter:setOptionValue("Processing Rate", 2) -- Sample Rate
   counter:hardSet("Start", start)
   counter:hardSet("Finish", finish)
   counter:hardSet("Step Size", stepSize)
   counter:hardSet("Gain", gain)
-  counter:hardSet("Value", start)
+  counter:hardSet("Value", default)
   return counter
 end
 
@@ -235,6 +235,12 @@ function Sloop:createControl(type, name)
   return control
 end
 
+function Sloop:createGainBiasControl(name, default)
+  local control = self:createControl("GainBias", name)
+  control:hardSet("Bias", default)
+  return control
+end
+
 function Sloop:setInitialBuffer(channelCount)
   if self.sample then
     return
@@ -259,15 +265,18 @@ function Sloop:setInitialBuffer(channelCount)
   self:setSample(sample)
 end
 
-function Sloop:createComparatorControl(name, mode)
+function Sloop:createComparatorControl(name, mode, default)
   local gate = self:createObject("Comparator", name)
   gate:setMode(mode)
   self:createMonoBranch(name, gate, "In", gate, "Out")
+  if default ~= nil then
+    gate:setOptionValue("State", default)
+  end
   return gate
 end
 
-function Sloop:createToggleControl(name)
-  return self:createComparatorControl(name, 1)
+function Sloop:createToggleControl(name, default)
+  return self:createComparatorControl(name, 1, default)
 end
 
 function Sloop:createGateControl(name)
@@ -278,39 +287,124 @@ function Sloop:createTriggerControl(name)
   return self:createComparatorControl(name, 3)
 end
 
-function Sloop:createControls()
-  self._controls = {
-    length   = self:createControl("GainBias", "length"),
-    rLength  = self:createControl("GainBias", "rLength"),
-    clock    = self:createTriggerControl("clock"),
-    engage   = self:createToggleControl("engage"),
-    record   = self:createGateControl("record"),
-    reset    = self:createTriggerControl("reset"),
-    through  = self:createControl("GainBias", "through"),
-    feedback = self:createControl("GainBias", "feedback"),
-    fadeIn   = self:createControl("ParameterAdapter", "fadeIn"),
-    fadeOut  = self:createControl("ParameterAdapter", "fadeOut"),
+function Sloop:createConstantControl(name)
+  return self:createObject("Constant", name)
+end
 
-    resetOnDisengageGate   = self:createObject("Constant", "ResetOnDisengage"),
-    resetOnDisengageOption = app.Option("EnableResetOnDisengage"),
+local function pTie(left, right)
+  local untie = function (from, to)
+    if from:isTied() then
+      from:untie()
+      from:hardSet(to:value())
+    end
+  end
 
-    resetOnRecordGate      = self:createObject("Constant", "ResetOnRecord"),
-    resetOnRecordOption    = app.Option("EnableResetOnRecord"),
+  return {
+    bindLeft    = function () left:tie(right) end,
+    unbindLeft  = function () untie(left, right) end,
+    bindRight   = function () right:tie(left) end,
+    unbindRight = function () untie(right, left) end
+  }
+end
 
-    fixedRecordOption      = app.Option("EnableFixedRecordLength"),
+local function syncTieLeft(tie)
+  return function (option)
+    if option:value() == 1 then
+      tie.bindLeft()
+    else
+      tie.unbindLeft()
+    end
+  end
+end
 
-    continuousModeGate     = self:createObject("Constant", "ContinuousMode"),
-    continuousModeOption   = app.Option("EnableContinuousMode"),
-    continuousCount        = self:newCounter(1, config.maxSteps, 1, 1 / config.maxSteps, "ContinuousCount")
+local function syncTieSwap(tie)
+  return function (option)
+    if option:value() == 1 then
+      tie.unbindRight()
+      tie.bindLeft()
+    else
+      tie.unbindLeft()
+      tie.bindRight()
+    end
+  end
+end
+
+local function syncConstant(constant)
+  return function (option)
+    constant:hardSet("Value", 2 - option:value())
+  end
+end
+
+function Sloop:createOption(name, syncs, default)
+  local option = app.Option(name)
+
+  local sync = function ()
+    for _, sync in pairs(syncs) do
+      sync(option)
+    end
+  end
+
+  local set = function (value)
+    option:set(value)
+    sync()
+  end
+
+  local control = {
+    option = option,
+    value  = function () return option:value() end,
+    set    = set,
+    sync   = sync
   }
 
-  -- Turn on engage by default.
-  self._controls.engage:setOptionValue("State", config.startEngaged)
+  control.set(default)
+  return control
+end
 
-  self._controls.resetOnDisengageOption:set(config.defaultResetOnDisengage)
-  self._controls.resetOnRecordOption:set(config.defaultResetOnRecord)
-  self._controls.fixedRecordOption:set(config.defaultLengthMode)
-  self._controls.continuousModeOption:set(config.defaultMode)
+function Sloop:createControls()
+  self._controls = {
+    length           = self:createGainBiasControl("length", config.initialSteps),
+    rLength          = self:createGainBiasControl("rLength", config.initialSteps),
+
+    clock            = self:createTriggerControl("clock"),
+    engage           = self:createToggleControl("engage", config.startEngaged),
+    record           = self:createGateControl("record"),
+    reset            = self:createTriggerControl("reset"),
+    through          = self:createControl("GainBias", "through"),
+    feedback         = self:createControl("GainBias", "feedback"),
+    fadeIn           = self:createControl("ParameterAdapter", "fadeIn"),
+    fadeOut          = self:createControl("ParameterAdapter", "fadeOut"),
+
+    resetOnDisengage = self:createConstantControl("ResetOnDisengageGate"),
+    resetOnRecord    = self:createConstantControl("ResetOnRecordGate"),
+    continuousMode   = self:createConstantControl("ContinuousModeGate"),
+
+    continuousCount  = self:newCounter(1, config.maxSteps, 1, 1 / config.maxSteps, "ContinuousCount", config.initialSteps)
+  }
+
+  self._options = {
+    resetOnDisengage = self:createOption("ResetOnDisengageOption", {
+      syncConstant(self._controls.resetOnDisengage)
+    }, config.defaultResetOnDisengage),
+
+    resetOnRecord = self:createOption("ResetOnRecordOption", {
+      syncConstant(self._controls.resetOnRecord)
+    }, config.defaultResetOnRecord),
+
+    continuousMode = self:createOption("ContinuousModeOption", {
+      syncConstant(self._controls.continuousMode),
+      syncTieSwap(pTie(
+        self._controls.length:getParameter("Bias"),
+        self._controls.continuousCount:getParameter("Value")
+      ))
+    }, config.defaultMode),
+
+    fixedRecord = self:createOption("FixedRecordOption", {
+      syncTieLeft(pTie(
+        self._controls.rLength:getParameter("Bias"),
+        self._controls.length:getParameter("Bias")
+      ))
+    }, config.defaultLengthMode)
+  }
 
   return self._controls
 end
@@ -322,24 +416,24 @@ function Sloop:onLoadGraph(channelCount)
 
   local disengaged       = self:logicalNot(controls.engage, "Disengaged")
   local disengageSignal  = self:cTrig(disengaged, "DisengageSignal")
-  local resetOnDisengage = self:mult(disengageSignal, controls.resetOnDisengageGate, "ResetOnDisengageSignal")
+  local resetOnDisengage = self:mult(disengageSignal, controls.resetOnDisengage, "ResetOnDisengageSignal")
 
   local engaged      = self:clockGate(clock, controls.engage, resetOnDisengage, "Engaged")
   local engagedClock = self:mult(clock, controls.engage, "EngagedClock")
 
-  local punch     = self:clockCountGate(engagedClock, controls.rLength, controls.record, controls.continuousModeGate, "Punch")
+  local punch     = self:clockCountGate(engagedClock, controls.rLength, controls.record, controls.continuousMode, "Punch")
   local punchSlew = self:slew(punch.gate, controls.fadeIn, controls.fadeOut, "Punch")
 
-  local resetOnRecord    = self:logicalOr(controls.resetOnRecordGate, controls.continuousModeGate, "ResetOnRecord")
+  local resetOnRecord    = self:logicalOr(controls.resetOnRecord, controls.continuousMode, "ResetOnRecord")
   local resetByForceTrig = self:clockResetLatch(controls.reset, engagedClock, "ManualResetLatch")
 
   local reset = self:createObject("Mixer", "Reset", 5)
   self:addToMix(reset, 1, self:mult(resetOnRecord, punch.start, "ResetonRecordSignal"))
   self:addToMix(reset, 2, resetByForceTrig)
   self:addToMix(reset, 3, resetOnDisengage)
-  self:addToMix(reset, 4, self:mult(punch.stop, controls.continuousModeGate, "ContinuousReset"))
+  self:addToMix(reset, 4, self:mult(punch.stop, controls.continuousMode, "ContinuousReset"))
 
-  local continuousRecord    = self:mult(punch.gate, controls.continuousModeGate, "ContinuousRecord")
+  local continuousRecord    = self:mult(punch.gate, controls.continuousMode, "ContinuousRecord")
   local notContinuousRecord = self:logicalNot(continuousRecord, "NotContinuousRecord")
   local naturalEndOfCycle   = self:countDown(engagedClock, controls.length, reset, "NaturalEndOfCycle")
   self:addToMix(reset, 5, self:mult(notContinuousRecord, naturalEndOfCycle, "EndOfCycle"))
@@ -380,10 +474,6 @@ function Sloop:onLoadGraph(channelCount)
   end
 
   self:setInitialBuffer(channelCount)
-
-  -- Load our menu to get the options and gates in agreement.
-  self:showMenu(true)
-
 end
 
 function Sloop:easeIn(by, value, suffix)
@@ -623,57 +713,18 @@ function Sloop:onLoadMenu(objects, branches)
   controls.recordMode = OptionControl {
     description      = "Mode",
     descriptionWidth = 2,
-    option           = self._controls.continuousModeOption,
+    option           = self._options.continuousMode.option,
     choices          = { "continuous", "manual" },
-    onUpdate         = function (choice)
-      local length  = self._controls.length:getParameter("Bias")
-      local counter = self._controls.continuousCount:getParameter("Value")
-
-      local gate           = self._controls.continuousModeGate:getParameter("Value")
-      local wasContinuous  = gate:value() == 1
-      local wasManual      = not wasContinuous
-
-      if choice == "continuous" then
-        gate:hardSet(1)
-
-        if wasManual then
-          counter:untie()
-          counter:hardSet(length:value())
-        end
-
-        length:tie(counter)
-      end
-
-      if choice == "manual" then
-        gate:hardSet(0)
-
-        if wasContinuous then
-          length:untie()
-          length:hardSet(counter:value())
-        end
-
-        counter:tie(length)
-      end
-    end
+    onUpdate         = self._options.continuousMode.sync
   }
   menu[#menu + 1] = "recordMode"
 
   controls.recordLength = OptionControl {
     description      = "Length",
     descriptionWidth = 2,
-    option           = self._controls.fixedRecordOption,
+    option           = self._options.fixedRecord.option,
     choices          = { "locked", "free" },
-    onUpdate         = function (choice)
-      local loopLength = self._controls.length:getParameter("Bias")
-      local recordLength = self._controls.rLength:getParameter("Bias")
-
-      if choice == "locked" then
-        recordLength:tie(loopLength)
-      else
-        recordLength:hardSet(loopLength:value())
-        recordLength:untie()
-      end
-    end
+    onUpdate         = self._options.fixedRecord.sync
   }
   menu[#menu + 1] = "recordLength"
 
@@ -685,30 +736,18 @@ function Sloop:onLoadMenu(objects, branches)
   controls.resetOnDisengage = OptionControl {
     description      = "Disengage",
     descriptionWidth = 2,
-    option           = self._controls.resetOnDisengageOption,
+    option           = self._options.resetOnDisengage.option,
     choices          = { "yes", "no" },
-    onUpdate         = function (choice)
-      if choice == "yes" then
-        self._controls.resetOnDisengageGate:hardSet("Value", 1)
-      else
-        self._controls.resetOnDisengageGate:hardSet("Value", 0)
-      end
-    end
+    onUpdate         = self._options.resetOnDisengage.sync
   }
   menu[#menu + 1] = "resetOnDisengage"
 
   controls.resetOnRecord = OptionControl {
     description      = "Record",
     descriptionWidth = 2,
-    option           = self._controls.resetOnRecordOption,
+    option           = self._options.resetOnRecord.option,
     choices          = { "yes", "no" },
-    onUpdate         = function (choice)
-      if choice == "yes" then
-        self._controls.resetOnRecordGate:hardSet("Value", 1)
-      else
-        self._controls.resetOnRecordGate:hardSet("Value", 0)
-      end
-    end
+    onUpdate         = self._options.resetOnRecord.sync
   }
   menu[#menu + 1] = "resetOnRecord"
 
@@ -889,16 +928,24 @@ function Sloop:serialize()
     t.samplePosition = self.objects.head:getPosition()
   end
 
-  t.resetOnDisengage = self._controls.resetOnDisengageOption:value()
-  t.resetOnRecord    = self._controls.resetOnRecordOption:value()
-  t.enableFRecord    = self._controls.fixedRecordOption:value()
-  t.continuousMode   = self._controls.continuousModeOption:value()
+  t.resetOnDisengage = self._options.resetOnDisengage.value()
+  t.resetOnRecord    = self._options.resetOnRecord.value()
+  t.continuousMode   = self._options.continuousMode.value()
+  t.enableFRecord    = self._options.fixedRecord.value()
 
   return t
 end
 
 function Sloop:deserialize(t)
-  Unit.deserialize(self,t)
+  self._options.resetOnDisengage.set(t.resetOnDisengage)
+  self._options.resetOnRecord.set(t.resetOnRecord)
+  self._options.continuousMode.set(t.continuousMode)
+  self._options.fixedRecord.set(t.enableFRecord)
+
+  -- Deserialize the remaining values *after* setting the options to avoid
+  -- syncing issues due to parameter ties.
+  Unit.deserialize(self, t)
+
   if t.sample then
     local sample = SamplePool.deserializeSample(t.sample)
     if sample then
@@ -912,14 +959,6 @@ function Sloop:deserialize(t)
       Utils.pp(t.sample)
     end
   end
-
-  self._controls.resetOnDisengageOption:set(t.resetOnDisengage)
-  self._controls.resetOnRecordOption:set(t.resetOnRecord)
-  self._controls.fixedRecordOption:set(t.enableFRecord)
-  self._controls.continuousModeOption:set(t.continuousMode)
-
-  -- Reload our menu to get the options and gates in agreement.
-  self:showMenu(true)
 end
 
 function Sloop:onRemove()
