@@ -269,7 +269,7 @@ function Sloop:createComparatorControl(name, mode, default)
   local gate = self:createObject("Comparator", name)
   gate:setMode(mode)
   self:createMonoBranch(name, gate, "In", gate, "Out")
-  if default ~= nil then
+  if default then
     gate:setOptionValue("State", default)
   end
   return gate
@@ -345,7 +345,7 @@ function Sloop:createOption(name, syncs, default)
   end
 
   local set = function (value)
-    option:set(value)
+    option:set(value or default)
     sync()
   end
 
@@ -937,6 +937,8 @@ function Sloop:serialize()
 end
 
 function Sloop:deserialize(t)
+  -- We are not guaranteed to see our serialized values since a unit can be
+  -- replaced wholesale. Luckily the set function accounts for nil values.
   self._options.resetOnDisengage.set(t.resetOnDisengage)
   self._options.resetOnRecord.set(t.resetOnRecord)
   self._options.continuousMode.set(t.continuousMode)
