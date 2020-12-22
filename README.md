@@ -9,4 +9,5 @@ Name | Description
 **[SimpleSynth](SimpleSynth/README.md)** | A collection of **simple polyphonic synthesizer** units.
 **[Sloop!](Sloop/README.md)** | A versatile **clock synced looper**.
 **[Strike LPG](Strike/README.md)** | A utility **low pass gate**.
+**[Arc](Arc/README.md)** | The **AR envelope** used in the Strike unit.
 **[Curl](Curl/README.md)** | A utility **wave folder**.
