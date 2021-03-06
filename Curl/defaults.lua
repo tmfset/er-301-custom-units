@@ -4,7 +4,8 @@ return {
 
   -- Inital parameter values.
   initial = {
-    gain    = 0,
+    gain    = 1,
+    bias    = 0,
     limit   = 1,
     reflect = -1,
     wet     = 1

@@ -3,16 +3,6 @@ local app = app
 local Class = require "Base.Class"
 local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
-local Fader = require "Unit.ViewControl.Fader"
-local Gate = require "Unit.ViewControl.Gate"
-local Encoder = require "Encoder"
-local SamplePool = require "Sample.Pool"
-local RecordingView = require "builtins.Looper.RecordingView"
-local SamplePoolInterface = require "Sample.Pool.Interface"
-local OptionControl = require "Unit.MenuControl.OptionControl"
-local Task = require "Unit.MenuControl.Task"
-local MenuHeader = require "Unit.MenuControl.Header"
-local pool = require "Sample.Pool"
 local OutputScope = require "Unit.ViewControl.OutputScope"
 local ply = app.SECTION_PLY
 
@@ -90,6 +80,27 @@ function Curl:gainView()
   }
 end
 
+function Curl:biasControl()
+  return self:mControl("bias", function ()
+    return self:createObject("GainBias", "bias")
+  end)
+end
+
+function Curl:biasView()
+  local control = self:biasControl()
+
+  return GainBias {
+    button        = "bias",
+    description   = "Input Bias",
+    branch        = self:branch(control),
+    gainbias      = control,
+    range         = self:range(control),
+    biasMap       = createMap(-10, 10, 0.1, 0.01, 0.001, 0.001, 0.001),
+    biasUnits     = app.unitNone,
+    initialBias   = config.initial.bias
+  }
+end
+
 function Curl:limitControl()
   return self:mControl("limit", function ()
     return self:createControl("GainBias", "limit")
@@ -160,25 +171,27 @@ function Curl:mSignal(key, op)
   return self:memoize("signals", key, op)
 end
 
-function Curl:inputSignal()
-  return self:mSignal("input", function ()
-    local input = self:createObject("GainBias", "Input")
-    input:hardSet("Gain", 1)
-    connect(self, "In1", input, "In")
-    return input
+function Curl:leftInputSignal()
+  return self:mSignal("leftInput", function ()
+    local gain = self:createObject("Gain", "leftInput")
+    connect(self, "In1", gain, "In")
+    return gain
   end)
 end
 
-function Curl:inputWithGainSignal()
-  return self:mSignal("inputWithGain", function ()
-    local input = self:inputSignal()
-    local withGain = self:createObject("Gain", "InputWithGain")
-
-    connect(input, "Out", withGain, "In")
-    connect(self:gainControl(), "Out", withGain, "Gain")
-
-    return withGain
+function Curl:rightInputSignal()
+  return self:mSignal("rightInput", function ()
+    local gain = self:createObject("Gain", "rightInput")
+    connect(self, "In2", gain, "In")
+    return gain
   end)
+end
+
+function Curl:withGainBias(input)
+  return self:sum(
+    self:mult(input, self:gainControl()),
+    self:biasControl()
+  )
 end
 
 function Curl:mConst(value)
@@ -417,26 +430,39 @@ function Curl:reflectPoint()
   return self:mult(self:limitControl(), self:reflectControl())
 end
 
-function Curl:middleSignal()
-  return self:mSignal("middle", function ()
-    local input = self:inputWithGainSignal()
+function Curl:middleSignal(input)
+  local topThreshold = self:pRectify(self:reflectPoint())
+  local foldTop      = self:cFold(input, topThreshold, 1, 0)
 
-    local topThreshold = self:pRectify(self:reflectPoint())
-    local foldTop      = self:cFold(input, topThreshold, 1, 0)
+  local bottomThreshold = self:negate(topThreshold)
+  local foldBottom      = self:cFold(foldTop, bottomThreshold, 0, 1)
 
-    local bottomThreshold = self:negate(topThreshold)
-    local foldBottom      = self:cFold(foldTop, bottomThreshold, 0, 1)
-
-    return foldBottom
-  end)
+  return foldBottom
 end
 
-function Curl:topSignal()
-  return self:mSignal("top", function ()
-    return self:manyFold(
+function Curl:topSignal(input)
+  return self:manyFold(
+    self:pRectify(
+      self:sum(
+        input,
+        self:negate(self:pRectify(self:reflectPoint()))
+      )
+    ),
+    self:nRectify(self:reflectPoint()),
+    self:mult(
+      self:limitControl(),
+      self:logicalNot(self:pRectify(self:reflectPoint()))
+    ),
+    config.depth
+  )
+end
+
+function Curl:bottomSignal(input)
+  return self:negate(
+    self:manyFold(
       self:pRectify(
         self:sum(
-          self:inputWithGainSignal(),
+          self:negate(input),
           self:negate(self:pRectify(self:reflectPoint()))
         )
       ),
@@ -447,28 +473,7 @@ function Curl:topSignal()
       ),
       config.depth
     )
-  end)
-end
-
-function Curl:bottomSignal()
-  return self:mSignal("bottom", function ()
-    return self:negate(
-      self:manyFold(
-        self:pRectify(
-          self:sum(
-            self:negate(self:inputWithGainSignal()),
-            self:negate(self:pRectify(self:reflectPoint()))
-          )
-        ),
-        self:nRectify(self:reflectPoint()),
-        self:mult(
-          self:limitControl(),
-          self:logicalNot(self:pRectify(self:reflectPoint()))
-        ),
-        config.depth
-      )
-    )
-  end)
+  )
 end
 
 function Curl:xFade(a, b, fade)
@@ -479,32 +484,52 @@ function Curl:xFade(a, b, fade)
   return xFade
 end
 
+function Curl:sideSignal(input)
+  local withGb = self:withGainBias(input)
 
-function Curl:outputSignal()
-  local middle = self:middleSignal()
-  local top    = self:topSignal()
-  local bottom = self:bottomSignal()
+  local middle = self:middleSignal(withGb)
+  local top    = self:topSignal(withGb)
+  local bottom = self:bottomSignal(withGb)
 
-  local fold = self:sum(top, bottom)
-  local full = self:sum(middle, fold)
-  local limit = self:hardLimit(full, self:limitControl())
+  local topBottom  = self:sum(top, bottom)
+  
+  local filter = self:createObject("LadderFilter")
+  connect(topBottom, "Out", filter, "In")
+  local wetAdapt = self:adapt(self:wetControl(), 2000, 20)
+  tie(filter, "Fundamental", wetAdapt, "Out")
+  local full  = self:sum(middle, filter)
 
-  local xFade = self:xFade(limit, self:inputSignal(), self:wetControl())
-  return xFade
+  local xFade = self:xFade(full, input, self:wetControl())
+
+  return self:hardLimit(xFade, self:limitControl())
+end
+
+function Curl:leftOutputSignal()
+  return self:sideSignal(self:leftInputSignal())
+end
+
+function Curl:rightOutputSignal()
+  return self:sideSignal(self:rightInputSignal())
 end
 
 function Curl:onLoadGraph(channelCount)
-  local out = self:outputSignal()
-  connect(out, "Out", self, "Out1")
+  local left = self:leftOutputSignal()
+  connect(left, "Out", self, "Out1")
+
+  if channelCount > 1 then
+    local right = self:rightOutputSignal()
+    connect(right, "Out", self, "Out2")
+  end
 end
 
 function Curl:onLoadViews(objects, branches)
   local controls, views = {}, {
-    expanded  = { "gain", "limit", "reflect", "wet" },
+    expanded  = { "gain", "bias", "limit", "reflect", "wet" },
     collapsed = { "wet" },
 
-    gain    = { "wave2", "gain", "limit" },
-    limit   = { "wave2", "gain", "limit" },
+    gain    = { "wave3", "gain" },
+    bais    = { "wave3", "bias" },
+    limit   = { "wave3", "limit" },
     reflect = { "wave3", "reflect" },
     wet     = { "wave3", "wet" }
   }
@@ -520,6 +545,7 @@ function Curl:onLoadViews(objects, branches)
   }
 
   controls.gain    = self:gainView()
+  controls.bias    = self:biasView()
   controls.limit   = self:limitView()
   controls.reflect = self:reflectView()
   controls.wet     = self:wetView()
