@@ -18,6 +18,6 @@ namespace lojik {
 
     private:
       float mCurrent = 0.0f;
-      uint32_t mAllow = 1;
+      bool mCatch = true;
   };
 }

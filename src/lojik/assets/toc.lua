@@ -1,7 +1,9 @@
 return {
+  name    = "Lojik",
   title   = "Lojik",
+  keyword = "lojik",
   contact = "tomj.fiset@gmail.com",
-  keyword = "utility",
+  author  = "tomf",
   units   = {
     { category = "Gates" },
     { title = "Trig", moduleName = "Trig", keywords = "trig" },
@@ -11,6 +13,7 @@ return {
 
     { category = "Data" },
     { title = "Latch", moduleName = "Latch", keywords = "latch" },
-    { title = "DLatch", moduleName = "DLatch", keywords = "latch" }
+    { title = "DLatch", moduleName = "DLatch", keywords = "latch" },
+    { title = "Register", moduleName = "Register", keywords = "register" }
   }
 }

@@ -24,7 +24,7 @@ namespace lojik {
       float32x4_t l = vld1q_f32(left + i);
       float32x4_t r = vld1q_f32(right + i);
 
-      // Multiply and check if the result is non-zero.
+      // (l * r) > 0
       float32x4_t m = vmulq_f32(l, r);
       vst1q_f32(out + i, vcvtq_n_f32_u32(vcgtq_f32(m, zero), 32));
     }

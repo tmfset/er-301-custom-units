@@ -20,9 +20,9 @@ namespace lojik {
     uint32x4_t  uZero = vdupq_n_u32(0);
 
     for (int i = 0; i < FRAMELENGTH; i += 4) {
+      // 0 || !(v > 0)
       float32x4_t v = vld1q_f32(in + i);
-      uint32x4_t  c = vcgtq_f32(v, fZero);
-      uint32x4_t  n = vornq_u32(uZero, c);
+      uint32x4_t  n = vornq_u32(uZero, vcgtq_f32(v, fZero));
 
       vst1q_f32(out + i, vcvtq_n_f32_u32(n, 32));
     }
