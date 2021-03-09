@@ -18,24 +18,19 @@ namespace lojik {
     float *reset = mReset.buffer();
     float *out   = mOut.buffer();
 
-    float32x4_t fZero = vdupq_n_f32(0.0f);
+    float32x4_t zero = vdupq_n_f32(0.0f);
 
     for (int i = 0; i < FRAMELENGTH; i += 4) {
       float32x4_t s = vld1q_f32(set + i);
       float32x4_t r = vld1q_f32(reset + i);
 
       uint32_t sc[4], rc[4];
-      vst1q_u32(sc, vcgtq_f32(s, fZero));
-      vst1q_u32(rc, vcgtq_f32(r, fZero));
+      vst1q_u32(sc, vcgtq_f32(s, zero));
+      vst1q_u32(rc, vcgtq_f32(r, zero));
 
       for (int j = 0; j < 4; j++) {
-        if (rc[j]) {
-          mCurrent = 0.0f;
-        }
-
-        if (sc[j]) {
-          mCurrent = 1.0f;
-        }
+        if (rc[j]) mCurrent = 0.0f;
+        if (sc[j]) mCurrent = 1.0f;
 
         out[i + j] = mCurrent;
       }

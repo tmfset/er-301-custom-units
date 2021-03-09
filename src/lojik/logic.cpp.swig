@@ -11,6 +11,7 @@
 #include <Latch.h>
 #include <DLatch.h>
 #include <Trig.h>
+#include <Register.h>
 
 #define SWIGLUA
 
@@ -22,3 +23,4 @@
 %include <Latch.h>
 %include <DLatch.h>
 %include <Trig.h>
+%include <Register.h>
