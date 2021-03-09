@@ -1,12 +1,14 @@
 -- luacheck: globals app connect
 local app = app
+local core = require "core.libcore"
+local lib = require "sloop.libSloop"
 local Class = require "Base.Class"
 local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
 local Gate = require "Unit.ViewControl.Gate"
 local Encoder = require "Encoder"
 local SamplePool = require "Sample.Pool"
-local RecordingView = require "builtins.Looper.RecordingView"
+local RecordingView = require "core.Looper.RecordingView"
 local SamplePoolInterface = require "Sample.Pool.Interface"
 local OptionControl = require "Unit.MenuControl.OptionControl"
 local Task = require "Unit.MenuControl.Task"
@@ -16,7 +18,7 @@ local ply = app.SECTION_PLY
 
 local config = require "Sloop.defaults"
 
-local Sloop = Class{}
+local Sloop = Class {}
 Sloop:include(Unit)
 
 function Sloop:init(args)
@@ -31,7 +33,7 @@ function Sloop:mConst(value)
   self.constants = self.constants or {}
 
   if self.constants[value] == nil then
-    local const = self:createObject("Constant", "constant"..value)
+    local const = self:addObject("constant"..value, app.Constant())
     const:hardSet("Value", value)
 
     self.constants[value] = const
@@ -42,12 +44,12 @@ end
 
 function Sloop:addToMix(mix, index, input)
   connect(input, "Out", mix, "In"..index)
-  mix:hardSet("Gain"..index, 1)
+  -- mix:hardSet("Gain"..index, 1)
 end
 
 -- Add together two outputs.
 function Sloop:sum(left, right, suffix)
-  local sum = self:createObject("Sum", "sum"..suffix)
+  local sum = self:addObject("sum"..suffix, app.Sum())
   connect(left, "Out", sum, "Left")
   connect(right, "Out", sum, "Right")
   return sum
@@ -55,63 +57,77 @@ end
 
 -- Multiply two outputs.
 function Sloop:mult(left, right, suffix)
-  local mult = self:createObject("Multiply", "vca"..suffix)
+  local mult = self:addObject("vca"..suffix, app.Multiply())
   connect(left, "Out", mult, "Left")
   connect(right, "Out", mult, "Right")
   return mult
 end
 
 function Sloop:clip(input, name)
-  local clip = self:createObject("Clipper", name)
+  local clip = self:addObject(name, core.Clipper())
   connect(input, "Out", clip, "In")
   return clip
 end
 
 function Sloop:logicalAnd(left, right, suffix)
-  return self:mult(left, right, suffix)
+  -- return self:mult(left, right, suffix)
+  local op = self:addObject("And"..suffix, lib.And())
+  connect(left, "Out", op, "Left")
+  connect(right, "Out", op, "Right")
+  return op
 end
 
 function Sloop:logicalOr(left, right, suffix)
-  local sum = self:sum(left, right, "Or"..suffix)
-  return self:clip(sum, "LogicalOrClip"..suffix)
+  -- local sum = self:sum(left, right, "Or"..suffix)
+  -- return self:clip(sum, "LogicalOrClip"..suffix)
+  local op = self:addObject("Or"..suffix, lib.Or(2))
+  connect(left, "Out", op, "In1")
+  connect(right, "Out", op, "In2")
+  return op
 end
 
 function Sloop:logicalNot(input, suffix)
-  local gb = self:cGainBias(-1, 1, "Not"..suffix)
-  connect(input, "Out", gb, "In")
-  return gb
+  -- local gb = self:cGainBias(-1, 1, "Not"..suffix)
+  -- connect(input, "Out", gb, "In")
+  -- return gb
+  local op = self:addObject("Not"..suffix, lib.Not())
+  connect(input, "Out", op, "In")
+  return op
 end
 
 -- Constant gain bias.
 function Sloop:cGainBias(gain, bias, suffix)
-  local gb = self:createObject("GainBias", "gainBias"..suffix)
+  local gb = self:addObject("gainBias"..suffix, app.GainBias())
   gb:hardSet("Gain", gain)
   gb:hardSet("Bias", bias)
   return gb
 end
 
 function Sloop:cGate(input, suffix)
-  local gate = self:createObject("Comparator", "ConstantGate"..suffix)
+  local gate = self:addObject("ConstantGate"..suffix, app.Comparator())
   connect(input, "Out", gate, "In")
   gate:setGateMode()
   return gate
 end
 
 function Sloop:cTrig(input, suffix)
-  local trig = self:createObject("Comparator", "ConstantTrig"..suffix)
-  connect(input, "Out", trig, "In")
-  return trig
+  local op = self:addObject("Trig"..suffix, lib.Trig())
+  connect(input, "Out", op, "In")
+  return op
+  -- local trig = self:addObject("ConstantTrig"..suffix, app.Comparator())
+  -- connect(input, "Out", trig, "In")
+  -- return trig
 end
 
 function Sloop:toggle(name)
-  local gate = self:createObject("Comparator", name)
+  local gate = self:addObject(name, app.Comparator())
   gate:setToggleMode()
   return gate
 end
 
 -- A simple counter.
 function Sloop:newCounter(start, finish, stepSize, gain, name, default)
-  local counter = self:createObject("Counter", name)
+  local counter = self:addObject(name, core.Counter())
   counter:setOptionValue("Processing Rate", 2) -- Sample Rate
   counter:hardSet("Start", start)
   counter:hardSet("Finish", finish)
@@ -122,18 +138,25 @@ function Sloop:newCounter(start, finish, stepSize, gain, name, default)
 end
 
 function Sloop:latch(input, reset, suffix)
+  -- local name = function (str) return "Latch"..str..suffix end
+
+  -- local high = self:addObject(name("High"), core.Counter())
+  -- high:hardSet("Start", 0)
+  -- high:hardSet("Finish", 1)
+  -- high:hardSet("Step Size", 1)
+  -- high:hardSet("Gain", 1)
+  -- high:hardSet("Bias", 0)
+  -- high:setOptionValue("Processing Rate", 2) -- sample rate
+  -- high:setOptionValue("Wrap", 2) -- no
+
+  -- connect(input, "Out", high, "In")
+  -- connect(reset, "Out", high, "Reset")
+
+  -- return high
   local name = function (str) return "Latch"..str..suffix end
 
-  local high = self:createObject("Counter", name("High"))
-  high:hardSet("Start", 0)
-  high:hardSet("Finish", 1)
-  high:hardSet("Step Size", 1)
-  high:hardSet("Gain", 1)
-  high:hardSet("Bias", 0)
-  high:setOptionValue("Processing Rate", 2) -- sample rate
-  high:setOptionValue("Wrap", 2) -- no
-
-  connect(input, "Out", high, "In")
+  local high = self:addObject(name("High"), lib.Latch())
+  connect(input, "Out", high, "Set")
   connect(reset, "Out", high, "Reset")
 
   return high
@@ -143,7 +166,7 @@ end
 function Sloop:clockResetLatch(input, clock, suffix)
   local name = function (str) return "ClockLatch"..str..suffix end
 
-  local reset = self:createObject("Multiply", name("Reset"))
+  local reset = self:addObject(name("Reset"), app.Multiply())
   local latch = self:latch(input, reset, name("Latch"))
   connect(latch, "Out", reset, "Left")
   connect(clock, "Out", reset, "Right")
@@ -153,19 +176,27 @@ end
 
 -- A clocked gate. When `gate` is high, output goes high on the next clock
 -- tick. When `gate` is low, output goes low on the next clock tick.
-function Sloop:clockGate(clock, gate, forceReset, suffix)
-  local name = function (str) return "ClockGate"..str..suffix end
+function Sloop:clockGate(clock, gate, reset, suffix)
+  local name = function (str) return "DLatch"..str..suffix end
 
-  local input      = self:mult(clock, gate, name("Input"))
-  local invGate    = self:logicalNot(gate, name("InvGate"))
-  local clockReset = self:mult(clock, invGate, name("clockReset"))
-  local reset      = self:logicalOr(clockReset, forceReset, name("Reset"))
+  local latch = self:addObject(name("Latch"), lib.DLatch())
+  connect(gate, "Out", latch, "In")
+  connect(clock, "Out", latch, "Clock")
+  connect(reset, "Out", latch, "Reset")
 
-  return self:latch(input, reset, name("Latch"))
+  return latch
+  -- local name = function (str) return "ClockGate"..str..suffix end
+
+  -- local input      = self:logicalAnd(clock, gate, name("Input"))
+  -- local invGate    = self:logicalNot(gate, name("InvGate"))
+  -- local clockReset = self:logicalAnd(clock, invGate, name("clockReset"))
+  -- local reset      = self:logicalOr(clockReset, forceReset, name("Reset"))
+
+  -- return self:latch(input, reset, name("Latch"))
 end
 
 function Sloop:adapt(input, gain, bias, suffix)
-  local adapter = self:createObject("ParameterAdapter", "adapt"..suffix)
+  local adapter = self:addObject("adapt"..suffix, app.ParameterAdapter())
   adapter:hardSet("Gain", gain)
   adapter:hardSet("Bias", bias)
   connect(input, "Out", adapter, "In")
@@ -175,7 +206,7 @@ end
 function Sloop:countDownGate(clock, length, reset, suffix)
   local name = function (str) return "CountDownGate"..str..suffix end
 
-  local counter = self:createObject("Counter", name("Count"))
+  local counter = self:addObject(name("Count"), core.Counter())
   counter:setOptionValue("Processing Rate", 2) -- Sample Rate
   counter:hardSet("Start", 0)
   counter:hardSet("Step Size", -1)
@@ -186,7 +217,7 @@ function Sloop:countDownGate(clock, length, reset, suffix)
 
   local wait    = self:cGate(counter, name("Gate"))
   local stop    = self:logicalNot(wait, name("NotGate"))
-  local input   = self:mult(wait, clock, name("Input"))
+  local input   = self:logicalAnd(wait, clock, name("Input"))
 
   connect(input, "Out", counter, "In")
   connect(reset, "Out", counter, "Reset")
@@ -198,45 +229,43 @@ function Sloop:countDown(clock, length, reset, suffix)
   local name = function (str) return "CountDown"..str..suffix end
 
   local gate = self:countDownGate(clock, length, reset, name("Gate"))
-  return self:mult(clock, gate, name("Output"))
+  return self:logicalAnd(clock, gate, name("Output"))
 end
 
 function Sloop:clockCountGate(clock, length, gate, bypass, suffix)
   local name = function (str) return "ClockCountGate"..str..suffix end
 
   local notGate = self:logicalNot(gate, name("NotGate"))
-
-  local startTrig   = self:cTrig(gate, name("StartTrigger"))
-  local startSignal = self:clockResetLatch(startTrig, clock, name("StartSignal"))
+  local startSignal = self:clockResetLatch(gate, clock, name("StartSignal"))
 
   local countDownEnd  = self:countDownGate(clock, length, startSignal, name("CountDownEnd"))
   local counting = self:latch(startSignal, countDownEnd, name("Counting"))
   local notCounting = self:logicalNot(counting, name("NotCounting"))
   local notCountingBypass = self:logicalOr(notCounting, bypass, name("NotCountingBypass"))
 
-  local disabled = self:mult(notCountingBypass, notGate, name("Disabled"))
-  local stopSignal = self:mult(disabled, clock, name("StopSignal"))
+  local disabled = self:logicalAnd(notCountingBypass, notGate, name("Disabled"))
+  local stopSignal = self:logicalAnd(disabled, clock, name("StopSignal"))
 
   local output = self:latch(startSignal, stopSignal, name("Output"))
 
   return {
     start = startSignal,
     gate  = output,
-    last  = self:mult(output, disabled, name("Last")),
-    stop  = self:mult(output, stopSignal, name("ActualStop"))
+    last  = self:logicalAnd(output, disabled, name("Last")),
+    stop  = self:logicalAnd(output, stopSignal, name("ActualStop"))
   }
 end
 
-function Sloop:createControl(type, name)
-  local control = self:createObject(type, name)
-  local controlRange = self:createObject("MinMax", name.."Range")
+function Sloop:createControl(name, type)
+  local control = self:addObject(name, type)
+  local controlRange = self:addObject(name.."Range", app.MinMax())
   connect(control, "Out", controlRange, "In")
-  self:createMonoBranch(name, control, "In", control, "Out")
+  self:addMonoBranch(name, control, "In", control, "Out")
   return control
 end
 
 function Sloop:createGainBiasControl(name, default)
-  local control = self:createControl("GainBias", name)
+  local control = self:createControl(name, app.GainBias())
   control:hardSet("Bias", default)
   return control
 end
@@ -266,9 +295,9 @@ function Sloop:setInitialBuffer(channelCount)
 end
 
 function Sloop:createComparatorControl(name, mode, default)
-  local gate = self:createObject("Comparator", name)
+  local gate = self:addObject(name, app.Comparator())
   gate:setMode(mode)
-  self:createMonoBranch(name, gate, "In", gate, "Out")
+  self:addMonoBranch(name, gate, "In", gate, "Out")
   if default then
     gate:setOptionValue("State", default)
   end
@@ -288,7 +317,7 @@ function Sloop:createTriggerControl(name)
 end
 
 function Sloop:createConstantControl(name)
-  return self:createObject("Constant", name)
+  return self:addObject(name, app.Constant())
 end
 
 local function pTie(left, right)
@@ -345,7 +374,11 @@ function Sloop:createOption(name, syncs, default)
   end
 
   local set = function (value)
-    option:set(value or default)
+    -- if value ~= nil then
+    --   option:set(value)
+    -- elseif default ~= nil then
+    --   option:set(default)
+    -- end
     sync()
   end
 
@@ -369,10 +402,10 @@ function Sloop:createControls()
     engage           = self:createToggleControl("engage", config.startEngaged),
     record           = self:createGateControl("record"),
     reset            = self:createTriggerControl("reset"),
-    through          = self:createControl("GainBias", "through"),
-    feedback         = self:createControl("GainBias", "feedback"),
-    fadeIn           = self:createControl("ParameterAdapter", "fadeIn"),
-    fadeOut          = self:createControl("ParameterAdapter", "fadeOut"),
+    through          = self:createControl("through", app.GainBias()),
+    feedback         = self:createControl("feedback", app.GainBias()),
+    fadeIn           = self:createControl("fadeIn", app.ParameterAdapter()),
+    fadeOut          = self:createControl("fadeOut", app.ParameterAdapter()),
 
     resetOnDisengage = self:createConstantControl("ResetOnDisengageGate"),
     resetOnRecord    = self:createConstantControl("ResetOnRecordGate"),
@@ -415,11 +448,10 @@ function Sloop:onLoadGraph(channelCount)
   local clock = self:cTrig(controls.clock, "ClockTrigger")
 
   local disengaged       = self:logicalNot(controls.engage, "Disengaged")
-  local disengageSignal  = self:cTrig(disengaged, "DisengageSignal")
-  local resetOnDisengage = self:mult(disengageSignal, controls.resetOnDisengage, "ResetOnDisengageSignal")
+  local resetOnDisengage = self:logicalAnd(disengaged, controls.resetOnDisengage, "ResetOnDisengageSignal")
 
   local engaged      = self:clockGate(clock, controls.engage, resetOnDisengage, "Engaged")
-  local engagedClock = self:mult(clock, controls.engage, "EngagedClock")
+  local engagedClock = self:logicalAnd(clock, controls.engage, "EngagedClock")
 
   local punch     = self:clockCountGate(engagedClock, controls.rLength, controls.record, controls.continuousMode, "Punch")
   local punchSlew = self:slew(punch.gate, controls.fadeIn, controls.fadeOut, "Punch")
@@ -427,22 +459,22 @@ function Sloop:onLoadGraph(channelCount)
   local resetOnRecord    = self:logicalOr(controls.resetOnRecord, controls.continuousMode, "ResetOnRecord")
   local resetByForceTrig = self:clockResetLatch(controls.reset, engagedClock, "ManualResetLatch")
 
-  local reset = self:createObject("Mixer", "Reset", 5)
-  self:addToMix(reset, 1, self:mult(resetOnRecord, punch.start, "ResetonRecordSignal"))
+  local reset = self:addObject("Reset", lib.Or(5))
+  self:addToMix(reset, 1, self:logicalAnd(resetOnRecord, punch.start, "ResetonRecordSignal"))
   self:addToMix(reset, 2, resetByForceTrig)
   self:addToMix(reset, 3, resetOnDisengage)
-  self:addToMix(reset, 4, self:mult(punch.stop, controls.continuousMode, "ContinuousReset"))
+  self:addToMix(reset, 4, self:logicalAnd(punch.stop, controls.continuousMode, "ContinuousReset"))
 
-  local continuousRecord    = self:mult(punch.gate, controls.continuousMode, "ContinuousRecord")
+  local continuousRecord    = self:logicalAnd(punch.gate, controls.continuousMode, "ContinuousRecord")
   local notContinuousRecord = self:logicalNot(continuousRecord, "NotContinuousRecord")
   local naturalEndOfCycle   = self:countDown(engagedClock, controls.length, reset, "NaturalEndOfCycle")
-  self:addToMix(reset, 5, self:mult(notContinuousRecord, naturalEndOfCycle, "EndOfCycle"))
+  self:addToMix(reset, 5, self:logicalAnd(notContinuousRecord, naturalEndOfCycle, "EndOfCycle"))
 
   local continuousInc   = self:latch(punch.start, punch.last, "ContinuousInc")
-  local continuousClock = self:mult(continuousInc, engagedClock, "ContinuousClock")
+  local continuousClock = self:logicalAnd(continuousInc, engagedClock, "ContinuousClock")
   connect(continuousClock, "Out", controls.continuousCount, "In")
 
-  local resetContinuous = self:mult(continuousRecord, reset, "ResetContinuous")
+  local resetContinuous = self:logicalAnd(continuousRecord, reset, "ResetContinuous")
   connect(resetContinuous, "Out", controls.continuousCount, "Reset")
 
   local easedFeedback = self:easeIn(punchSlew, controls.feedback, "EasedFeedback")
@@ -488,12 +520,12 @@ end
 function Sloop:slew(input, fadeIn, fadeOut, suffix)
   local name = function (str) return "Slew"..str..suffix end
 
-  local slewIn = self:createObject("SlewLimiter", name("In"))
+  local slewIn = self:addObject(name("In"), core.SlewLimiter())
   slewIn:setOptionValue("Direction", 1) -- Up
   tie(slewIn, "Time", fadeIn, "Out")
   connect(input, "Out", slewIn, "In")
 
-  local slewOut = self:createObject("SlewLimiter", name("Out"))
+  local slewOut = self:addObject(name("Out"), core.SlewLimiter())
   slewOut:setOptionValue("Direction", 3) -- Down
   tie(slewOut, "Time", fadeOut, "Out")
   connect(slewIn, "Out", slewOut, "In")
@@ -502,19 +534,19 @@ function Sloop:slew(input, fadeIn, fadeOut, suffix)
 end
 
 function Sloop:looper(channelCount, args)
-  local head = self:createObject("FeedbackLooper", "head", channelCount)
+  local head = self:addObject("head", core.FeedbackLooper(channelCount))
   connect(args.feedback, "Out", head, "Feedback")
   connect(args.engage,   "Out", head, "Engage")
   connect(args.reset,    "Out", head, "Reset")
   connect(args.record,   "Out", head, "Punch")
 
-  local inputLeft = self:createObject("Multiply", "InputLeft")
+  local inputLeft = self:addObject("InputLeft", app.Multiply())
   connect(self,        "In1", inputLeft, "Left")
   connect(args.record, "Out", inputLeft, "Right")
   connect(inputLeft,   "Out", head,      "Left In")
 
   if channelCount > 1 then
-    local inputRight = self:createObject("Multiply", "InputRight")
+    local inputRight = self:addObject("InputRight", app.Multiply())
     connect(self,        "In2", inputRight, "Left")
     connect(args.record, "Out", inputRight, "Right")
     connect(inputRight,  "Out", head,       "Right In")
@@ -526,11 +558,11 @@ end
 function Sloop:output(suffix, channel, args)
   local name = function (str) return str..suffix end
 
-  local dry = self:createObject("Multiply", name("Dry"))
+  local dry = self:addObject(name("Dry"), app.Multiply())
   connect(self,         "In"..channel, dry, "Left")
   connect(args.duckDry, "Out",         dry, "Right")
 
-  local mix = self:createObject("Sum", name("Mix"))
+  local mix = self:addObject(name("Mix"), app.Sum())
   connect(dry,     "Out",           mix,  "Left")
   connect(args.wet, args.wetOutlet, mix,  "Right")
   connect(mix,     "Out",           self, "Out"..channel)
@@ -691,7 +723,7 @@ function Sloop:setModifyBufferMenu(controls, menu)
   menu[#menu + 1] = "zeroBuffer"
 end
 
-function Sloop:onLoadMenu(objects, branches)
+function Sloop:onShowMenu(objects, branches)
   local controls, sub, menu = {}, {}, {}
 
   controls.bufferDescription = MenuHeader {
@@ -937,30 +969,30 @@ function Sloop:serialize()
 end
 
 function Sloop:deserialize(t)
-  -- We are not guaranteed to see our serialized values since a unit can be
-  -- replaced wholesale. Luckily the set function accounts for nil values.
-  self._options.resetOnDisengage.set(t.resetOnDisengage)
-  self._options.resetOnRecord.set(t.resetOnRecord)
-  self._options.continuousMode.set(t.continuousMode)
-  self._options.fixedRecord.set(t.enableFRecord)
+  -- -- We are not guaranteed to see our serialized values since a unit can be
+  -- -- replaced wholesale. Luckily the set function accounts for nil values.
+  -- self._options.resetOnDisengage.set(t.resetOnDisengage)
+  -- self._options.resetOnRecord.set(t.resetOnRecord)
+  -- self._options.continuousMode.set(t.continuousMode)
+  -- self._options.fixedRecord.set(t.enableFRecord)
 
-  -- Deserialize the remaining values *after* setting the options to avoid
-  -- syncing issues due to parameter ties.
-  Unit.deserialize(self, t)
+  -- -- Deserialize the remaining values *after* setting the options to avoid
+  -- -- syncing issues due to parameter ties.
+  -- Unit.deserialize(self, t)
 
-  if t.sample then
-    local sample = SamplePool.deserializeSample(t.sample)
-    if sample then
-      self:setSample(sample)
-      if t.samplePosition then
-        self.objects.head:setPosition(t.samplePosition)
-      end
-    else
-      local Utils = require "Utils"
-      app.log("%s:deserialize: failed to load sample.",self)
-      Utils.pp(t.sample)
-    end
-  end
+  -- if t.sample then
+  --   local sample = SamplePool.deserializeSample(t.sample)
+  --   if sample then
+  --     self:setSample(sample)
+  --     if t.samplePosition then
+  --       self.objects.head:setPosition(t.samplePosition)
+  --     end
+  --   else
+  --     local Utils = require "Utils"
+  --     app.log("%s:deserialize: failed to load sample.",self)
+  --     Utils.pp(t.sample)
+  --   end
+  -- end
 end
 
 function Sloop:onRemove()
