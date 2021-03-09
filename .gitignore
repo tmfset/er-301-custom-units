@@ -1,1 +1,6 @@
 .vscode/
+testing/
+debug/
+release/
+
+.DS_Store
