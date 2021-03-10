@@ -21,20 +21,24 @@ function And:onLoadGraph(channelCount)
   end
 end
 
-function And:loadMonoGraph()
-  local left = self:addObject("left", app.Comparator())
-  left:setToggleMode()
-  self:addMonoBranch("left", left, "In", left, "Out")
+function And:addComparator(name, mode, default)
+  local gate = self:addObject(name, app.Comparator())
+  gate:setMode(mode)
+  self:addMonoBranch(name, gate, "In", gate, "Out")
+  if default then
+    gate:setOptionValue("State", default)
+  end
+  return gate
+end
 
-  local right = self:addObject("right", app.Comparator())
-  right:setToggleMode()
-  self:addMonoBranch("right", right, "In", right, "Out")
+function And:loadMonoGraph()
+  local left  = self:addComparator("left", app.COMPARATOR_GATE, 0)
+  local right = self:addComparator("right", app.COMPARATOR_GATE, 0)
 
   local op = self:addObject("op", lojik.And())
-  connect(left,  "Out", op, "Left")
-  connect(right, "Out", op, "Right")
-
-  connect(op, "Out", self, "Out1")
+  connect(left,  "Out", op,   "Left")
+  connect(right, "Out", op,   "Right")
+  connect(op,    "Out", self, "Out1")
 end
 
 function And:loadStereoGraph()

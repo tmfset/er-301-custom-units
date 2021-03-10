@@ -22,19 +22,13 @@ function Or:onLoadGraph(channelCount)
 end
 
 function Or:loadMonoGraph()
-  local left = self:addObject("left", app.Comparator())
-  left:setToggleMode()
-  self:addMonoBranch("left", left, "In", left, "Out")
-
-  local right = self:addObject("right", app.Comparator())
-  right:setToggleMode()
-  self:addMonoBranch("right", right, "In", right, "Out")
+  local left  = self:addComparator("left", app.COMPARATOR_GATE, 0)
+  local right = self:addComparator("right", app.COMPARATOR_GATE, 0)
 
   local op = self:addObject("op", lojik.Or())
-  connect(left,  "Out", op, "Left")
-  connect(right, "Out", op, "Right")
-
-  connect(op, "Out", self, "Out1")
+  connect(left,  "Out", op,   "Left")
+  connect(right, "Out", op,   "Right")
+  connect(op,    "Out", self, "Out1")
 end
 
 function Or:loadStereoGraph()

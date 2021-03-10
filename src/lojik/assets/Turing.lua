@@ -1,21 +1,24 @@
 local app = app
 local lojik = require "lojik.liblojik"
+local core = require "core.libcore"
 local Class = require "Base.Class"
 local Unit = require "Unit"
 local Encoder = require "Encoder"
 local Gate = require "Unit.ViewControl.Gate"
 local GainBias = require "Unit.ViewControl.GainBias"
+local PitchCircle = require "core.Quantizer.PitchCircle"
+local ply = app.SECTION_PLY
 
-local Register = Class {}
-Register:include(Unit)
+local Turing = Class {}
+Turing:include(Unit)
 
-function Register:init(args)
-  args.title = "Register"
-  args.mnemonic = "R"
+function Turing:init(args)
+  args.title = "Turing"
+  args.mnemonic = "TM"
   Unit.init(self, args)
 end
 
-function Register:onLoadGraph(channelCount)
+function Turing:onLoadGraph(channelCount)
   if channelCount == 2 then
     self:loadStereoGraph()
   else
@@ -23,7 +26,7 @@ function Register:onLoadGraph(channelCount)
   end
 end
 
-function Register:addGainBias(name)
+function Turing:addGainBias(name)
   local gb    = self:addObject(name, app.GainBias());
   local range = self:addObject(name.."Range", app.MinMax())
   connect(gb, "Out", range, "In")
@@ -31,7 +34,7 @@ function Register:addGainBias(name)
   return gb;
 end
 
-function Register:addComparator(name, mode, default)
+function Turing:addComparator(name, mode, default)
   local gate = self:addObject(name, app.Comparator())
   gate:setMode(mode)
   self:addMonoBranch(name, gate, "In", gate, "Out")
@@ -41,7 +44,7 @@ function Register:addComparator(name, mode, default)
   return gate
 end
 
-function Register:loadMonoGraph()
+function Turing:loadMonoGraph()
   local step    = self:addComparator("step",  app.COMPARATOR_TRIGGER_ON_RISE, 0)
   local write   = self:addComparator("write", app.COMPARATOR_TOGGLE, 0)
   local length  = self:addGainBias("length")
@@ -62,16 +65,17 @@ function Register:loadMonoGraph()
   connect(gain,    "Out", register, "Gain")
   connect(scatter, "Out", register, "Scatter")
 
-  connect(self, "In1", register, "In")
-  connect(register, "Out", self, "Out1")
+  local quantizer = self:addObject("quantizer", core.ScaleQuantizer())
+  connect(register,  "Out", quantizer, "In")
+  connect(quantizer, "Out", self,      "Out1")
 end
 
-function Register:loadStereoGraph()
+function Turing:loadStereoGraph()
   self:loadMonoGraph()
-  connect(self.objects.register, "Out", self, "Out2")
+  connect(self.objects.quantizer, "Out", self, "Out2")
 end
 
-function Register:makeGateViewF(objects, branches)
+function Turing:makeGateViewF(objects, branches)
   return function (name, description)
     return Gate {
       button      = name,
@@ -82,12 +86,12 @@ function Register:makeGateViewF(objects, branches)
   end
 end
 
-function Register:onLoadViews(objects, branches)
+function Turing:onLoadViews(objects, branches)
   local views = {
-    expanded  = { "step", "write", "length", "gain" },
+    expanded  = { "step", "write", "length", "scale" },
     step      = { "step", "shift", "reset" },
     write     = { "write", "gain", "scatter" },
-    collapsed = { "length" }
+    collapsed = { "scale" }
   }
 
   local makeGateView = self:makeGateViewF(objects, branches)
@@ -113,8 +117,8 @@ function Register:onLoadViews(objects, branches)
     branch        = branches.length,
     gainbias      = objects.length,
     range         = objects.lengthRange,
-    gainMap       = intMap(-64, 64),
-    biasMap       = intMap(1, 64),
+    gainMap       = intMap(-16, 16),
+    biasMap       = intMap(1, 16),
     biasPrecision = 0,
     initialBias   = 4
   }
@@ -127,11 +131,17 @@ function Register:onLoadViews(objects, branches)
     range         = objects.gainRange,
     biasMap       = Encoder.getMap("[0,1]"),
     biasUnits     = app.unitNone,
-    biasPrecision = 2,
-    initialBias   = 1
+    biasPrecision = 3,
+    initialBias   = 0.125
+  }
+
+  controls.scale = PitchCircle {
+    name      = "scale",
+    width     = 2 * ply,
+    quantizer = objects.quantizer
   }
 
   return controls, views
 end
 
-return Register
+return Turing

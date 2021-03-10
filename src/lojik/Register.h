@@ -29,6 +29,8 @@ namespace lojik {
       bool mWait = false;
 
       int32_t index(int32_t limit);
+      int32_t clamp(int32_t value);
+
       void step(int32_t limit);
       void shift(int32_t limit);
       void reset();
