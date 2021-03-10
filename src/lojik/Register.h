@@ -28,12 +28,12 @@ namespace lojik {
 
       bool mWait = false;
 
-      uint32_t index(uint32_t limit);
-      void step(uint32_t limit);
-      void shift(uint32_t limit);
+      int32_t index(int32_t limit);
+      void step(int32_t limit);
+      void shift(int32_t limit);
       void reset();
 
-      uint32_t mStepCount  = 0;
-      uint32_t mShiftCount = 0;
+      int32_t mStepCount  = 0;
+      int32_t mShiftCount = 0;
   };
 }

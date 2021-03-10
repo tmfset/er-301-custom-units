@@ -35,51 +35,61 @@ namespace lojik {
     float *scatter    = mScatter.buffer();
     float *gain       = mGain.buffer();
 
-    for (int i = 0; i < FRAMELENGTH; i ++) {
-      uint32_t limit = 4;//CLAMP(1, 128, static_cast<int>(length[i]));
+    float32x4_t fZero = vdupq_n_f32(0);
 
-      bool isClockHigh   = clock[i]   > 0.0f;
-      bool isCaptureHigh = capture[i] > 0.0f;
-      bool isShiftHigh   = shift[i]   > 0.0f;
-      bool isResetHigh   = reset[i]   > 0.0f;
-      bool isScatterHigh = scatter[i] > 0.0f;
+    for (int i = 0; i < FRAMELENGTH; i += 4) {
+      float32x4_t vLength  = vld1q_f32(length + i);
+      float32x4_t vClock   = vld1q_f32(clock + i);
+      float32x4_t vCapture = vld1q_f32(capture + i);
+      float32x4_t vShift   = vld1q_f32(shift + i);
+      float32x4_t vReset   = vld1q_f32(reset + i);
+      float32x4_t vScatter = vld1q_f32(scatter + i);
 
-      if (!isClockHigh) mWait = false;
+      int32x4_t  uLength       = vcvtq_s32_f32(vLength);
+      uint32x4_t isClockHigh   = vcgtq_f32(vClock,   fZero);
+      uint32x4_t isCaptureHigh = vcgtq_f32(vCapture, fZero);
+      uint32x4_t isShiftHigh   = vcgtq_f32(vShift,   fZero);
+      uint32x4_t isResetHigh   = vcgtq_f32(vReset,   fZero);
+      uint32x4_t isScatterHigh = vcgtq_f32(vScatter, fZero);
 
-      bool isTrigger = !mWait && isClockHigh;
+      for (int j = 0; j < 4; j++) {
+        if (!isClockHigh[j]) mWait = false;
+        bool isTrigger = !mWait && isClockHigh[j];
 
-      if (isTrigger) {
-        mWait = true;
+        int32_t limit = CLAMP(1, 128, uLength[j]);
 
-        if (isShiftHigh) this->shift(limit); else this->step(limit);
-        if (isResetHigh) this->reset();
-      }
+        if (isTrigger) {
+          mWait = true;
+          if (isShiftHigh[j]) this->shift(limit); else this->step(limit);
+          if (isResetHigh[j]) this->reset();
+        }
 
-      uint32_t index = this->index(limit);
+        uint32_t index = this->index(limit);
 
-      if (isTrigger) {
-        if (isCaptureHigh) {
-          if (isScatterHigh) {
-            mData[index] = od::Random::generateFloat(-1.0f, 1.0f) * gain[i];
-          } else {
-            mData[index] = in[i] * gain[i];
+        if (isTrigger) {
+          if (isCaptureHigh[j]) {
+            if (isScatterHigh[j]) {
+              mData[index] = od::Random::generateFloat(-1.0f, 1.0f) * gain[i];
+            } else {
+              mData[index] = in[i] * gain[i];
+            }
           }
         }
-      }
 
-      out[i] = mData[index];
+        out[i + j] = mData[index];
+      }
     }
   }
 
-  inline uint32_t Register::index(uint32_t limit) {
+  inline int32_t Register::index(int32_t limit) {
     return (mStepCount + mShiftCount) % limit;
   }
 
-  inline void Register::step(uint32_t limit) {
+  inline void Register::step(int32_t limit) {
     mStepCount = (mStepCount + 1) % limit;
   }
 
-  inline void Register::shift(uint32_t limit) {
+  inline void Register::shift(int32_t limit) {
     mShiftCount = (mShiftCount + 1) % limit;
   }
 
