@@ -38,25 +38,21 @@ namespace lojik {
     float32x4_t fZero = vdupq_n_f32(0);
 
     for (int i = 0; i < FRAMELENGTH; i += 4) {
-      float32x4_t vLength  = vld1q_f32(length + i);
-      float32x4_t vClock   = vld1q_f32(clock + i);
-      float32x4_t vCapture = vld1q_f32(capture + i);
-      float32x4_t vShift   = vld1q_f32(shift + i);
-      float32x4_t vReset   = vld1q_f32(reset + i);
-      float32x4_t vScatter = vld1q_f32(scatter + i);
+      int32_t iLength[4];
+      uint32_t isClockHigh[4], isCaptureHigh[4], isShiftHigh[4], isResetHigh[4], isScatterHigh[4];
 
-      int32x4_t  uLength       = vcvtq_s32_f32(vLength);
-      uint32x4_t isClockHigh   = vcgtq_f32(vClock,   fZero);
-      uint32x4_t isCaptureHigh = vcgtq_f32(vCapture, fZero);
-      uint32x4_t isShiftHigh   = vcgtq_f32(vShift,   fZero);
-      uint32x4_t isResetHigh   = vcgtq_f32(vReset,   fZero);
-      uint32x4_t isScatterHigh = vcgtq_f32(vScatter, fZero);
+      vst1q_s32(iLength,       vcvtq_s32_f32(vld1q_f32(length + i)));
+      vst1q_u32(isClockHigh,   vcgtq_f32(vld1q_f32(clock   + i), fZero));
+      vst1q_u32(isCaptureHigh, vcgtq_f32(vld1q_f32(capture + i), fZero));
+      vst1q_u32(isShiftHigh,   vcgtq_f32(vld1q_f32(shift   + i), fZero));
+      vst1q_u32(isResetHigh,   vcgtq_f32(vld1q_f32(reset   + i), fZero));
+      vst1q_u32(isScatterHigh, vcgtq_f32(vld1q_f32(scatter + i), fZero));
 
       for (int j = 0; j < 4; j++) {
         if (!isClockHigh[j]) mWait = false;
         bool isTrigger = !mWait && isClockHigh[j];
 
-        int32_t limit = CLAMP(1, 128, uLength[j]);
+        int32_t limit  = this->clamp(iLength[j]);
 
         if (isTrigger) {
           mWait = true;
@@ -69,9 +65,9 @@ namespace lojik {
         if (isTrigger) {
           if (isCaptureHigh[j]) {
             if (isScatterHigh[j]) {
-              mData[index] = od::Random::generateFloat(-1.0f, 1.0f) * gain[i];
+              mData[index] = od::Random::generateFloat(-1.0f, 1.0f) * gain[i + j];
             } else {
-              mData[index] = in[i] * gain[i];
+              mData[index] = in[i + j] * gain[i + j];
             }
           }
         }
@@ -95,5 +91,11 @@ namespace lojik {
 
   inline void Register::reset() {
     mStepCount = 0;
+  }
+
+  inline int32_t Register::clamp(int32_t value) {
+    if (value > 128) return 128;
+    if (value < 1) return 1;
+    return value;
   }
 }

@@ -21,21 +21,23 @@ function Latch:onLoadGraph(channelCount)
   end
 end
 
-function Latch:loadMonoGraph()
-  local set = self:addObject("set", app.Comparator())
-  set:setGateMode()
+function Latch:addComparator(name, mode, default)
+  local gate = self:addObject(name, app.Comparator())
+  gate:setMode(mode)
+  self:addMonoBranch(name, gate, "In", gate, "Out")
+  if default then
+    gate:setOptionValue("State", default)
+  end
+  return gate
+end
 
-  local reset = self:addObject("reset", app.Comparator())
-  reset:setGateMode()
+function Latch:loadMonoGraph()
+  local set   = self:addComparator("set", app.COMPARATOR_TRIGGER_ON_RISE, 0)
+  local reset = self:addComparator("reset",  app.COMPARATOR_TRIGGER_ON_RISE, 0)
 
   local latch = self:addObject("latch", lojik.Latch())
-
-  connect(set, "Out", latch, "Set")
+  connect(set,   "Out", latch, "Set")
   connect(reset, "Out", latch, "Reset")
-
-  self:addMonoBranch("set", set, "In", set, "Out")
-  self:addMonoBranch("reset", reset, "In", reset, "Out")
-
   connect(latch, "Out", self, "Out1")
 end
 
@@ -45,10 +47,7 @@ function Latch:loadStereoGraph()
 end
 
 local views = {
-  expanded = {
-    "set",
-    "reset"
-  },
+  expanded = { "set", "reset" },
   collapsed = {}
 }
 
