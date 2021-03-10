@@ -18,6 +18,9 @@ namespace lojik {
     addInput(mGain);
 
     mData = new float[128];
+    for (int i = 0; i < 128; i++) {
+      mData[i] = 0.0f;
+    }
   }
 
   Register::~Register() {
