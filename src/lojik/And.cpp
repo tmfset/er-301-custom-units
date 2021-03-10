@@ -18,8 +18,8 @@ namespace lojik {
     float *right = mRight.buffer();
     float *out   = mOut.buffer();
 
-    uint32x4_t fZero = vdupq_n_f32(0);
-    uint32x4_t uZero = vdupq_n_u32(0);
+    float32x4_t fZero = vdupq_n_f32(0);
+    uint32x4_t  uZero = vdupq_n_u32(0);
 
     for (int i = 0; i < FRAMELENGTH; i += 4) {
       float32x4_t l = vld1q_f32(left + i);
@@ -29,8 +29,8 @@ namespace lojik {
       uint32x4_t rc = vcgtq_f32(r, fZero);
 
       // (l * r) > 0
-      float32x4_t land = vcgtq_u32(vmulq_u32(lc, rc), uZero);
-      vst1q_f32(out + i, vcvtq_n_f32_u32(land, 32));
+      uint32x4_t _and = vcgtq_u32(vmulq_u32(lc, rc), uZero);
+      vst1q_f32(out + i, vcvtq_n_f32_u32(_and, 32));
     }
   }
 }

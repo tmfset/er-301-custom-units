@@ -42,28 +42,22 @@ function Register:addComparator(name, mode, default)
 end
 
 function Register:loadMonoGraph()
-  local length   = self:addGainBias("length")
-  local origin   = self:addComparator("origin",  app.COMPARATOR_GATE, 0)
-  local capture  = self:addComparator("capture", app.COMPARATOR_GATE, 0)
-  local shift    = self:addComparator("shift",   app.COMPARATOR_GATE, 0)
-  local step     = self:addComparator("step",    app.COMPARATOR_GATE, 0)
-  local zero     = self:addComparator("zero",    app.COMPARATOR_GATE, 0)
-  local zeroAll  = self:addComparator("zeroAll", app.COMPARATOR_GATE, 0)
-  local rand     = self:addComparator("rand",    app.COMPARATOR_GATE, 0)
-  local randAll  = self:addComparator("randAll", app.COMPARATOR_GATE, 0)
-  local randGain = self:addGainBias("randGain")
+  local length  = self:addGainBias("length")
+  local clock   = self:addComparator("clock",   app.COMPARATOR_GATE, 0)
+  local capture = self:addComparator("capture", app.COMPARATOR_TOGGLE, 0)
+  local shift   = self:addComparator("shift",   app.COMPARATOR_TOGGLE, 0)
+  local reset   = self:addComparator("reset",   app.COMPARATOR_TOGGLE, 0)
+  local scatter = self:addComparator("scatter", app.COMPARATOR_TOGGLE, 0)
+  local gain    = self:addGainBias("gain")
 
   local register = self:addObject("register", lojik.Register())
-  connect(length,  "Out",  register, "Length")
-  connect(origin,  "Out",  register, "Origin")
-  connect(capture, "Out",  register, "Capture")
-  connect(shift,   "Out",  register, "Shift")
-  connect(step,    "Out",  register, "Step")
-  connect(zero,    "Out",  register, "Zero")
-  connect(zeroAll, "Out",  register, "ZeroAll")
-  connect(rand,    "Out",  register, "Randomize")
-  connect(randAll, "Out",  register, "RandomizeAll")
-  connect(randGain, "Out", register, "RandomizeGain")
+  connect(length,  "Out", register, "Length")
+  connect(clock,   "Out", register, "Clock")
+  connect(capture, "Out", register, "Capture")
+  connect(shift,   "Out", register, "Shift")
+  connect(reset,   "Out", register, "Reset")
+  connect(scatter, "Out", register, "Scatter")
+  connect(gain,    "Out", register, "Gain")
 
   connect(self, "In1", register, "In")
   connect(register, "Out", self, "Out1")
@@ -87,8 +81,7 @@ end
 
 function Register:onLoadViews(objects, branches)
   local views = {
-    expanded  = { "capture", "step", "shift", "origin", "length" },
-    origin    = { "origin", "zero", "zeroAll", "rand", "randAll", "randGain" },
+    expanded  = { "clock", "capture", "shift", "reset", "scatter", "gain", "length" },
     collapsed = { }
   }
 
@@ -96,14 +89,11 @@ function Register:onLoadViews(objects, branches)
 
   local controls = { }
 
-  controls.origin  = makeGateView("origin", "Origin")
+  controls.clock   = makeGateView("clock", "Clock")
   controls.capture = makeGateView("capture", "Capture")
   controls.shift   = makeGateView("shift", "Shift")
-  controls.step    = makeGateView("step", "Step")
-  controls.zero    = makeGateView("zero", "Zero")
-  controls.zeroAll = makeGateView("zeroAll", "Zero All")
-  controls.rand    = makeGateView("rand", "Randomize")
-  controls.randAll = makeGateView("randAll", "Randomize All")
+  controls.reset   = makeGateView("reset", "Reset")
+  controls.scatter = makeGateView("scatter", "Scatter")
 
   local intMap = function (min, max)
     local map = app.LinearDialMap(min,max)
@@ -124,12 +114,12 @@ function Register:onLoadViews(objects, branches)
     initialBias   = 4
   }
 
-  controls.randGain = GainBias {
-    button        = "randGain",
-    description   = "Randomize Gain",
-    branch        = branches.randGain,
-    gainbias      = objects.randGain,
-    range         = objects.randGainRange,
+  controls.gain = GainBias {
+    button        = "gain",
+    description   = "Input Gain",
+    branch        = branches.gain,
+    gainbias      = objects.gain,
+    range         = objects.gainRange,
     biasMap       = Encoder.getMap("[0,1]"),
     biasUnits     = app.unitNone,
     biasPrecision = 2,

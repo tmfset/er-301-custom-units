@@ -18,8 +18,8 @@ namespace lojik {
     float *right = mRight.buffer();
     float *out   = mOut.buffer();
 
-    uint32x4_t fZero = vdupq_n_f32(0);
-    uint32x4_t uZero = vdupq_n_u32(0);
+    float32x4_t fZero = vdupq_n_f32(0);
+    uint32x4_t uZero  = vdupq_n_u32(0);
 
     for (int i = 0; i < FRAMELENGTH; i += 4) {
       float32x4_t l = vld1q_f32(left + i);

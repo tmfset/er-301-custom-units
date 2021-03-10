@@ -12,36 +12,28 @@ namespace lojik {
 
   #ifndef SWIGLUA
     virtual void process();
-    od::Inlet mIn{"In"};
-    od::Outlet mOut{"Out"};
-
-    od::Inlet mLength{"Length"};
-    od::Inlet mOrigin {"Origin"};
-
-    od::Inlet mCapture{"Capture"};
-    od::Inlet mShift{"Shift"};
-    od::Inlet mStep{"Step"};
-
-    od::Inlet mZero{"Zero"};
-    od::Inlet mZeroAll{"ZeroAll"};
-    od::Inlet mRandomize{"Randomize"};
-    od::Inlet mRandomizeAll{"RandomizeAll"};
-    od::Inlet mRandomizeGain{"RandomizeGain"};
+    od::Inlet  mIn      { "In" };
+    od::Outlet mOut     { "Out" };
+    od::Inlet  mLength  { "Length" };
+    od::Inlet  mClock   { "Clock" };
+    od::Inlet  mCapture { "Capture" };
+    od::Inlet  mShift   { "Shift" };
+    od::Inlet  mReset   { "Reset" };
+    od::Inlet  mScatter { "Scatter" };
+    od::Inlet  mGain    { "Gain" };
   #endif
 
     private:
       float* mData;
-      // float mData[REGISTER_MAX_SIZE];
 
-      bool canStep  = true;
-      bool canShift = true;
-      bool canOrigin = true;
-      bool canCapture = true;
+      bool mWait = false;
 
-      // Keep track of where we are in mData.
-      uint32_t mIndex = 0;
+      uint32_t index(uint32_t limit);
+      void step(uint32_t limit);
+      void shift(uint32_t limit);
+      void reset();
 
-      // Keep tack of where we are after any shifts.
-      uint32_t mOffset = 0;
+      uint32_t mStepCount  = 0;
+      uint32_t mShiftCount = 0;
   };
 }
