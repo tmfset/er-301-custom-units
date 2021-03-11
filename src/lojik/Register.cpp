@@ -4,6 +4,7 @@
 #include <od/constants.h>
 #include <od/config.h>
 #include <hal/ops.h>
+#include <sstream>
 
 namespace lojik {
   Register::Register() {
@@ -17,15 +18,16 @@ namespace lojik {
     addInput(mScatter);
     addInput(mGain);
 
-    mData = new float[128];
     for (int i = 0; i < 128; i++) {
-      mData[i] = 0.0f;
+      std::ostringstream ss;
+      ss << "Data" << i + 1;
+      od::Parameter *param = new od::Parameter(ss.str());
+      param->enableSerialization();
+      addParameterFromHeap(param);
     }
   }
 
-  Register::~Register() {
-    delete [] mData;
-  }
+  Register::~Register() { }
 
   void Register::process() {
     float *in         = mIn.buffer();
@@ -68,14 +70,18 @@ namespace lojik {
         if (isTrigger) {
           if (isCaptureHigh[j]) {
             if (isScatterHigh[j]) {
-              mData[index] = od::Random::generateFloat(-1.0f, 1.0f) * gain[i + j];
+              mParameters[index]->hardSet(
+                od::Random::generateFloat(-1.0f, 1.0f) * gain[i + j]
+              );
             } else {
-              mData[index] = in[i + j] * gain[i + j];
+              mParameters[index]->hardSet(
+                in[i + j] * gain[i + j]
+              );
             }
           }
         }
 
-        out[i + j] = mData[index];
+        out[i + j] = mParameters[index]->value();
       }
     }
   }

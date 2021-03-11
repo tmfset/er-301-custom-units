@@ -24,8 +24,6 @@ namespace lojik {
   #endif
 
     private:
-      float* mData;
-
       bool mWait = false;
 
       int32_t index(int32_t limit);
