@@ -1,8 +1,8 @@
 #include <Trig.h>
-#include <od/extras/LookupTables.h>
 #include <od/constants.h>
 #include <od/config.h>
 #include <hal/ops.h>
+#include <hal/simd.h>
 
 namespace lojik {
   Trig::Trig() {

@@ -11,10 +11,11 @@ return {
     { title = "Or", moduleName = "Or", keywords = "or" },
     { title = "Not", moduleName = "Not", keywords = "not" },
 
-    { category = "Data" },
+    { category = "Memory" },
     { title = "Latch", moduleName = "Latch", keywords = "latch" },
     { title = "DLatch", moduleName = "DLatch", keywords = "latch" },
     { title = "Register", moduleName = "Register", keywords = "register" },
-    { title = "Turing", moduleName = "Turing", keywords = "sequencer, turing" }
+    { title = "Turing", moduleName = "Turing", keywords = "sequencer, turing" },
+    { title = "Step", moduleName = "Step", keywords = "sequencer" }
   }
 }
