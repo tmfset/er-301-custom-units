@@ -28,12 +28,6 @@ ifndef ARCH
   endif
 endif
 
-# Use the linux source files unless we're building am335x
-arch_source = linux
-ifeq ($(ARCH),am335x)
-  arch_source = am335x
-endif
-
 # Determine PROFILE if it's not provided...
 # testing | release | debug
 PROFILE ?= testing
@@ -54,7 +48,7 @@ objects += $(addprefix $(out_dir)/,$(cpp_sources:%.cpp=%.o))
 objects += $(swig_object)
 
 includes  = $(src_dir)
-includes += $(SDKPATH) $(SDKPATH)/arch/$(arch_source)
+includes += $(SDKPATH) $(SDKPATH)/arch/$(ARCH) $(SDKPATH)/emu
 
 ifeq ($(ARCH),am335x)
   CFLAGS.am335x = -mcpu=cortex-a8 -mfpu=neon -mfloat-abi=hard -mabi=aapcs -Dfar= -D__DYNAMIC_REENT__
