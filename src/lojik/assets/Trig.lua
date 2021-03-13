@@ -1,45 +1,25 @@
-local app = app
-local lojik = require "lojik.liblojik"
 local Class = require "Base.Class"
 local Unit = require "Unit"
+local Common = require "lojik.Common"
 
 local Trig = Class {}
-Trig:include(Unit)
+Trig:include(Common)
 
 function Trig:init(args)
   args.title = "Trig"
-  args.mnemonic = "t"
+  args.mnemonic = "T"
   Unit.init(self, args)
 end
 
 function Trig:onLoadGraph(channelCount)
-  if channelCount == 2 then
-    self:loadStereoGraph()
-  else
-    self:loadMonoGraph()
+  for i = 1, channelCount do
+    local op = self:trig(self, "op"..i, "In"..i)
+    connect(op, "Out", self, "Out"..i)
   end
 end
 
-function Trig:loadMonoGraph()
-  local op = self:addObject("op", lojik.Trig())
-  connect(self, "In1", op, "In")
-  connect(op, "Out", self, "Out1")
-end
-
-function Trig:loadStereoGraph()
-  self:loadMonoGraph()
-  connect(self.objects.op, "Out", self, "Out2")
-end
-
-local views = {
-  expanded = {},
-  collapsed = {}
-}
-
-function Trig:onLoadViews(objects, branches)
-  local controls = {}
-
-  return controls, views
+function Trig:onLoadViews()
+  return
 end
 
 return Trig

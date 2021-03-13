@@ -1,13 +1,15 @@
 #include <Register.h>
-#include <od/extras/LookupTables.h>
 #include <od/extras/Random.h>
 #include <od/constants.h>
 #include <od/config.h>
 #include <hal/ops.h>
+#include <hal/simd.h>
 #include <sstream>
 
 namespace lojik {
-  Register::Register() {
+  Register::Register(int max) {
+    this->mMax = max;
+
     addInput(mIn);
     addOutput(mOut);
     addInput(mLength);
@@ -18,9 +20,9 @@ namespace lojik {
     addInput(mScatter);
     addInput(mGain);
 
-    for (int i = 0; i < 128; i++) {
+    for (int i = 1; i <= this->mMax; i++) {
       std::ostringstream ss;
-      ss << "Data" << i + 1;
+      ss << "Data" << i;
       od::Parameter *param = new od::Parameter(ss.str());
       param->enableSerialization();
       addParameterFromHeap(param);
@@ -103,7 +105,7 @@ namespace lojik {
   }
 
   inline int32_t Register::clamp(int32_t value) {
-    if (value > 128) return 128;
+    if (value > this->mMax) return this->mMax;
     if (value < 1) return 1;
     return value;
   }

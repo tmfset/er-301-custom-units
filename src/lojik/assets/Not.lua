@@ -1,10 +1,9 @@
-local app = app
-local lojik = require "lojik.liblojik"
 local Class = require "Base.Class"
 local Unit = require "Unit"
+local Common = require "lojik.Common"
 
 local Not = Class {}
-Not:include(Unit)
+Not:include(Common)
 
 function Not:init(args)
   args.title = "Not"
@@ -13,33 +12,14 @@ function Not:init(args)
 end
 
 function Not:onLoadGraph(channelCount)
-  if channelCount == 2 then
-    self:loadStereoGraph()
-  else
-    self:loadMonoGraph()
+  for i = 1, channelCount do
+    local op = self:lNot(self, "op"..i, "In"..i)
+    connect(op, "Out", self, "Out"..i)
   end
 end
 
-function Not:loadMonoGraph()
-  local op = self:addObject("op", lojik.Not())
-  connect(self, "In1", op, "In")
-  connect(op, "Out", self, "Out1")
-end
-
-function Not:loadStereoGraph()
-  self:loadMonoGraph()
-  connect(self.objects.op, "Out", self, "Out2")
-end
-
-local views = {
-  expanded = {},
-  collapsed = {}
-}
-
-function Not:onLoadViews(objects, branches)
-  local controls = {}
-
-  return controls, views
+function Not:onLoadViews()
+  return
 end
 
 return Not

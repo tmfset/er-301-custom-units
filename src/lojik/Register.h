@@ -2,12 +2,10 @@
 
 #include <od/objects/Object.h>
 
-//#define REGISTER_MAX_SIZE 128
-
 namespace lojik {
   class Register : public od::Object {
     public:
-      Register();
+      Register(int max);
       virtual ~Register();
 
   #ifndef SWIGLUA
@@ -33,6 +31,7 @@ namespace lojik {
       void shift(int32_t limit);
       void reset();
 
+      int mMax;
       int32_t mStepCount  = 0;
       int32_t mShiftCount = 0;
   };
