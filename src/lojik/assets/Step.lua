@@ -3,9 +3,6 @@ local core = require "core.libcore"
 local lojik = require "lojik.liblojik"
 local Class = require "Base.Class"
 local Unit = require "Unit"
-local Encoder = require "Encoder"
-local Gate = require "Unit.ViewControl.Gate"
-local GainBias = require "Unit.ViewControl.GainBias"
 local Pitch = require "Unit.ViewControl.Pitch"
 local Common = require "lojik.Common"
 
@@ -66,31 +63,18 @@ function Step:onLoadGraph(channelCount)
   end
 end
 
-function Step:makeGateViewF(objects, branches)
-  return function (name, description)
-    return Gate {
-      button      = name,
-      description = description,
-      branch      = branches[name],
-      comparator  = objects[name]
-    }
-  end
-end
-
-function Step:onLoadViews(objects, branches)
-  local makeGateView = self:makeGateViewF(objects, branches)
-
+function Step:onLoadViews()
   return {
-    clock  = makeGateView("clock", "Clock"),
-    record = makeGateView("record", "Record"),
-    gate   = makeGateView("gate", "Gate"),
-    rest   = makeGateView("rest", "Rest"),
+    clock  = self:gateView("clock", "Clock"),
+    record = self:gateView("record", "Record"),
+    gate   = self:gateView("gate", "Gate"),
+    rest   = self:gateView("rest", "Rest"),
     pitch = Pitch {
       button      = "V/oct",
-      branch      = branches.pitch,
+      branch      = self.branches.pitch,
       description = "V/oct",
-      offset      = objects.pitch,
-      range       = objects.pitchRange
+      offset      = self.objects.pitch,
+      range       = self.objects.pitchRange
     }
   }, {
     expanded  = { "clock", "record", "pitch", "gate", "rest" },
