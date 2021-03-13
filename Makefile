@@ -28,8 +28,8 @@ release:
 		make -j clean all ARCH=am335x PROFILE=release
 
 er-301-docker:
-	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units/er-301 am335x-build:latest \
-		make -j app ARCH=am335x PROFILE=release
+	docker run --privileged -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units/er-301 am335x-build:latest \
+		make -j ARCH=am335x PROFILE=release
 
 release-missing:
 	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units am335x-build:latest \
