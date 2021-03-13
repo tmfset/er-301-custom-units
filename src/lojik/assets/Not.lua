@@ -3,6 +3,7 @@ local Unit = require "Unit"
 local Common = require "lojik.Common"
 
 local Not = Class {}
+Not:include(Unit)
 Not:include(Common)
 
 function Not:init(args)

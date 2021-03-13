@@ -1,4 +1,5 @@
 local app = app
+local Gate = require "Unit.ViewControl.Gate"
 local lojik = require "lojik.liblojik"
 
 local Common = {}
@@ -64,6 +65,22 @@ function Common.dLatch(self, input, clock, reset, name, iName, cName, rName)
   connect(clock, cName or "Out", op, "Clock")
   connect(reset, rName or "Out", op, "Reset")
   return op
+end
+
+function Common.intMap(min, max)
+  local map = app.LinearDialMap(min,max)
+    map:setSteps(1, 1, 1, 1)
+    map:setRounding(1)
+    return map
+end
+
+function Common.gateView(self, name, description)
+  return Gate {
+    button      = name,
+    description = description,
+    branch      = self.branches[name],
+    comparator  = self.objects[name]
+  }
 end
 
 return Common

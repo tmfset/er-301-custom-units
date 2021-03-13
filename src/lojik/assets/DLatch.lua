@@ -1,10 +1,10 @@
 local app = app
 local Class = require "Base.Class"
 local Unit = require "Unit"
-local Gate = require "Unit.ViewControl.Gate"
 local Common = require "lojik.Common"
 
 local DLatch = Class {}
+DLatch:include(Unit)
 DLatch:include(Common)
 
 function DLatch:init(args)
@@ -25,18 +25,8 @@ end
 
 function DLatch:onLoadViews(objects, branches)
   return {
-    clock = Gate {
-      button      = "clock",
-      description = "Clock",
-      branch      = branches.clock,
-      comparator  = objects.clock
-    },
-    reset = Gate {
-      button      = "reset",
-      description = "Reset",
-      branch      = branches.reset,
-      comparator  = objects.reset
-    }
+    clock = self:gateView("clock", "Clock"),
+    reset = self:gateView("reset", "Reset")
   }, {
     expanded  = { "clock", "reset" },
     collapsed = {}

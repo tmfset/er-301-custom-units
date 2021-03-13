@@ -1,10 +1,10 @@
 local app = app
 local Class = require "Base.Class"
 local Unit = require "Unit"
-local Gate = require "Unit.ViewControl.Gate"
 local Common = require "lojik.Common"
 
 local Latch = Class {}
+Latch:include(Unit)
 Latch:include(Common)
 
 function Latch:init(args)
@@ -23,20 +23,10 @@ function Latch:onLoadGraph(channelCount)
   end
 end
 
-function Latch:onLoadViews(objects, branches)
+function Latch:onLoadViews()
   return {
-    set = Gate {
-      button      = "set",
-      description = "Set",
-      branch      = branches.set,
-      comparator  = objects.set
-    },
-    reset = Gate {
-      button      = "reset",
-      description = "Reset",
-      branch      = branches.reset,
-      comparator  = objects.reset
-    }
+    set   = self:gateView("set", "Set"),
+    reset = self:gateView("reset", "Reset")
   }, {
     expanded  = { "set", "reset" },
     collapsed = {}

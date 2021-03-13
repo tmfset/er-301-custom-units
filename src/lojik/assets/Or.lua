@@ -1,10 +1,10 @@
 local app = app
 local Class = require "Base.Class"
 local Unit = require "Unit"
-local Gate = require "Unit.ViewControl.Gate"
 local Common = require "lojik.Common"
 
 local Or = Class {}
+Or:include(Unit)
 Or:include(Common)
 
 function Or:init(args)
@@ -23,20 +23,10 @@ function Or:onLoadGraph(channelCount)
   end
 end
 
-function Or:onLoadViews(objects, branches)
+function Or:onLoadViews()
   return {
-    left = Gate {
-      button      = "left",
-      description = "Left",
-      branch      = branches.left,
-      comparator  = objects.left
-    },
-    right = Gate {
-      button      = "right",
-      description = "Right",
-      branch      = branches.right,
-      comparator  = objects.right
-    }
+    left  = self:gateView("left", "Left"),
+    right = self:gateView("right", "Right")
   }, {
     expanded  = { "left", "right" },
     collapsed = {}

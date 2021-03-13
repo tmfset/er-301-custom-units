@@ -3,6 +3,7 @@ local Unit = require "Unit"
 local Common = require "lojik.Common"
 
 local Trig = Class {}
+Trig:include(Unit)
 Trig:include(Common)
 
 function Trig:init(args)

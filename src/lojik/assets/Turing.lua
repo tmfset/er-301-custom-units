@@ -4,13 +4,13 @@ local core = require "core.libcore"
 local Class = require "Base.Class"
 local Unit = require "Unit"
 local Encoder = require "Encoder"
-local Gate = require "Unit.ViewControl.Gate"
 local GainBias = require "Unit.ViewControl.GainBias"
 local PitchCircle = require "core.Quantizer.PitchCircle"
 local Common = require "lojik.Common"
 local ply = app.SECTION_PLY
 
 local Turing = Class {}
+Turing:include(Unit)
 Turing:include(Common)
 
 function Turing:init(args)
@@ -55,50 +55,31 @@ function Turing:onLoadGraph(channelCount)
   end
 end
 
-function Turing:makeGateViewF(objects, branches)
-  return function (name, description)
-    return Gate {
-      button      = name,
-      description = description,
-      branch      = branches[name],
-      comparator  = objects[name]
-    }
-  end
-end
 
-function Turing:onLoadViews(objects, branches)
-  local makeGateView = self:makeGateViewF(objects, branches)
-
-  local intMap = function (min, max)
-    local map = app.LinearDialMap(min,max)
-    map:setSteps(1, 1, 1, 1)
-    map:setRounding(1)
-    return map
-  end
-
+function Turing:onLoadViews()
   return {
-    step    = makeGateView("step", "Advance"),
-    write   = makeGateView("write", "Enable Write"),
-    shift   = makeGateView("shift", "Enable Shift"),
-    reset   = makeGateView("reset", "Enable Reset"),
-    scatter = makeGateView("scatter", "Enable Scatter"),
+    step    = self:gateView("step", "Advance"),
+    write   = self:gateView("write", "Enable Write"),
+    shift   = self:gateView("shift", "Enable Shift"),
+    reset   = self:gateView("reset", "Enable Reset"),
+    scatter = self:gateView("scatter", "Enable Scatter"),
     length = GainBias {
       button        = "length",
       description   = "Length",
-      branch        = branches.length,
-      gainbias      = objects.length,
-      range         = objects.lengthRange,
-      gainMap       = intMap(-self.max, self.max),
-      biasMap       = intMap(1, self.max),
+      branch        = self.branches.length,
+      gainbias      = self.objects.length,
+      range         = self.objects.lengthRange,
+      gainMap       = self.intMap(-self.max, self.max),
+      biasMap       = self.intMap(1, self.max),
       biasPrecision = 0,
       initialBias   = 4
     },
     gain = GainBias {
       button        = "gain",
       description   = "Input Gain",
-      branch        = branches.gain,
-      gainbias      = objects.gain,
-      range         = objects.gainRange,
+      branch        = self.branches.gain,
+      gainbias      = self.objects.gain,
+      range         = self.objects.gainRange,
       biasMap       = Encoder.getMap("[0,1]"),
       biasUnits     = app.unitNone,
       biasPrecision = 3,
@@ -107,7 +88,7 @@ function Turing:onLoadViews(objects, branches)
     scale = PitchCircle {
       name      = "scale",
       width     = 2 * ply,
-      quantizer = objects.quantizer
+      quantizer = self.objects.quantizer
     }
   }, {
     expanded  = { "step", "write", "length", "scale" },
