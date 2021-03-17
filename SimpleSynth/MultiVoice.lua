@@ -59,10 +59,12 @@ function MultiVoice:createControls()
   end
 
   if self.isPolyphonic then
-    controls.rrCount     = self:createObject("Counter", "rrCount")
-    controls.rrGate      = self:createObject("Comparator", "rrGate")
-    controls.rrTune      = self:createObject("ConstantOffset", "rrTune")
-    controls.rrTuneRange = self:createObject("MinMax", "rrTuneRange")
+    controls.switch       = self:createObject("Comparator", "switch")
+    controls.rrGate       = self:createObject("Comparator", "rrGate")
+    controls.rrTune       = self:createObject("ConstantOffset", "rrTune")
+    controls.rrTuneRange  = self:createObject("MinMax", "rrTuneRange")
+    controls.rrGateSwitch = self:createObject("RoundRobin", "rrGateSwitch", self.voiceCount)
+    controls.rrTuneSwitch = self:createObject("RoundRobin", "rrTuneSwitch", self.voiceCount)
   end
 
   return controls
@@ -102,9 +104,6 @@ function MultiVoice:connectControls(controls)
   end
 
   if self.isPolyphonic then
-    local switch = self:createObject("Comparator", "switch")
-    switch:hardSet("Threshold", -0.5)
-    
     -- Invert the gate here since the Comparator triggerOnFallMode doesn't seem
     -- to be working.
     local invert = self:createObject("Multiply", "invert")
@@ -113,14 +112,15 @@ function MultiVoice:connectControls(controls)
     connect(controls.rrGate, "Out", invert, "Left")
     connect(negOne, "Out", invert, "Right")
 
-    connect(invert, "Out", switch, "In")
-    switch:setTriggerMode()
+    connect(invert, "Out", controls.switch, "In")
+    controls.switch:hardSet("Threshold", -0.5)
+    controls.switch:setTriggerMode()
 
-    connect(switch, "Out", controls.rrCount, "In")
-    controls.rrCount:hardSet("Start", 0)
-    controls.rrCount:hardSet("Step Size", 1)
-    controls.rrCount:hardSet("Finish", self.voiceCount - 1)
-    controls.rrCount:hardSet("Gain", 1 / (self.voiceCount - 1))
+    connect(controls.switch, "Out", controls.rrGateSwitch, "Trigger")
+    connect(controls.switch, "Out", controls.rrTuneSwitch, "Trigger")
+
+    connect(controls.rrGate, "Out", controls.rrGateSwitch, "In")
+    connect(controls.rrTune, "Out", controls.rrTuneSwitch, "In")
 
     connect(controls.rrTune, "Out", controls.rrTuneRange, "In")
     controls.rrGate:setGateMode()
@@ -150,11 +150,9 @@ function MultiVoice:createVoice(i)
   }
 
   if self.isPolyphonic then
-    voice.rrIsActive = self:createObject("BumpMap", "rrIsActive"..i)
-    voice.rrGate     = self:createObject("Multiply", "rrGate"..i)
-    voice.cTune      = self:createObject("Sum", "cTune"..i)
-    voice.gate       = self:createObject("Sum", "gate"..i)
-    voice.tune       = self:createObject("TrackAndHold", "tune"..i)
+    voice.cTune = self:createObject("Sum", "cTune"..i)
+    voice.gate  = self:createObject("Sum", "gate"..i)
+    voice.tune  = self:createObject("TrackAndHold", "tune"..i)
   end
 
   return voice
@@ -168,22 +166,11 @@ function MultiVoice:connectVoice(voice, controls)
   self:createMonoBranch("dTune"..voice.index, voice.dTune, "In", voice.dTune, "Out")
 
   if self.isPolyphonic then
-    -- The round robin count determines if we are active
-    connect(controls.rrCount, "Out", voice.rrIsActive, "In")
-    voice.rrIsActive:hardSet("Center", (voice.index - 1) / (self.voiceCount - 1))
-    voice.rrIsActive:hardSet("Width", 1 / ((self.voiceCount - 1) * 2))
-    voice.rrIsActive:hardSet("Height", 1)
-    voice.rrIsActive:hardSet("Fade", 0.001)
-
-    -- Bypass the round robin gate if not active
-    connect(controls.rrGate, "Out", voice.rrGate, "Left")
-    connect(voice.rrIsActive, "Out", voice.rrGate, "Right")
-
     -- Combine dedicated and round robin gate / tune
     connect(voice.dGate, "Out", voice.gate, "Left")
-    connect(voice.rrGate, "Out", voice.gate, "Right")
+    connect(controls.rrGateSwitch, "Out"..voice.index, voice.gate, "Right")
     connect(voice.dTune, "Out", voice.cTune, "Left")
-    connect(controls.rrTune, "Out", voice.cTune, "Right")
+    connect(controls.rrTuneSwitch, "Out"..voice.index, voice.cTune, "Right")
 
     -- Hold the actual tune after the combined gate drops
     connect(voice.cTune, "Out", voice.tune, "In")
@@ -241,10 +228,12 @@ end
 
 function MultiVoice:onLoadGraph(channelCount)
   local voiceMixer = self:createObject("Mixer", "voiceMixer", self.voiceCount)
-  connect(voiceMixer, "Out", self, "Out1")
+  -- connect(voiceMixer, "Out", self, "Out1")
 
   local controls = self:createControls()
   self:connectControls(controls)
+
+  connect(controls.rrGateSwitch, "Out1", self, "Out1")
 
   for i = 1, self.voiceCount do
     local voice = self:createVoice(i)
