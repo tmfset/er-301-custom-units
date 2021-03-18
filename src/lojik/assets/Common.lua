@@ -22,6 +22,20 @@ function Common.addGainBiasControl(self, name)
   return gb;
 end
 
+-- Create a memoized constant value to be used as an output.
+function Common.mConst(self, value)
+  self.constants = self.constants or {}
+
+  if self.constants[value] == nil then
+    local const = self:addObject("constant"..value, app.Constant())
+    const:hardSet("Value", value)
+
+    self.constants[value] = const
+  end
+
+  return self.constants[value]
+end
+
 function Common.lAnd(self, left, right, name, lOut, rOut)
   local op = self:addObject(name or (left:name().."And"..right:name()), lojik.And())
   connect(left,  lOut or "Out", op, "Left")
@@ -49,6 +63,14 @@ end
 function Common.trig(self, input, name, iOut)
   local op = self:addObject(name or ("Trig"..input:name()), lojik.Trig())
   connect(input, iOut or "Out", op, "In")
+  return op
+end
+
+function Common.pick(self, pick, left, right, name)
+  local op = self:addObject(name or ("Pick"..left:name()..right:name()), lojik.Pick())
+  connect(left,  "Out", op, "Left")
+  connect(right, "Out", op, "Right")
+  connect(pick,  "Out", op, "Pick")
   return op
 end
 
@@ -81,6 +103,34 @@ function Common.gateView(self, name, description)
     branch      = self.branches[name],
     comparator  = self.objects[name]
   }
+end
+
+function Common.serializeRegister(register)
+  local max = register:getMax()
+  local data = {}
+
+  for i = 1, max do
+    data[i] = register:getData(i - 1);
+  end
+
+  return {
+    max   = max,
+    step  = register:getStep(),
+    shift = register:getShift(),
+    data  = data
+  }
+end
+
+function Common.deserializeRegister(register, t)
+  register:setMax(t.max)
+  register:setStep(t.step);
+  register:setShift(t.shift);
+
+  for i, v in ipairs(t.data) do
+    register:setData(i - 1, v)
+  end
+
+  register:triggerDeserialize();
 end
 
 return Common
