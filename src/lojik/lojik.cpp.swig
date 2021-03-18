@@ -8,9 +8,10 @@
 #include <And.h>
 #include <Or.h>
 #include <Not.h>
+#include <Trig.h>
+#include <Pick.h>
 #include <Latch.h>
 #include <DLatch.h>
-#include <Trig.h>
 #include <Register.h>
 
 #define SWIGLUA
@@ -20,7 +21,8 @@
 %include <And.h>
 %include <Or.h>
 %include <Not.h>
+%include <Trig.h>
+%include <Pick.h>
 %include <Latch.h>
 %include <DLatch.h>
-%include <Trig.h>
 %include <Register.h>
