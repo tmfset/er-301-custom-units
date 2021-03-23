@@ -22,6 +22,12 @@ function Common.addGainBiasControl(self, name)
   return gb;
 end
 
+function Common.addParameterAdapterControl(self, name)
+  local pa = self:addObject(name, app.ParameterAdapter())
+  self:addMonoBranch(name, pa, "In", pa, "Out")
+  return pa
+end
+
 -- Create a memoized constant value to be used as an output.
 function Common.mConst(self, value)
   self.constants = self.constants or {}
@@ -114,17 +120,19 @@ function Common.serializeRegister(register)
   end
 
   return {
-    max   = max,
-    step  = register:getStep(),
-    shift = register:getShift(),
-    data  = data
+    max    = max,
+    step   = register:getStep(),
+    shift  = register:getShift(),
+    length = register:getSeqLength(),
+    data   = data
   }
 end
 
 function Common.deserializeRegister(register, t)
   register:setMax(t.max)
-  register:setStep(t.step);
-  register:setShift(t.shift);
+  register:setStep(t.step)
+  register:setShift(t.shift)
+  register:setSeqLength(t.length)
 
   for i, v in ipairs(t.data) do
     register:setData(i - 1, v)

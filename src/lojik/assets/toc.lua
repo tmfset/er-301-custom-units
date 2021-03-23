@@ -15,7 +15,8 @@ return {
     { category = "Memory" },
     { title = "Latch", moduleName = "Latch", keywords = "latch" },
     { title = "DLatch", moduleName = "DLatch", keywords = "latch" },
-    { title = "Register", moduleName = "Register", keywords = "register" },
-    { title = "Turing", moduleName = "Turing", keywords = "sequencer, turing" }
+    { title = "Register", moduleName = "Register", keywords = "sequencer, register" },
+    { title = "Turing", moduleName = "Turing", keywords = "sequencer, turing" },
+    { title = "Seq", moduleName = "Seq", keywords = "sequencer" }
   }
 }

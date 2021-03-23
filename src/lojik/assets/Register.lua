@@ -6,6 +6,9 @@ local Encoder = require "Encoder"
 local GainBias = require "Unit.ViewControl.GainBias"
 local MenuHeader = require "Unit.MenuControl.Header"
 local Task = require "Unit.MenuControl.Task"
+local OptionControl = require "Unit.MenuControl.OptionControl"
+local FlagSelect = require "Unit.MenuControl.FlagSelect"
+local OutputScope = require "Unit.ViewControl.OutputScope"
 local Common = require "lojik.Common"
 
 local Register = Class {}
@@ -16,48 +19,52 @@ function Register:init(args)
   args.title = "Register"
   args.mnemonic = "R"
   self.max = 64
+  self.initialScatter = 0.5
+  self.initialGain = 1.0
+  self.initialBias = 0.0
+  self.initialDrift = 0.0
   Unit.init(self, args)
 end
 
 function Register:onLoadGraph(channelCount)
-  local step    = self:addComparatorControl("step",  app.COMPARATOR_TRIGGER_ON_RISE)
-  local write   = self:addComparatorControl("write", app.COMPARATOR_TOGGLE)
+  local clock   = self:addComparatorControl("clock",  app.COMPARATOR_TRIGGER_ON_RISE)
+  local capture = self:addComparatorControl("capture", app.COMPARATOR_TOGGLE)
   local length  = self:addGainBiasControl("length")
   local stride  = self:addGainBiasControl("stride")
 
   local shift   = self:addComparatorControl("shift", app.COMPARATOR_GATE)
   local reset   = self:addComparatorControl("reset", app.COMPARATOR_GATE)
 
-  local gain    = self:addGainBiasControl("gain")
-  local scatter = self:addComparatorControl("scatter", app.COMPARATOR_TOGGLE, 1)
+  local scatter = self:addParameterAdapterControl("scatter")
+  local drift   = self:addParameterAdapterControl("drift")
+  local gain    = self:addParameterAdapterControl("gain")
+  local bias    = self:addParameterAdapterControl("bias")
+
+  local register = self:addObject("register", lojik.Register(self.max, self.initialScatter))
+  connect(self, "In1", register, "In")
+
+  connect(clock,   "Out", register, "Clock")
+  connect(capture, "Out", register, "Capture")
+  connect(length,  "Out", register, "Length")
+  connect(stride,  "Out", register, "Stride")
+  connect(shift,   "Out", register, "Shift")
+  connect(reset,   "Out", register, "Reset")
+
+  tie(register, "Scatter",    scatter, "Out")
+  tie(register, "Drift",      drift,   "Out")
+  tie(register, "Input Gain", gain,    "Out")
+  tie(register, "Input Bias", bias,    "Out")
 
   for i = 1, channelCount do
-    local register = self:addObject("register"..i, lojik.Register(self.max, true))
-    connect(self,     "In"..i, register, "In")
-
-    connect(step,     "Out",   register, "Clock")
-    connect(write,    "Out",   register, "Capture")
-    connect(length,   "Out",   register, "Length")
-    connect(stride,   "Out",   register, "Stride")
-    connect(shift,    "Out",   register, "Shift")
-    connect(reset,    "Out",   register, "Reset")
-    connect(gain,     "Out",   register, "Gain")
-    connect(scatter,  "Out",   register, "Scatter")
-
-    connect(register, "Out",   self,     "Out"..i)
+    connect(register, "Out", self, "Out"..i)
   end
 end
 
 function Register:serialize()
   local t = Unit.serialize(self)
-  t.registers = {}
 
-  for i = 1, self.channelCount do
-    local register = self.objects["register"..i]
-    if register then
-      t.registers[i] = self.serializeRegister(register)
-    end
-  end
+  t.registers = {}
+  t.registers[1] = self.serializeRegister(self.objects.register)
 
   return t
 end
@@ -65,67 +72,83 @@ end
 function Register:deserialize(t)
   Unit.deserialize(self, t)
 
-  for i, rt in ipairs(t.registers or {}) do
-    local register = self.objects["register"..i]
-    if register then
-      self.deserializeRegister(register, rt)
-    end
+  local register = self.objects.register;
+  local rt = t.registers[1];
+  if rt then
+    self.deserializeRegister(register, rt)
   end
 end
 
-function Register:onShowMenu()
+function Register:onShowMenu(objects)
   return {
-    zeroHeader = MenuHeader {
-      description = "Zero!"
-    },
-    zeroAll = Task {
-      description = "All",
-      task = function ()
-        for i = 1, self.channelCount do
-          self.objects["register"..i]:triggerZeroAll()
-        end
-      end
+    windowHeader = MenuHeader {
+      description = "Set window (" .. objects.register:getLength() .. ") ..."
     },
     zeroWindow = Task {
-      description = "Window",
+      description = "Zero",
       task = function ()
-        for i = 1, self.channelCount do
-          self.objects["register"..i]:triggerZeroWindow()
-        end
+        objects.register:triggerZeroWindow()
       end
     },
-    randomizeHeader = MenuHeader {
-      description = "Randomize!"
-    },
-    randomizeAll = Task {
-      description = "All",
+    scatterWindow = Task {
+      description = "Scatter",
       task = function ()
-        for i = 1, self.channelCount do
-          self.objects["register"..i]:triggerRandomizeAll()
-        end
+        objects.register:triggerScatterWindow()
       end
     },
     randomizeWindow = Task {
-      description = "Window",
+      description = "Zero + Scatter",
       task = function ()
-        for i = 1, self.channelCount do
-          self.objects["register"..i]:triggerRandomizeAll()
-        end
+        objects.register:triggerRandomizeAll()
       end
+    },
+    allHeader = MenuHeader {
+      description = "Set all (" .. objects.register:getMax() .. ") ..."
+    },
+    zeroAll = Task {
+      description = "Zero",
+      task = function ()
+        objects.register:triggerZeroAll()
+      end
+    },
+    scatterAll = Task {
+      description = "Scatter",
+      task = function ()
+        objects.register:triggerScatterAll()
+      end
+    },
+    randomizeAll = Task {
+      description = "Zero + Scatter",
+      task = function ()
+        objects.register:triggerRandomizeAll()
+      end
+    },
+    clockSync = FlagSelect {
+      description = "Sync",
+      option      = objects.register:getOption("Sync"),
+      flags       = { "Shift", "Capture", "Reset" }
     }
   }, {
-    "zeroHeader", "zeroAll", "zeroWindow",
-    "randomizeHeader", "randomizeAll", "randomizeWindow"
+    "clockSync",
+    "allHeader",    "zeroAll",    "scatterAll",    "randomizeAll",
+    "windowHeader", "zeroWindow", "scatterWindow", "randomizeWindow"
   }
 end
 
 function Register:onLoadViews()
   return {
-    step    = self:gateView("step", "Advance"),
-    write   = self:gateView("write", "Enable Write"),
+    wave1 = OutputScope {
+      monitor = self,
+      width   = 1 * app.SECTION_PLY
+    },
+    wave3 = OutputScope {
+      monitor = self,
+      width   = 3 * app.SECTION_PLY
+    },
+    clock   = self:gateView("clock", "Advance"),
+    capture = self:gateView("capture", "Enable Write"),
     shift   = self:gateView("shift", "Enable Shift"),
     reset   = self:gateView("reset", "Enable Reset"),
-    scatter = self:gateView("scatter", "Enable Scatter"),
     length  = GainBias {
       button        = "length",
       description   = "Length",
@@ -148,21 +171,59 @@ function Register:onLoadViews()
       biasPrecision = 0,
       initialBias   = 1
     },
+    scatter   = GainBias {
+      button        = "scatter",
+      description   = "Scatter",
+      branch        = self.branches.scatter,
+      gainbias      = self.objects.scatter,
+      range         = self.objects.scatter,
+      biasMap       = Encoder.getMap("[0,1]"),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = self.initialScatter
+    },
+    drift   = GainBias {
+      button        = "drift",
+      description   = "Drift",
+      branch        = self.branches.drift,
+      gainbias      = self.objects.drift,
+      range         = self.objects.drift,
+      biasMap       = Encoder.getMap("[0,1]"),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = self.initialDrift
+    },
     gain   = GainBias {
       button        = "gain",
       description   = "Input Gain",
       branch        = self.branches.gain,
       gainbias      = self.objects.gain,
-      range         = self.objects.gainRange,
+      range         = self.objects.gain,
       biasMap       = Encoder.getMap("[0,1]"),
       biasUnits     = app.unitNone,
       biasPrecision = 2,
-      initialBias   = 1
+      initialBias   = self.initialGain
+    },
+    bias   = GainBias {
+      button        = "bias",
+      description   = "Input Bias",
+      branch        = self.branches.bias,
+      gainbias      = self.objects.bias,
+      range         = self.objects.bias,
+      biasMap       = Encoder.getMap("[-1,1]"),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = self.initialBias
     }
   }, {
-    expanded  = { "step", "write", "length", "stride", "gain" },
-    step      = { "step", "shift", "reset" },
-    write     = { "write", "gain", "scatter" },
+    expanded  = { "clock", "capture", "length", "stride", "drift" },
+
+    clock     = { "clock",   "wave1", "shift", "reset" },
+    capture   = { "capture", "wave1", "gain", "bias", "scatter" },
+    length    = { "length",  "wave1", "stride", "drift" },
+    stride    = { "stride",  "wave3" },
+    drift     = { "drift",   "wave3" },
+
     collapsed = { "length" }
   }
 end

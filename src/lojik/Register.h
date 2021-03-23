@@ -1,119 +1,91 @@
+
 #pragma once
 
-#include <util.h>
-
-#include <od/extras/Random.h>
+#include <RegisterState.h>
+#include <OneTime.h>
 #include <od/objects/Object.h>
-#include <hal/simd.h>
-#include <vector>
-
-#define REGISTER_MAX 1024
+#include <od/objects/StateMachine.h>
+#include <od/constants.h>
 
 namespace lojik {
 
-#ifndef SWIGLUA
-  struct RegisterState {
-    std::vector<float32_t> _data;
-    int32_t   _step   = 0;
-    int32_t   _shift  = 0;
-    int32_t   _stride = 1;
-    int32_t   _limit  = 0;
-    float32_t _gain   = 1.0f;
-
-    void setMax(uint32_t v) {
-      _data.resize(clamp(v, 1, REGISTER_MAX), 0.0f);
-    }
-
-    inline void setLSG(int32_t l, int32_t s, float32_t g) {
-      _limit  = clamp(l, 1, _data.size());
-      _stride = s;
-      _gain   = g;
-    }
-
-    inline int32_t index(int32_t base, int32_t offset) {
-      return mod(base + offset, _limit);
-    }
-
-    inline int32_t current() {
-      return this->index(_step, _shift);
-    }
-
-    inline void step()  { _step  = this->index(_step, _stride); }
-    inline void shift() { _shift = this->index(_shift, _stride); }
-    inline void reset() { _step  = 0; }
-
-    inline void set(int32_t i, float32_t v) { _data[i] = v * _gain; }
-    inline float32_t get(int32_t i) { return _data[i]; }
-
-    inline void randomize(int32_t i) { set(i, od::Random::generateFloat(-1.0f, 1.0f)); }
-    inline void zero(int32_t i)      { set(i, 0); }
-
-    inline void randomizeWindow() { setWindow(&RegisterState::randomize); }
-    inline void zeroWindow()      { setWindow(&RegisterState::zero); }
-    inline void randomizeAll()    { setAll(&RegisterState::randomize); }
-    inline void zeroAll()         { setAll(&RegisterState::zero); }
-
-    inline void setWindow(void (RegisterState::*f)(int32_t)) {
-      uint32_t start   = current();
-      uint32_t current = start;
-      do {
-        (this->*f)(current);
-        current = this->index(current, _stride);
-      } while (start != current);
-    }
-
-    inline void setAll(void (RegisterState::*f)(int32_t)) {
-      for (uint32_t i = 0; i < _data.size(); i++) (this->*f)(i);
-    }
-  };
-#endif
+  #define MODE_NORMAL 1
+  #define MODE_SEQ    2
 
   class Register : public od::Object {
     public:
-      Register(int max, bool randomize);
+      Register(int max, float randomize);
       virtual ~Register();
 
 #ifndef SWIGLUA
       virtual void process();
-      void processTriggers();
+      void processNormal();
+      void processSeq();
 
       od::Inlet  mIn      { "In" };
       od::Outlet mOut     { "Out" };
+
       od::Inlet  mLength  { "Length" };
       od::Inlet  mStride  { "Stride" };
+
       od::Inlet  mClock   { "Clock" };
       od::Inlet  mCapture { "Capture" };
       od::Inlet  mShift   { "Shift" };
       od::Inlet  mReset   { "Reset" };
-      od::Inlet  mScatter { "Scatter" };
-      od::Inlet  mGain    { "Gain" };
+
+      od::Parameter mScatter   { "Scatter",    0.0f };
+      od::Parameter mDrift     { "Drift",      0.0f };
+      od::Parameter mInputGain { "Input Gain", 1.0f };
+      od::Parameter mInputBias { "Input Bias", 0.0f };
+
+      od::Option mMode { "Mode", MODE_NORMAL };
+      od::Option mSync { "Sync", 0b111 };
 #endif
 
-      int getMax()             { return mState._data.size(); }
-      int getStep()            { return mState._step; }
-      int getShift()           { return mState._shift; }
-      float getData(int32_t i) { return mState.get(i); }
+      int   getMax()           { return mState.max(); }
+      int   getLength()        { return mState.limit(); }
+      int   getSeqLength()     { return mSequenceLength; }
+      int   getStep()          { return mState.step(); }
+      int   getShift()         { return mState.shift(); }
+      float getData(int32_t i) { return mState.data(i); }
 
       void setMax(int v)           { mBuffer.setMax(v); }
-      void setStep(int v)          { mBuffer._step    = v; }
-      void setShift(int v)         { mBuffer._shift   = v; }
-      void setData(int i, float v) { mBuffer._data[i] = v; }
+      void setSeqLength(int v)     { mSequenceLength = v; }
+      void setStep(int v)          { mBuffer.setStep(v); }
+      void setShift(int v)         { mBuffer.setShift(v); }
+      void setData(int i, float v) { mBuffer.setData(i, v); }
 
-      void triggerDeserialize()     { mTriggerDeserialize     = true; }
-      void triggerZeroWindow()      { mTriggerZeroWindow      = true; }
-      void triggerZeroAll()         { mTriggerZeroAll         = true; }
-      void triggerRandomizeWindow() { mTriggerRandomizeWindow = true; }
-      void triggerRandomizeAll()    { mTriggerRandomizeAll    = true; }
+      void triggerDeserialize()     { mDeserialize = true; }
+
+      void triggerZeroWindow()      { mState.markZeroWindow(); }
+      void triggerScatterWindow()   { mState.markScatterWindow(); }
+      void triggerRandomizeWindow() { mState.markRandomizeWindow(); }
+
+      void triggerZeroAll()         { mState.markZeroAll(); }
+      void triggerScatterAll()      { mState.markScatterAll(); }
+      void triggerRandomizeAll()    { mState.markRandomizeAll(); }
 
     private:
       RegisterState mState;
       RegisterState mBuffer;
 
-      bool mTriggerable            = false;
-      bool mTriggerDeserialize     = false;
-      bool mTriggerZeroWindow      = false;
-      bool mTriggerZeroAll         = false;
-      bool mTriggerRandomizeWindow = false;
-      bool mTriggerRandomizeAll    = false;
+      OneTime mClockSwitch;
+      OneTime mShiftSwitch;
+      OneTime mCaptureSwitch;
+      OneTime mResetSwitch;
+
+      int mSequenceLength = 0;
+      bool mRecordSequence = false;
+      bool mDeserialize = false;
+
+      void processTriggers() {
+        mState.processTriggers();
+
+        if (mDeserialize) {
+          mState       = mBuffer;
+          mBuffer      = {};
+          mDeserialize = false;
+        }
+      }
   };
 }
