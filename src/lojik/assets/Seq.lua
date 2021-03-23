@@ -1,53 +1,46 @@
 local app = app
-local lojik = require "lojik.liblojik"
 local core = require "core.libcore"
+local lojik = require "lojik.liblojik"
 local Class = require "Base.Class"
 local Unit = require "Unit"
 local Encoder = require "Encoder"
-local GainBias = require "Unit.ViewControl.GainBias"
 local PitchCircle = require "core.Quantizer.PitchCircle"
-local Common = require "lojik.Common"
-local MenuHeader = require "Unit.MenuControl.Header"
-local Task = require "Unit.MenuControl.Task"
-local OptionControl = require "Unit.MenuControl.OptionControl"
-local FlagSelect = require "Unit.MenuControl.FlagSelect"
+local GainBias = require "Unit.ViewControl.GainBias"
 local OutputScope = require "Unit.ViewControl.OutputScope"
+local Common = require "lojik.Common"
 
-local Turing = Class {}
-Turing:include(Unit)
-Turing:include(Common)
+local Seq = Class {}
+Seq:include(Unit)
+Seq:include(Common)
 
-function Turing:init(args)
-  args.title = "Turing"
-  args.mnemonic = "TM"
-  self.max = 16
-  self.initialScatter = 0.1
-  self.initialGain = 1.0
-  self.initialBias = 0.0
-  self.initialDrift = 0.0
+function Seq:init(args)
+  args.title = "Seq"
+  args.mnemonic = "S"
+  self.max = 64
   Unit.init(self, args)
 end
 
-function Turing:onLoadGraph(channelCount)
+function Seq:onLoadGraph(channelCount)
   local clock   = self:addComparatorControl("clock",  app.COMPARATOR_TRIGGER_ON_RISE)
-  local capture = self:addComparatorControl("capture", app.COMPARATOR_TOGGLE)
-  local length  = self:addGainBiasControl("length")
+  local capture = self:addComparatorControl("capture", app.COMPARATOR_GATE)
   local stride  = self:addGainBiasControl("stride")
 
-  local shift   = self:addComparatorControl("shift", app.COMPARATOR_GATE)
-  local reset   = self:addComparatorControl("reset", app.COMPARATOR_GATE)
+  local shift   = self:addComparatorControl("shift", app.COMPARATOR_TRIGGER_ON_RISE)
+  local reset   = self:addComparatorControl("reset", app.COMPARATOR_TRIGGER_ON_RISE)
 
   local scatter = self:addParameterAdapterControl("scatter")
   local drift   = self:addParameterAdapterControl("drift")
   local gain    = self:addParameterAdapterControl("gain")
   local bias    = self:addParameterAdapterControl("bias")
 
-  local register = self:addObject("register", lojik.Register(self.max, self.initialScatter))
-  connect(self,    "In1", register, "In")
+  local register = self:addObject("register", lojik.Register(self.max, 0))
+  register:setOptionValue("Mode", lojik.MODE_SEQ)
+  register:getOption("Sync"):clearFlag(1) -- Capture
+
+  connect(self, "In1", register, "In")
 
   connect(clock,   "Out", register, "Clock")
   connect(capture, "Out", register, "Capture")
-  connect(length,  "Out", register, "Length")
   connect(stride,  "Out", register, "Stride")
   connect(shift,   "Out", register, "Shift")
   connect(reset,   "Out", register, "Reset")
@@ -61,14 +54,11 @@ function Turing:onLoadGraph(channelCount)
   connect(register, "Out", quantizer, "In")
 
   for i = 1, channelCount do
-    -- We can't really make multiple quantizers since each has to be passed
-    -- into its own PitchCircle, so just connect the first output into any
-    -- other channels.
     connect(quantizer, "Out", self, "Out"..i)
   end
 end
 
-function Turing:serialize()
+function Seq:serialize()
   local t = Unit.serialize(self)
 
   t.registers = {}
@@ -77,7 +67,7 @@ function Turing:serialize()
   return t
 end
 
-function Turing:deserialize(t)
+function Seq:deserialize(t)
   Unit.deserialize(self, t)
 
   local register = self.objects.register;
@@ -87,64 +77,7 @@ function Turing:deserialize(t)
   end
 end
 
-function Turing:onShowMenu(objects)
-  return {
-    windowHeader = MenuHeader {
-      description = "Set window (" .. objects.register:getLength() .. ") ..."
-    },
-    zeroWindow = Task {
-      description = "Zero",
-      task = function ()
-        objects.register:triggerZeroWindow()
-      end
-    },
-    scatterWindow = Task {
-      description = "Scatter",
-      task = function ()
-        objects.register:triggerScatterWindow()
-      end
-    },
-    randomizeWindow = Task {
-      description = "Zero + Scatter",
-      task = function ()
-        objects.register:triggerRandomizeAll()
-      end
-    },
-    allHeader = MenuHeader {
-      description = "Set all (" .. objects.register:getMax() .. ") ..."
-    },
-    zeroAll = Task {
-      description = "Zero",
-      task = function ()
-        objects.register:triggerZeroAll()
-      end
-    },
-    scatterAll = Task {
-      description = "Scatter",
-      task = function ()
-        objects.register:triggerScatterAll()
-      end
-    },
-    randomizeAll = Task {
-      description = "Zero + Scatter",
-      task = function ()
-        objects.register:triggerRandomizeAll()
-      end
-    },
-    clockSync = FlagSelect {
-      description = "Sync",
-      option      = objects.register:getOption("Sync"),
-      flags       = { "Shift", "Capture", "Reset" }
-    }
-  }, {
-    "clockSync",
-    "allHeader", "zeroAll",    "scatterAll",    "randomizeAll",
-    "windowHeader", "zeroWindow", "scatterWindow", "randomizeWindow"
-  }
-end
-
-
-function Turing:onLoadViews()
+function Seq:onLoadViews()
   return {
     wave1 = OutputScope {
       monitor = self,
@@ -158,25 +91,14 @@ function Turing:onLoadViews()
     capture = self:gateView("capture", "Enable Write"),
     shift   = self:gateView("shift", "Enable Shift"),
     reset   = self:gateView("reset", "Enable Reset"),
-    length = GainBias {
-      button        = "length",
-      description   = "Length",
-      branch        = self.branches.length,
-      gainbias      = self.objects.length,
-      range         = self.objects.lengthRange,
-      gainMap       = self.intMap(-self.max, self.max),
-      biasMap       = self.intMap(1, self.max),
-      biasPrecision = 0,
-      initialBias   = 4
-    },
     stride  = GainBias {
       button        = "stride",
       description   = "Stride",
       branch        = self.branches.stride,
       gainbias      = self.objects.stride,
       range         = self.objects.strideRange,
-      gainMap       = self.intMap(-self.max, self.max),
-      biasMap       = self.intMap(-self.max, self.max),
+      gainMap       = self.intMap(-self.max / 4, self.max / 4),
+      biasMap       = self.intMap(-self.max / 4, self.max / 4),
       biasPrecision = 0,
       initialBias   = 1
     },
@@ -189,7 +111,7 @@ function Turing:onLoadViews()
       biasMap       = Encoder.getMap("[0,1]"),
       biasUnits     = app.unitNone,
       biasPrecision = 2,
-      initialBias   = self.initialScatter
+      initialBias   = 0
     },
     drift   = GainBias {
       button        = "drift",
@@ -200,7 +122,7 @@ function Turing:onLoadViews()
       biasMap       = Encoder.getMap("[0,1]"),
       biasUnits     = app.unitNone,
       biasPrecision = 2,
-      initialBias   = self.initialDrift
+      initialBias   = 0
     },
     gain   = GainBias {
       button        = "gain",
@@ -211,7 +133,7 @@ function Turing:onLoadViews()
       biasMap       = Encoder.getMap("[0,1]"),
       biasUnits     = app.unitNone,
       biasPrecision = 2,
-      initialBias   = self.initialGain
+      initialBias   = 1
     },
     bias   = GainBias {
       button        = "bias",
@@ -222,7 +144,7 @@ function Turing:onLoadViews()
       biasMap       = Encoder.getMap("[-1,1]"),
       biasUnits     = app.unitNone,
       biasPrecision = 2,
-      initialBias   = self.initialBias
+      initialBias   = 0
     },
     scale = PitchCircle {
       name      = "scale",
@@ -230,16 +152,15 @@ function Turing:onLoadViews()
       quantizer = self.objects.quantizer
     }
   }, {
-    expanded  = { "clock", "capture", "length", "scale", "drift" },
+    expanded  = { "clock", "capture", "reset", "scale" },
 
     clock     = { "clock",   "wave1", "shift", "reset" },
     capture   = { "capture", "wave1", "gain", "bias", "scatter" },
-    length    = { "length",  "wave1", "stride", "drift" },
+    reset     = { "reset",   "wave1", "stride", "drift" },
     scale     = { "scale",   "wave3" },
-    drift     = { "drift",   "wave3" },
 
     collapsed = { "scale" }
   }
 end
 
-return Turing
+return Seq
