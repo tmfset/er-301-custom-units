@@ -14,21 +14,19 @@ function Or:init(args)
 end
 
 function Or:onLoadGraph(channelCount)
-  local left  = self:addComparatorControl("left",  app.COMPARATOR_GATE)
-  local right = self:addComparatorControl("right", app.COMPARATOR_GATE)
+  local gate = self:addComparatorControl("gate", app.COMPARATOR_GATE)
 
   for i = 1, channelCount do
-    local op = self:lOr(left, right, "op"..i)
+    local op = self:lOr(self, gate, "op"..i, "In"..i)
     connect(op, "Out", self, "Out"..i)
   end
 end
 
 function Or:onLoadViews()
   return {
-    left  = self:gateView("left", "Left"),
-    right = self:gateView("right", "Right")
+    gate = self:gateView("gate", "Gate")
   }, {
-    expanded  = { "left", "right" },
+    expanded  = { "gate" },
     collapsed = {}
   }
 end

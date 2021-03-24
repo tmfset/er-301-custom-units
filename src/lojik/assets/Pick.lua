@@ -16,35 +16,23 @@ function Pick:init(args)
 end
 
 function Pick:onLoadGraph(channelCount)
-  local left  = self:addGainBiasControl("left")
-  local right = self:addGainBiasControl("right")
+  local alt = self:addGainBiasControl("alt")
   local pick  = self:addComparatorControl("pick", app.COMPARATOR_GATE)
 
   for i = 1, channelCount do
-    local op = self:pick(pick, left, right, "op"..i)
+    local op = self:pick(pick, self, alt, "op"..i, "In"..i)
     connect(op, "Out", self, "Out"..i)
   end
 end
 
 function Pick:onLoadViews()
   return {
-    left   = GainBias {
-      button        = "left",
-      description   = "Left",
-      branch        = self.branches.left,
-      gainbias      = self.objects.left,
-      range         = self.objects.leftRange,
-      biasMap       = Encoder.getMap("[-1,1]"),
-      biasUnits     = app.unitNone,
-      biasPrecision = 2,
-      initialGain   = 1
-    },
-    right   = GainBias {
-      button        = "right",
-      description   = "Right",
-      branch        = self.branches.right,
-      gainbias      = self.objects.right,
-      range         = self.objects.rightRange,
+    alt   = GainBias {
+      button        = "alt",
+      description   = "Alternate",
+      branch        = self.branches.alt,
+      gainbias      = self.objects.alt,
+      range         = self.objects.altRange,
       biasMap       = Encoder.getMap("[-1,1]"),
       biasUnits     = app.unitNone,
       biasPrecision = 2,
@@ -52,7 +40,7 @@ function Pick:onLoadViews()
     },
     pick  = self:gateView("pick", "Pick")
   }, {
-    expanded  = { "left", "right", "pick" },
+    expanded  = { "alt", "pick" },
     collapsed = {}
   }
 end
