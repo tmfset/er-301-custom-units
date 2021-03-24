@@ -72,11 +72,20 @@ function Common.trig(self, input, name, iOut)
   return op
 end
 
-function Common.pick(self, pick, left, right, name)
+function Common.pick(self, pick, left, right, name, lOut, rOut)
   local op = self:addObject(name or ("Pick"..left:name()..right:name()), lojik.Pick())
-  connect(left,  "Out", op, "Left")
-  connect(right, "Out", op, "Right")
+  connect(left,  lOut or "Out", op, "Left")
+  connect(right, rOut or "Out", op, "Right")
   connect(pick,  "Out", op, "Pick")
+  return op
+end
+
+function Common.wait(self, input, wait, clock, reset, name, iOut)
+  local op = self:addObject(name or ("Wait"..input:name()..wait:name()..gate:name()), lojik.Wait())
+  connect(input, iOut or "Out", op, "In")
+  connect(wait, "Out", op, "Wait")
+  connect(clock, "Out", op, "Clock")
+  connect(reset, "Out", op, "Reset")
   return op
 end
 

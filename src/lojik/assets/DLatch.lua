@@ -9,7 +9,7 @@ DLatch:include(Common)
 
 function DLatch:init(args)
   args.title = "DLatch"
-  args.mnemonic = "DL"
+  args.mnemonic = "DLx"
   Unit.init(self, args)
 end
 

@@ -8,7 +8,7 @@ Not:include(Common)
 
 function Not:init(args)
   args.title = "Not"
-  args.mnemonic = "!"
+  args.mnemonic = "~"
   Unit.init(self, args)
 end
 

@@ -9,26 +9,24 @@ Latch:include(Common)
 
 function Latch:init(args)
   args.title = "Latch"
-  args.mnemonic = "L"
+  args.mnemonic = "Lx"
   Unit.init(self, args)
 end
 
 function Latch:onLoadGraph(channelCount)
-  local set   = self:addComparatorControl("set",   app.COMPARATOR_TRIGGER_ON_RISE)
   local reset = self:addComparatorControl("reset", app.COMPARATOR_TRIGGER_ON_RISE)
 
   for i = 1, channelCount do
-    local latch = self:latch(set, reset, "latch"..i)
+    local latch = self:latch(self, reset, "latch"..i, "In"..i)
     connect(latch, "Out", self, "Out"..i)
   end
 end
 
 function Latch:onLoadViews()
   return {
-    set   = self:gateView("set", "Set"),
     reset = self:gateView("reset", "Reset")
   }, {
-    expanded  = { "set", "reset" },
+    expanded  = { "reset" },
     collapsed = {}
   }
 end

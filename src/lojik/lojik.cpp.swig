@@ -10,6 +10,7 @@
 #include <Not.h>
 #include <Trig.h>
 #include <Pick.h>
+#include <Wait.h>
 #include <Latch.h>
 #include <DLatch.h>
 #include <Register.h>
@@ -23,6 +24,7 @@
 %include <Not.h>
 %include <Trig.h>
 %include <Pick.h>
+%include <Wait.h>
 %include <Latch.h>
 %include <DLatch.h>
 %include <Register.h>
