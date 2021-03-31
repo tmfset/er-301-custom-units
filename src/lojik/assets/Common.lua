@@ -22,6 +22,14 @@ function Common.addGainBiasControl(self, name)
   return gb;
 end
 
+function Common.addConstantOffsetControl(self, name)
+  local co    = self:addObject(name, app.ConstantOffset())
+  local range = self:addObject(name.."Range", app.MinMax())
+  connect(co, "Out", range, "In")
+  self:addMonoBranch(name, co, "In", co, "Out")
+  return co
+end
+
 function Common.addParameterAdapterControl(self, name)
   local pa = self:addObject(name, app.ParameterAdapter())
   self:addMonoBranch(name, pa, "In", pa, "Out")
@@ -80,6 +88,13 @@ function Common.pick(self, pick, left, right, name, lOut, rOut)
   return op
 end
 
+function Common.pulse(self, freq, width, name)
+  local op = self:addObject(name or ("Pulse"..freq:name()..width:name()), lojik.Pulse())
+  connect(freq, "Out", op, "Frequency")
+  connect(width, "Out", op, "Width")
+  return op;
+end
+
 function Common.wait(self, input, wait, clock, reset, name, iOut)
   local op = self:addObject(name or ("Wait"..input:name()..wait:name()..gate:name()), lojik.Wait())
   connect(input, iOut or "Out", op, "In")
@@ -104,9 +119,16 @@ function Common.dLatch(self, input, clock, reset, name, iName, cName, rName)
   return op
 end
 
+function Common.mult(self, left, right, name)
+  local op = self:addObject(name or ("Mult"..left:name()..right:name()), app.Multiply())
+  connect(left,  "Out", op, "Left")
+  connect(right, "Out", op, "Right")
+  return op
+end
+
 function Common.intMap(min, max)
   local map = app.LinearDialMap(min,max)
-    map:setSteps(1, 1, 1, 1)
+    map:setSteps(2, 1, 0.25, 0.25)
     map:setRounding(1)
     return map
 end

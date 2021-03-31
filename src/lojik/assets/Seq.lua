@@ -4,6 +4,9 @@ local lojik = require "lojik.liblojik"
 local Class = require "Base.Class"
 local Unit = require "Unit"
 local Encoder = require "Encoder"
+local MenuHeader = require "Unit.MenuControl.Header"
+local Task = require "Unit.MenuControl.Task"
+local FlagSelect = require "Unit.MenuControl.FlagSelect"
 local PitchCircle = require "core.Quantizer.PitchCircle"
 local GainBias = require "Unit.ViewControl.GainBias"
 local OutputScope = require "Unit.ViewControl.OutputScope"
@@ -75,6 +78,62 @@ function Seq:deserialize(t)
   if rt then
     self.deserializeRegister(register, rt)
   end
+end
+
+function Seq:onShowMenu(objects)
+  return {
+    windowHeader = MenuHeader {
+      description = "Set window (" .. objects.register:getLength() .. ") ..."
+    },
+    zeroWindow = Task {
+      description = "zero",
+      task = function ()
+        objects.register:triggerZeroWindow()
+      end
+    },
+    scatterWindow = Task {
+      description = "scatter",
+      task = function ()
+        objects.register:triggerScatterWindow()
+      end
+    },
+    randomizeWindow = Task {
+      description = "zero + scatter",
+      task = function ()
+        objects.register:triggerRandomizeAll()
+      end
+    },
+    allHeader = MenuHeader {
+      description = "Set all (" .. objects.register:getMax() .. ") ..."
+    },
+    zeroAll = Task {
+      description = "zero",
+      task = function ()
+        objects.register:triggerZeroAll()
+      end
+    },
+    scatterAll = Task {
+      description = "scatter",
+      task = function ()
+        objects.register:triggerScatterAll()
+      end
+    },
+    randomizeAll = Task {
+      description = "zero + scatter",
+      task = function ()
+        objects.register:triggerRandomizeAll()
+      end
+    },
+    clockSync = FlagSelect {
+      description = "Clock Sync",
+      option      = objects.register:getOption("Sync"),
+      flags       = { "shift", "capture", "reset" }
+    }
+  }, {
+    "clockSync",
+    "allHeader",    "zeroAll",    "scatterAll",    "randomizeAll",
+    "windowHeader", "zeroWindow", "scatterWindow", "randomizeWindow"
+  }
 end
 
 function Seq:onLoadViews()
