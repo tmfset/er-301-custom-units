@@ -93,19 +93,19 @@ function Turing:onShowMenu(objects)
       description = "Set window (" .. objects.register:getLength() .. ") ..."
     },
     zeroWindow = Task {
-      description = "Zero",
+      description = "zero",
       task = function ()
         objects.register:triggerZeroWindow()
       end
     },
     scatterWindow = Task {
-      description = "Scatter",
+      description = "scatter",
       task = function ()
         objects.register:triggerScatterWindow()
       end
     },
     randomizeWindow = Task {
-      description = "Zero + Scatter",
+      description = "zero + scatter",
       task = function ()
         objects.register:triggerRandomizeAll()
       end
@@ -114,27 +114,27 @@ function Turing:onShowMenu(objects)
       description = "Set all (" .. objects.register:getMax() .. ") ..."
     },
     zeroAll = Task {
-      description = "Zero",
+      description = "zero",
       task = function ()
         objects.register:triggerZeroAll()
       end
     },
     scatterAll = Task {
-      description = "Scatter",
+      description = "scatter",
       task = function ()
         objects.register:triggerScatterAll()
       end
     },
     randomizeAll = Task {
-      description = "Zero + Scatter",
+      description = "zero + scatter",
       task = function ()
         objects.register:triggerRandomizeAll()
       end
     },
     clockSync = FlagSelect {
-      description = "Sync",
+      description = "Clock Sync",
       option      = objects.register:getOption("Sync"),
-      flags       = { "Shift", "Capture", "Reset" }
+      flags       = { "shift", "capture", "reset" }
     }
   }, {
     "clockSync",

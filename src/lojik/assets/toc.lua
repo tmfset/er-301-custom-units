@@ -6,6 +6,7 @@ return {
   author  = "tomf",
   units   = {
     { category = "Gates" },
+    { title = "Pulse", moduleName = "Pulse", keywords = "pulse, square" },
     { title = "And", moduleName = "And", keywords = "and" },
     { title = "Or", moduleName = "Or", keywords = "or" },
     { title = "Not", moduleName = "Not", keywords = "not" },
@@ -14,6 +15,7 @@ return {
     { title = "DLatch", moduleName = "DLatch", keywords = "latch" },
     { title = "Pick", moduleName = "Pick", keywords = "pick" },
     { title = "Wait", moduleName = "Wait", keywords = "divide, delay" },
+    { title = "Euclid", moduleName = "Euclid", keyword = "rythm, clock" },
 
     { category = "Memory" },
     { title = "Register", moduleName = "Register", keywords = "sequencer, register" },

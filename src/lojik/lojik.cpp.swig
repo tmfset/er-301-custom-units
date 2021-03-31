@@ -5,6 +5,7 @@
 
 #undef SWIGLUA
 
+#include <Pulse.h>
 #include <And.h>
 #include <Or.h>
 #include <Not.h>
@@ -14,11 +15,14 @@
 #include <Latch.h>
 #include <DLatch.h>
 #include <Register.h>
+#include <Euclid.h>
+#include <EuclidCircle.h>
 
 #define SWIGLUA
 
 %}
 
+%include <Pulse.h>
 %include <And.h>
 %include <Or.h>
 %include <Not.h>
@@ -28,3 +32,5 @@
 %include <Latch.h>
 %include <DLatch.h>
 %include <Register.h>
+%include <Euclid.h>
+%include <EuclidCircle.h>

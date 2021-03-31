@@ -1,5 +1,6 @@
 #pragma once
 #include <hal/simd.h>
+#include <vector>
 
 namespace lojik {
   inline int mod(int a, int n) {

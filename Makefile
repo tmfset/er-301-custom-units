@@ -5,16 +5,15 @@ PROJECTS := lojik
 all: $(PROJECTS)
 
 $(PROJECTS) &:
-
 	+$(MAKE) -f src/$@/mod.mk PKGNAME=$@
 
-$(addsuffix -install,$(PROJECTS)) &:
+$(addsuffix -install,$(PROJECTS)) &: $(@:-install=)
 	$(eval PROJECT := $(@:-install=))
 	+$(MAKE) -f src/$(PROJECT)/mod.mk install PKGNAME=$(PROJECT)
 
 $(addsuffix -install-sd,$(PROJECTS)) &:
 	$(eval PROJECT := $(@:-install-sd=))
-	+$(MAKE) -f src/$(PROJECT)/mod.mk install-sd PKGNAME=$(PROJECT)
+	+$(MAKE) -f src/$(PROJECT)/mod.mk install-sd PKGNAME=$(PROJECT) ARCH=am335x PROFILE=release
 
 $(addsuffix -missing,$(PROJECTS)) &:
 	$(eval PROJECT := $(@:-missing=))
