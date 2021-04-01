@@ -5,21 +5,26 @@ return {
   contact = "tomj.fiset@gmail.com",
   author  = "tomf",
   units   = {
-    { category = "Gates" },
-    { title = "Pulse", moduleName = "Pulse", keywords = "pulse, square" },
-    { title = "And", moduleName = "And", keywords = "and" },
-    { title = "Or", moduleName = "Or", keywords = "or" },
-    { title = "Not", moduleName = "Not", keywords = "not" },
-    { title = "Trig", moduleName = "Trig", keywords = "trig" },
+    { category = "Sequencers" },
+    { title = "Register", moduleName = "Register", keywords = "sequencer, register" },
+    { title = "Turing", moduleName = "Turing", keywords = "sequencer, turing" },
+    { title = "Seq", moduleName = "Seq", keywords = "sequencer" },
+
+    { category = "Latches" },
     { title = "Latch", moduleName = "Latch", keywords = "latch" },
     { title = "DLatch", moduleName = "DLatch", keywords = "latch" },
     { title = "Pick", moduleName = "Pick", keywords = "pick" },
-    { title = "Wait", moduleName = "Wait", keywords = "divide, delay" },
-    { title = "Euclid", moduleName = "Euclid", keyword = "rythm, clock" },
 
-    { category = "Memory" },
-    { title = "Register", moduleName = "Register", keywords = "sequencer, register" },
-    { title = "Turing", moduleName = "Turing", keywords = "sequencer, turing" },
-    { title = "Seq", moduleName = "Seq", keywords = "sequencer" }
+    { category = "Clocks" },
+    { title = "Pulse", moduleName = "Pulse", keywords = "pulse, square" },
+    { title = "Wait", moduleName = "Wait", keywords = "divide, delay" },
+    { title = "Euclid", moduleName = "Euclid", keyword = "rhythm, clock" },
+    { title = "Chance", moduleName = "Chance", keyword = "rhythm, clock" },
+
+    { category = "Logic" },
+    { title = "And", moduleName = "And", keywords = "and" },
+    { title = "Or", moduleName = "Or", keywords = "or" },
+    { title = "Not", moduleName = "Not", keywords = "not" },
+    { title = "Trig", moduleName = "Trig", keywords = "trig" }
   }
 }

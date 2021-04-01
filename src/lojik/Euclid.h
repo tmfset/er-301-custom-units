@@ -4,6 +4,7 @@
 #include <vector>
 #include <util.h>
 #include <OneTime.h>
+#include <sense.h>
 
 #define EUCLID_MODE_TRIGGER 1
 #define EUCLID_MODE_GATE 2
@@ -15,28 +16,29 @@ namespace lojik {
       Euclid(int max);
       virtual ~Euclid();
 
-  #ifndef SWIGLUA
-    virtual void process();
+#ifndef SWIGLUA
+      virtual void process();
 
-    od::Inlet  mClock  { "Clock" };
-    od::Inlet  mReset  { "Reset" };
-    od::Inlet  mRotate { "Rotate" };
-    od::Outlet mOut    { "Out" };
+      od::Inlet  mClock  { "Clock" };
+      od::Inlet  mReset  { "Reset" };
+      od::Inlet  mRotate { "Rotate" };
+      od::Outlet mOut    { "Out" };
 
-    od::Parameter mBeats  { "Beats", 5 };
-    od::Parameter mLength { "Length", 13 };
-    od::Parameter mShift  { "Shift", 0 };
+      od::Parameter mBeats  { "Beats", 5 };
+      od::Parameter mLength { "Length", 13 };
+      od::Parameter mShift  { "Shift", 0 };
 
-    od::Option mSync { "Sync", 0b00 };
-    od::Option mMode { "Mode", EUCLID_MODE_TRIGGER };
-  #endif
+      od::Option mSync { "Sync", 0b00 };
+      od::Option mMode { "Mode", EUCLID_MODE_TRIGGER };
+      od::Option mSense { "Sense", INPUT_SENSE_LOW };
+#endif
 
-    int getStep() { return mStep; }
-    int getShift() { return mShift.value(); }
+      int getStep() { return mStep; }
+      int getShift() { return mShift.value(); }
 
-    void setStep(int v) { mStep = v; }
+      void setStep(int v) { mStep = v; }
 
-    bool isSet(int i) { return mRythm[index(i, -getShift())]; }
+      bool isSet(int i) { return mRythm[index(i, -getShift())]; }
 
     private:
       int mMax = 64;

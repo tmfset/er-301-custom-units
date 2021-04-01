@@ -3,7 +3,7 @@
 #include <od/config.h>
 #include <hal/ops.h>
 #include <hal/simd.h>
-#include <util.h>
+#include <sense.h>
 
 namespace lojik {
   Euclid::Euclid(int max) {
@@ -18,6 +18,7 @@ namespace lojik {
 
     addOption(mSync);
     addOption(mMode);
+    addOption(mSense);
     mMax = max;
   }
 
@@ -42,6 +43,7 @@ namespace lojik {
 
     int startShift = shift;
 
+    float32x4_t sense = vdupq_n_f32(getSense(mSense));
     float32x4_t zero = vdupq_n_f32(0.0f);
 
     for (int i = 0; i < FRAMELENGTH; i += 4) {
@@ -50,7 +52,7 @@ namespace lojik {
       float32x4_t loadRotate = vld1q_f32(rotate + i);
 
       uint32_t isClockHigh[4], isResetHigh[4], isRotateHigh[4];
-      vst1q_u32(isClockHigh,  vcgtq_f32(loadClock,  zero));
+      vst1q_u32(isClockHigh,  vcgtq_f32(loadClock,  sense));
       vst1q_u32(isResetHigh,  vcgtq_f32(loadReset,  zero));
       vst1q_u32(isRotateHigh, vcgtq_f32(loadRotate, zero));
 

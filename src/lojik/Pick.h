@@ -8,12 +8,12 @@ namespace lojik {
       Pick();
       virtual ~Pick();
 
-  #ifndef SWIGLUA
-    virtual void process();
-    od::Inlet  mLeft  { "Left" };
-    od::Inlet  mRight { "Right" };
-    od::Inlet  mPick  { "Pick" };
-    od::Outlet mOut   { "Out" };
-  #endif
+#ifndef SWIGLUA
+      virtual void process();
+      od::Inlet  mIn   { "In" };
+      od::Inlet  mAlt  { "Alt" };
+      od::Inlet  mPick { "Pick" };
+      od::Outlet mOut  { "Out" };
+#endif
   };
 }
