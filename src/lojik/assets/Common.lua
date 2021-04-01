@@ -1,6 +1,7 @@
 local app = app
 local Gate = require "Unit.ViewControl.Gate"
 local lojik = require "lojik.liblojik"
+local OptionControl = require "Unit.MenuControl.OptionControl"
 
 local Common = {}
 
@@ -36,87 +37,12 @@ function Common.addParameterAdapterControl(self, name)
   return pa
 end
 
--- Create a memoized constant value to be used as an output.
-function Common.mConst(self, value)
-  self.constants = self.constants or {}
-
-  if self.constants[value] == nil then
-    local const = self:addObject("constant"..value, app.Constant())
-    const:hardSet("Value", value)
-
-    self.constants[value] = const
-  end
-
-  return self.constants[value]
-end
-
-function Common.lAnd(self, left, right, name, lOut, rOut)
-  local op = self:addObject(name or (left:name().."And"..right:name()), lojik.And())
-  connect(left,  lOut or "Out", op, "Left")
-  connect(right, rOut or "Out", op, "Right")
-  return op
-end
-
-function Common.lOr(self, left, right, name, lOut, rOut)
-  local op = self:addObject(name or (left:name().."Or"..right:name()), lojik.Or())
-  connect(left,  lOut or "Out", op, "Left")
-  connect(right, rOut or "Out", op, "Right")
-  return op
-end
-
-function Common.lNot(self, input, name, iOut)
-  local op = self:addObject(name or ("Not"..input:name()), lojik.Not())
-  connect(input, iOut or "Out", op, "In")
-  return op
-end
-
-function Common.lNotTrig(self, input)
-  return self:trig(self:lNot(input))
-end
-
-function Common.trig(self, input, name, iOut)
-  local op = self:addObject(name or ("Trig"..input:name()), lojik.Trig())
-  connect(input, iOut or "Out", op, "In")
-  return op
-end
-
-function Common.pick(self, pick, left, right, name, lOut, rOut)
-  local op = self:addObject(name or ("Pick"..left:name()..right:name()), lojik.Pick())
-  connect(left,  lOut or "Out", op, "Left")
-  connect(right, rOut or "Out", op, "Right")
-  connect(pick,  "Out", op, "Pick")
-  return op
-end
-
-function Common.pulse(self, freq, width, name)
-  local op = self:addObject(name or ("Pulse"..freq:name()..width:name()), lojik.Pulse())
-  connect(freq, "Out", op, "Frequency")
-  connect(width, "Out", op, "Width")
-  return op;
-end
-
-function Common.wait(self, input, wait, clock, reset, name, iOut)
-  local op = self:addObject(name or ("Wait"..input:name()..wait:name()..gate:name()), lojik.Wait())
-  connect(input, iOut or "Out", op, "In")
-  connect(wait, "Out", op, "Wait")
-  connect(clock, "Out", op, "Clock")
-  connect(reset, "Out", op, "Reset")
-  return op
-end
-
-function Common.latch(self, set, reset, name, sOut, rOut)
-  local op = self:addObject(name or ("Latch"..set:name()..reset:name()), lojik.Latch())
-  connect(set,   sOut or "Out", op, "Set")
-  connect(reset, rOut or "Out", op, "Reset")
-  return op
-end
-
-function Common.dLatch(self, input, clock, reset, name, iName, cName, rName)
-  local op = self:addObject(name or ("DLatch"..input:name()), lojik.DLatch())
-  connect(input, iName or "Out", op, "In")
-  connect(clock, cName or "Out", op, "Clock")
-  connect(reset, rName or "Out", op, "Reset")
-  return op
+function Common.senseOptionControl(op)
+  return OptionControl {
+    description = "Input Sense",
+    option      = op:getOption("Sense"),
+    choices     = { "low", "high" }
+  }
 end
 
 function Common.mult(self, left, right, name)

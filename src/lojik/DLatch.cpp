@@ -3,6 +3,7 @@
 #include <od/config.h>
 #include <hal/ops.h>
 #include <hal/simd.h>
+#include <util.h>
 
 namespace lojik {
   DLatch::DLatch() {

@@ -1,32 +1,31 @@
 #pragma once
 
 #include <od/objects/Object.h>
-#include <sense.h>
 #include <OneTime.h>
+#include <sense.h>
 
-#define WAIT_MODE_LOW  1
-#define WAIT_MODE_HIGH 2
+#define CHANCE_MODE_TRIGGER 1
+#define CHANCE_MODE_GATE 2
+#define CHANCE_MODE_PASSTHROUGH 3
 
 namespace lojik {
-  class Wait : public od::Object {
+  class Chance : public od::Object {
     public:
-      Wait();
-      virtual ~Wait();
+      Chance();
+      virtual ~Chance();
 
 #ifndef SWIGLUA
       virtual void process();
       od::Inlet  mIn     { "In" };
-      od::Inlet  mCount  { "Count" };
-      od::Inlet  mInvert { "Invert" };
-      od::Inlet  mArm    { "Arm" };
+      od::Inlet  mChance { "Chance" };
       od::Outlet mOut    { "Out" };
 
+      od::Option mMode { "Mode", CHANCE_MODE_GATE };
       od::Option mSense { "Sense", INPUT_SENSE_LOW };
 #endif
 
     private:
       OneTime mTrigSwitch;
-      bool mIsArmed = false;
-      int mStep = 0;
+      bool mAllow = false;
   };
 }

@@ -17,6 +17,7 @@
 #include <Register.h>
 #include <Euclid.h>
 #include <EuclidCircle.h>
+#include <Chance.h>
 
 #define SWIGLUA
 
@@ -34,3 +35,4 @@
 %include <Register.h>
 %include <Euclid.h>
 %include <EuclidCircle.h>
+%include <Chance.h>

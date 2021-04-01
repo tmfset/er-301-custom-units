@@ -2,11 +2,9 @@ local app = app
 local lojik = require "lojik.liblojik"
 local EuclidCircle = require "lojik.EuclidCircle"
 local Class = require "Base.Class"
-local Encoder = require "Encoder"
 local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
 local FlagSelect = require "Unit.MenuControl.FlagSelect"
-local MenuHeader = require "Unit.MenuControl.Header"
 local OptionControl = require "Unit.MenuControl.OptionControl"
 local Common = require "lojik.Common"
 
@@ -51,8 +49,9 @@ function Euclid:onShowMenu(objects)
       description = "Clock Sync",
       option      = objects.op:getOption("Sync"),
       flags       = { "rotate", "reset" }
-    }
-  }, { "mode", "clockSync" }
+    },
+    sensitivity = self.senseOptionControl(objects.op)
+  }, { "mode", "clockSync", "sensitivity" }
 end
 
 function Euclid:onLoadViews()
@@ -82,7 +81,7 @@ function Euclid:onLoadViews()
       initialBias   = 7
     },
     circle = EuclidCircle {
-      description = "Euclidean Rythm",
+      description = "Euclidean Rhythm",
       width       = 2 * app.SECTION_PLY,
       euclid      = self.objects.op,
       max         = self.max,

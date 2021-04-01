@@ -1,4 +1,5 @@
 local app = app
+local lojik = require "lojik.liblojik"
 local Class = require "Base.Class"
 local Encoder = require "Encoder"
 local Unit = require "Unit"
@@ -19,8 +20,12 @@ function Pick:onLoadGraph(channelCount)
   local alt = self:addGainBiasControl("alt")
   local pick  = self:addComparatorControl("pick", app.COMPARATOR_GATE)
 
+  local op = self:addObject("op", lojik.Pick())
+  connect(self, "In1", op, "In")
+  connect(alt,  "Out", op, "Alt")
+  connect(pick, "Out", op, "Pick")
+
   for i = 1, channelCount do
-    local op = self:pick(pick, self, alt, "op"..i, "In"..i)
     connect(op, "Out", self, "Out"..i)
   end
 end

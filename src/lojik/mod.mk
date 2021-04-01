@@ -1,2 +1,2 @@
-PKGVERSION = 0.5.0
+PKGVERSION = 1.0.0
 include scripts/mod-builder.mk

@@ -1,3 +1,4 @@
+local lojik = require "lojik.liblojik"
 local Class = require "Base.Class"
 local Unit = require "Unit"
 local Common = require "lojik.Common"
@@ -12,9 +13,17 @@ function Trig:init(args)
   Unit.init(self, args)
 end
 
+function Trig:onShowMenu(objects)
+  return {
+    sensitivity = self.senseOptionControl(objects.op)
+  }, { "sensitivity" }
+end
+
 function Trig:onLoadGraph(channelCount)
+  local op = self:addObject("op", lojik.Trig())
+  connect(self, "In1", op, "In")
+
   for i = 1, channelCount do
-    local op = self:trig(self, "op"..i, "In"..i)
     connect(op, "Out", self, "Out"..i)
   end
 end
