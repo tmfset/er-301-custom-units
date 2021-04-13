@@ -1,24 +1,16 @@
-%module sloop_libSloop
+%module sloop_libsloop
 %include <od/glue/mod.cpp.swig>
 
 %{
 
 #undef SWIGLUA
 
-#include <And.h>
-#include <Or.h>
-#include <Not.h>
-#include <Latch.h>
-#include <DLatch.h>
-#include <Trig.h>
+#include <Sloop.h>
+#include <SloopHeadDisplay.h>
 
 #define SWIGLUA
 
 %}
 
-%include <And.h>
-%include <Or.h>
-%include <Not.h>
-%include <Latch.h>
-%include <DLatch.h>
-%include <Trig.h>
+%include <Sloop.h>
+%include <SloopHeadDisplay.h>
