@@ -75,11 +75,7 @@ namespace sloop {
       return vmlaq_f32(from * mValue, to, mComplement);
     }
 
-    inline float32x4_t clerp(const float32x4_t &from, const float32x4_t &to) const {
-      return 0;
-    }
-
-    inline float32x4_t lerpToOne(const float32x4_t &from) const {
+    inline float32x4_t ease(const float32x4_t &from) const {
       return vmlaq_f32(mComplement, from, mValue);
     }
   };

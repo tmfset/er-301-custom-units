@@ -10,6 +10,8 @@
 namespace sloop {
   class Slew {
     public:
+      Slew() {}
+
       Slew(float value, float rise, float fall) :
         mValue(value),
         mRise(rise),
@@ -61,8 +63,8 @@ namespace sloop {
       }
 
     private:
-      float mValue;
-      float mRise;
-      float mFall;
+      float mValue = 0;
+      float mRise = 1;
+      float mFall = 1;
   };
 }
