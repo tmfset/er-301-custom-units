@@ -109,9 +109,6 @@ function Sloop:setSample(sample)
   if self.sample then self.sample:claim(self) end
 
   if sample then
-    print(sample.pSample:getSizeInBytes())
-    print(sample.slices.pSlices:size())
-
     self.objects.head:setSample(sample.pSample, sample.slices.pSlices)
   else
     self.objects.head:setSample(nil, nil)

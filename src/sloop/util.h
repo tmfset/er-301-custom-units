@@ -1,5 +1,6 @@
 #pragma once
 
+#include <od/audio/Sample.h>
 #include <hal/simd.h>
 
 namespace sloop {
@@ -43,6 +44,22 @@ namespace sloop {
     return left * by + right * (1.0f - by);
   }
 
+  inline float32x4_t readSample(od::Sample *sample, const int *index, int channel) {
+    float32x4_t out = vdupq_n_f32(0);
+    out = vsetq_lane_f32(sample->get(index[0], channel), out, 0);
+    out = vsetq_lane_f32(sample->get(index[1], channel), out, 1);
+    out = vsetq_lane_f32(sample->get(index[2], channel), out, 2);
+    out = vsetq_lane_f32(sample->get(index[3], channel), out, 3);
+    return out;
+  }
+
+  inline void writeSample(od::Sample *sample, const int *index, int channel, float32x4_t value) {
+    sample->set(index[0], channel, vgetq_lane_f32(value, 0));
+    sample->set(index[1], channel, vgetq_lane_f32(value, 1));
+    sample->set(index[2], channel, vgetq_lane_f32(value, 2));
+    sample->set(index[3], channel, vgetq_lane_f32(value, 3));
+  }
+
   struct Complement {
     float32x4_t mValue;
     float32x4_t mComplement;
@@ -54,11 +71,15 @@ namespace sloop {
       mComplement = one - value;
     }
 
-    inline float32x4_t lerp(float32x4_t from, float32x4_t to) const {
+    inline float32x4_t lerp(const float32x4_t &from, const float32x4_t &to) const {
       return vmlaq_f32(from * mValue, to, mComplement);
     }
 
-    inline float32x4_t lerpToOne(float32x4_t from) const {
+    inline float32x4_t clerp(const float32x4_t &from, const float32x4_t &to) const {
+      return 0;
+    }
+
+    inline float32x4_t lerpToOne(const float32x4_t &from) const {
       return vmlaq_f32(mComplement, from, mValue);
     }
   };

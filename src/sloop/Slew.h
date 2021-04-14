@@ -50,7 +50,15 @@ namespace sloop {
       }
 
       float value() { return mValue; }
-      void setValue(float v) { mValue = v; } 
+
+      void setValue(float v) {
+        mValue = v;
+      }
+
+      void setRiseFall(float rise, float fall) {
+        mRise = rise;
+        mFall = fall;
+      }
 
     private:
       float mValue;

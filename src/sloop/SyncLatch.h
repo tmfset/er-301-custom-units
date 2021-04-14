@@ -11,8 +11,6 @@ namespace sloop {
         this->mState   = other.mState;
       }
 
-      //inline void readNeonSync(in32_t *out, uint32x4_t high)
-
       inline void readVector(int32_t *out, uint32_t const * high) {
         for (int i = 0; i < 4; i++) {
           out[i] = read(high[i]);
@@ -26,7 +24,21 @@ namespace sloop {
       }
 
       inline bool readSync(bool high, bool sync) {
+        mCount = mState ? mCount + sync : 0;
+
         if (mState) mEnable = true;
+        else        mEnable = (mEnable || !high) && !mTrigger;
+
+        if (mEnable) mTrigger = high;
+        if (sync)    mState   = mTrigger;
+
+        return mState;
+      }
+
+      inline bool readSyncMax(bool high, bool sync, int max) {
+        mCount = mState ? mCount + sync : 0;
+
+        if (mState) mEnable = mCount >= max;
         else        mEnable = (mEnable || !high) && !mTrigger;
 
         if (mEnable) mTrigger = high;
@@ -44,19 +56,21 @@ namespace sloop {
         return mTrigger;
       }
 
-      inline bool readOpt(bool high, bool sync) {
-        if (mState) mEnable = true;
-        else        mEnable = (mEnable || !high) && !mTrigger;
+      inline bool state() { return mState; }
 
-        if (mEnable) mTrigger = high;
-        if (sync)    mState   = mTrigger;
+      inline int count() { return mCount; }
+      inline void setCount(int count) { mCount = count; }
 
-        return mState;
+      inline bool first() {
+        return mCount == 0;
       }
 
-      bool state() { return mState; }
+      inline bool firstOrLast() {
+        return mState ? mCount == 0 : mCount != 0;
+      }
 
     private:
+      int  mCount   = 0;
       bool mEnable  = true;
       bool mTrigger = false;
       bool mState   = false;
