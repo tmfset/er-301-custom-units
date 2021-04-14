@@ -104,7 +104,7 @@ namespace sloop {
       }
 
       float recordLevel() {
-        return mFadeSlew.value();
+        return fmax(mRecordSlew.value(), mOverdubSlew.value());
       }
 
       int numberOfClockMarks() {
@@ -160,22 +160,25 @@ namespace sloop {
       od::Slices *mpSlices = 0;
       std::vector<int> mClockMarks;
 
-      Slew mFadeSlew { 0, 1, 1 };
-      Slew mShadowSlew { 0, 1, 1 };
       SyncLatch mClockLatch;
       SyncLatch mResetLatch;
       SyncLatch mRecordLatch;
       SyncLatch mOverdubLatch;
       SyncLatch mEngageLatch;
 
-      inline void updateFades() {
-        float sp          = globalConfig.samplePeriod;
-        float fadeTime    = fmax(mFade.value(), sp);
-        float fadeInTime  = fmax(mFadeIn.value(), sp);
-        float fadeOutTime = fmax(mFadeOut.value(), sp);
+      Slew mRecordSlew;
+      Slew mOverdubSlew;
+      Slew mShadowSlew;
 
-        mFadeSlew.setRiseFall(sp / fadeInTime, sp / fadeOutTime);
-        mShadowSlew.setRiseFall(1, sp / fadeTime);
+      inline void updateFades() {
+        float sp       = globalConfig.samplePeriod;
+        float fade    = sp / fmax(mFade.value(), sp);
+        float fadeIn  = sp / fmax(mFadeIn.value(), sp);
+        float fadeOut = sp / fmax(mFadeOut.value(), sp);
+
+        mRecordSlew.setRiseFall(fadeIn, fadeOut);
+        mOverdubSlew.setRiseFall(fadeIn, fadeOut);
+        mShadowSlew.setRiseFall(1, fade);
       }
 
       struct Buffers {
@@ -260,7 +263,7 @@ namespace sloop {
       struct ProcessedStep {
         bool isRecord;
         int currentIndex, shadowIndex;
-        float inputLevel, shadowLevel;
+        float recordLevel, overdubLevel, shadowLevel;
       };
 
       inline ProcessedStep processStep(const Constants &constants, int length) {
@@ -290,7 +293,8 @@ namespace sloop {
           record,
           mCurrentIndex = (mCurrentIndex + engaged) % mEndIndex,
           mShadowIndex  = (mShadowIndex  + engaged) % mEndIndex,
-          mFadeSlew.move(record || overdub),
+          mRecordSlew.move(record),
+          mOverdubSlew.move(overdub),
           mShadowSlew.move(0)
         };
       }
@@ -311,16 +315,20 @@ namespace sloop {
         float32x4_t feedback, through;
 
         inline ProcessedLevels(const ProcessedStep *steps, const Constants& constants) {
-          float notRecord[4], inputLevel[4], shadowLevel[4];
+          float recordLevel[4], overdubLevel[4], shadowLevel[4];
           for (int i = 0; i < 4; i++) {
-            notRecord[i]   = (int)!steps[i].isRecord;
-            inputLevel[i]  = steps[i].inputLevel;
-            shadowLevel[i] = steps[i].shadowLevel;
+            recordLevel[i]  = steps[i].recordLevel;
+            overdubLevel[i] = steps[i].overdubLevel;
+            shadowLevel[i]  = steps[i].shadowLevel;
           }
 
-          input    = Complement { vld1q_f32(inputLevel), constants.one };
+          Complement record  { vld1q_f32(recordLevel), constants.one };
+          Complement overdub { vld1q_f32(overdubLevel), constants.one };
+          float32x4_t max = vmaxq_f32(record.mValue, overdub.mValue);
+
+          input    = Complement { max, constants.one };
           shadow   = Complement { vld1q_f32(shadowLevel), constants.one };
-          feedback = vld1q_f32(notRecord) * input.lerpToOne(constants.feedback);
+          feedback = record.mComplement * input.ease(constants.feedback);
           through  = constants.through * input.mComplement;
         }
       };
