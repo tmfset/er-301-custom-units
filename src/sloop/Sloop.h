@@ -58,14 +58,13 @@ namespace sloop {
       void setSample(od::Sample *sample, od::Slices *slices) {
         od::TapeHead::setSample(sample);
 
-        mpSlices = slices;
-        // od::Slices *pSlices = mpSlices;
-        // mpSlices = 0;
-        // if (pSlices) pSlices->release();
+        od::Slices *pSlices = mpSlices;
+        mpSlices = 0;
+        if (pSlices) pSlices->release();
 
-        // pSlices = slices;
-        // //if (pSlices) pSlices->attach();
-        // mpSlices = pSlices;
+        pSlices = slices;
+        if (pSlices) pSlices->attach();
+        mpSlices = pSlices;
       }
 
 #ifndef SWIGLUA
@@ -104,16 +103,12 @@ namespace sloop {
         return Waiting;
       }
 
-      bool willReset() {
-        return false;
-      }
-
       float recordLevel() {
         return mFadeSlew.value();
       }
 
       int numberOfClockMarks() {
-        auto length = mRecordLatch.state() ? mCurrentStep : mpProxyLength->value();
+        auto length = mRecordLatch.state() ? mEngageLatch.count() : mpProxyLength->value();
         return min(length + 1, mClockMarks.size());
       }
 
@@ -126,31 +121,45 @@ namespace sloop {
       }
 
     private:
-      void reset(int step, bool shadow) {
+      inline void reset(int step, bool shadow) {
         int actualStep = mod(step, numberOfClockMarks() - 1);
-        mCurrentStep  = actualStep;
+        mEngageLatch.setCount(actualStep);
         mShadowIndex  = mCurrentIndex;
         mCurrentIndex = getClockMark(actualStep);
         if (shadow) mShadowSlew.setValue(1);
       }
 
-      void markClock() {
-        mClockMarks.resize(max(mCurrentStep + 1, mClockMarks.size()));
-        mClockMarks[mCurrentStep] = mCurrentIndex;
+      inline void markClock() {
+        int step = mEngageLatch.count();
+        mClockMarks.resize(max(step + 1, mClockMarks.size()));
+        mClockMarks[step] = mCurrentIndex;
 
-        logDebug(1, "[%d, %d]", mCurrentStep, mCurrentIndex);
+        if (!mpSlices) return;
 
-        int size = mpSlices->size();
-        if (mCurrentStep >= size) {
+        if (step >= mpSlices->size()) {
           mpSlices->append(od::Slice { mCurrentIndex });
         } else {
-          od::Slice *pSlice = mpSlices->get(mCurrentStep);
+          od::Slice *pSlice = mpSlices->get(step);
           if (pSlice) pSlice->mStart = mCurrentIndex;
         }
       }
 
-      int channels() { return mStereo ? 2 : 1; }
+      inline float32x4_t read(const int* index, int channel) const {
+        return readSample(mpSample, index, channel);
+      }
+
+      inline void write(const int* index, int channel, float32x4_t value) {
+        writeSample(mpSample, index, channel, value);
+      }
+
+      inline int channels() const {
+        return mStereo ? 2 : 1;
+      }
+
       bool mStereo;
+      od::Slices *mpSlices = 0;
+      std::vector<int> mClockMarks;
+
       Slew mFadeSlew { 0, 1, 1 };
       Slew mShadowSlew { 0, 1, 1 };
       SyncLatch mClockLatch;
@@ -159,239 +168,261 @@ namespace sloop {
       SyncLatch mOverdubLatch;
       SyncLatch mEngageLatch;
 
-      od::Slices *mpSlices;
+      inline void updateFades() {
+        float sp          = globalConfig.samplePeriod;
+        float fadeTime    = fmax(mFade.value(), sp);
+        float fadeInTime  = fmax(mFadeIn.value(), sp);
+        float fadeOutTime = fmax(mFadeOut.value(), sp);
 
-      // zero is the last step
-      int mCurrentStep  = -1;
-      int mRecordCount  = 0;
-      int mOverdubCount = 0;
-
-      std::vector<int> mClockMarks;
-
-      inline float32x4_t getSampleVector(const int *index, int channel) {
-        float fValue[4];
-
-        for (int i = 0; i < 4; i++) {
-          fValue[i] = mpSample->get(index[i], channel);
-        }
-
-        return vld1q_f32(fValue);
+        mFadeSlew.setRiseFall(sp / fadeInTime, sp / fadeOutTime);
+        mShadowSlew.setRiseFall(1, sp / fadeTime);
       }
 
-      inline void setSampleVector(const int *index, int channel, float32x4_t value) {
-        float fValue[4];
-        vst1q_f32(fValue, value);
+      struct Buffers {
+        float *mpIn[2], *mpOut[2];
+        float *mpClock, *mpEngage, *mpRecord, *mpOverdub, *mpReset, *mpLength, *mpRlength;
 
-        for (int i = 0; i < 4; i++) {
-          //logDebug(1,"[%d, %d] = %f", index[i], channel, fValue[i]);
-          mpSample->set(index[i], channel, fValue[i]);
-        }
-      }
-
-      struct FrameConst {
-        float *clock;
-        float *engage;
-        float *record;
-        float *overdub;
-        float *reset;
-        float *length;
-        float *rlength;
-
-        bool resetOnDisengage;
-        bool resetOnOverdub;
-
-        float32x4_t zero;
-        float32x4_t one;
-        float32x4_t feedback;
-        float32x4_t through;
-        int resetTo;
-      };
-
-      struct ProcessedLatches {
-        bool clock;
-        bool engaged;
-        bool record;
-        bool overdub;
-        bool reset;
-
-        inline bool isWrite() const {
-          return record || overdub;
-        }
-      };
-
-      struct ProcessLatches {
-        uint32_t clock[4];
-        uint32_t engage[4];
-        uint32_t record[4];
-        uint32_t overdub[4];
-        uint32_t reset[4];
-
-        inline ProcessLatches(const FrameConst &frame, int offset) {
-          vst1q_u32(clock,   vcgtq_f32(vld1q_f32(frame.clock   + offset), frame.zero));
-          vst1q_u32(engage,  vcgtq_f32(vld1q_f32(frame.engage  + offset), frame.zero));
-          vst1q_u32(record,  vcgtq_f32(vld1q_f32(frame.record  + offset), frame.zero));
-          vst1q_u32(overdub, vcgtq_f32(vld1q_f32(frame.overdub + offset), frame.zero));
-          vst1q_u32(reset,   vcgtq_f32(vld1q_f32(frame.reset   + offset), frame.zero));
-        }
-
-        inline ProcessedLatches process(Sloop &self, int j) {
-          bool sync = self.mClockLatch.read(clock[j]);
-          return ProcessedLatches {
-            sync,
-            self.mEngageLatch.readSync(engage[j], sync),
-            self.mRecordLatch.readSync(record[j], sync),
-            self.mOverdubLatch.readSync(overdub[j], sync),
-            self.mResetLatch.readSync(reset[j], sync)
-          };
-        }
-      };
-
-      struct ProcessedLengths {
-        int normal;
-        int record;
-      };
-
-      struct ProcessLengths {
-        int32_t normal[4], record[4];
-
-        inline ProcessLengths(const FrameConst &frame, int offset) {
-          vst1q_s32(normal,  vcvtq_s32_f32(vld1q_f32(frame.length  + offset)));
-          vst1q_s32(record, vcvtq_s32_f32(vld1q_f32(frame.rlength + offset)));
-        }
-
-        inline ProcessedLengths process(int j) {
-          return ProcessedLengths {
-            normal[j],
-            record[j]
-          };
-        }
-      };
-
-      struct ProcessedClock {
-        int currentIndex;
-        int shadowIndex;
-        bool isRecord;
-        float inputLevel;
-        float shadowLevel;
-      };
-
-      struct ProcessClock {
-        inline ProcessedClock process(
-          Sloop &self,
-          const FrameConst &frame,
-          const ProcessedLatches &latch,
-          const ProcessedLengths &length
-        ) {
-          bool doReset = false;
-
-          if (latch.engaged) {
-            if (latch.clock) {
-              bool isRecordStart  = self.mRecordCount == 0;
-              bool resetOnRecord  = latch.record ? isRecordStart : !isRecordStart;
-              bool isOverdubStart = self.mOverdubCount == 0;
-              bool resetOnOverdub = frame.resetOnOverdub && isOverdubStart;
-
-              self.mRecordCount  = latch.record  ? self.mRecordCount  + 1 : 0;
-              self.mOverdubCount = latch.overdub ? self.mOverdubCount + 1 : 0;
-              self.mCurrentStep  = self.mCurrentStep + 1;
-
-              int max         = latch.record ? self.mRecordCount : length.normal;
-              bool isLastStep = self.mCurrentStep >= max;
-              if (latch.record) self.mpProxyLength->hardSet(max);
-
-              self.markClock();
-
-              doReset = resetOnRecord
-                     || resetOnOverdub
-                     || isLastStep
-                     || latch.reset;
-            }
-          } else {
-            doReset = frame.resetOnDisengage;
+        inline Buffers(Sloop &self) {
+          int channels = self.channels();
+          for (int channel = 0; channel < channels; channel++) {
+            mpIn[channel]  = self.getInput(channel)->buffer();
+            mpOut[channel] = self.getOutput(channel)->buffer();
           }
 
-          self.mCurrentIndex = self.mCurrentIndex % self.mEndIndex;
-          self.mShadowIndex  = self.mShadowIndex  % self.mEndIndex;
+          mpClock   = self.mClock.buffer();
+          mpEngage  = self.mEngage.buffer();
+          mpRecord  = self.mRecord.buffer();
+          mpOverdub = self.mOverdub.buffer();
+          mpReset   = self.mReset.buffer();
+          mpLength  = self.mLength.buffer();
+          mpRlength = self.mRLength.buffer();
+        }
 
-          if (doReset) self.reset(frame.resetTo, !latch.isWrite());
+        inline float32x4_t in(int channel, int offset) const {
+          return vld1q_f32(mpIn[channel]  + offset);
+        }
 
-          return ProcessedClock {
-            self.mCurrentIndex = self.mCurrentIndex + latch.engaged,
-            self.mShadowIndex  = self.mShadowIndex  + latch.engaged,
-            latch.record,
-            self.mFadeSlew.move(latch.isWrite()),
-            self.mShadowSlew.move(0)
-          };
+        inline void out(int channel, int offset, float32x4_t value) {
+          vst1q_f32(mpOut[0] + offset, value);
+        }
+
+        inline float32x4_t clock(int offset)   const { return vld1q_f32(mpClock   + offset); }
+        inline float32x4_t engage(int offset)  const { return vld1q_f32(mpEngage  + offset); }
+        inline float32x4_t record(int offset)  const { return vld1q_f32(mpRecord  + offset); }
+        inline float32x4_t overdub(int offset) const { return vld1q_f32(mpOverdub + offset); }
+        inline float32x4_t reset(int offset)   const { return vld1q_f32(mpReset   + offset); }
+        inline float32x4_t length(int offset)  const { return vld1q_f32(mpLength  + offset); }
+        inline float32x4_t rlength(int offset) const { return vld1q_f32(mpRlength + offset); }
+      };
+
+      struct Constants {
+        float32x4_t zero = vdupq_n_f32(0);
+        float32x4_t half = vdupq_n_f32(0.5); 
+        float32x4_t one  = vdupq_n_f32(1);
+
+        float32x4_t feedback, through;
+
+        int resetTo;
+        bool resetOnDisengage, resetOnOverdub;
+
+        inline Constants(Sloop &self) {
+          feedback         = vdupq_n_f32(self.mFeedback.value());
+          through          = vdupq_n_f32(self.mThrough.value());
+          resetTo          = (int)self.mResetTo.value();
+          resetOnDisengage = self.mResetFlags.getFlag(0);
+          resetOnOverdub   = self.mResetFlags.getFlag(1);
+        }
+      };
+
+      struct LoadedVectors {
+        int32_t  length[4], rlength[4];
+        uint32_t clock[4], engage[4], record[4], overdub[4], reset[4];
+
+        inline LoadedVectors(const Buffers& buffers, const Constants &constants, int offset) {
+          vst1q_s32(length,  vcvtq_s32_f32(buffers.length(offset)));
+          vst1q_s32(rlength, vcvtq_s32_f32(buffers.rlength(offset)));
+          vst1q_u32(clock,       vcgtq_f32(buffers.clock(offset),   constants.zero));
+          vst1q_u32(engage,      vcgtq_f32(buffers.engage(offset),  constants.zero));
+          vst1q_u32(record,      vcgtq_f32(buffers.record(offset),  constants.zero));
+          vst1q_u32(overdub,     vcgtq_f32(buffers.overdub(offset), constants.zero));
+          vst1q_u32(reset,       vcgtq_f32(buffers.reset(offset),   constants.zero));
+        }
+      };
+
+      inline void updateLatches(const LoadedVectors &v, int step) {
+        bool sync = mClockLatch.read(v.clock[step]);
+        mEngageLatch.readSync(v.engage[step], sync);
+        mRecordLatch.readSync(v.record[step], sync);
+        mOverdubLatch.readSyncMax(v.overdub[step], sync, v.rlength[step]);
+        mResetLatch.readSync(v.reset[step], sync);
+      }
+
+      struct ProcessedStep {
+        bool isRecord;
+        int currentIndex, shadowIndex;
+        float inputLevel, shadowLevel;
+      };
+
+      inline ProcessedStep processStep(const Constants &constants, int length) {
+        bool engaged = mEngageLatch.state();
+        bool record  = mRecordLatch.state();
+        bool overdub = mOverdubLatch.state();
+        bool doReset = false;
+
+        if (!engaged) doReset = constants.resetOnDisengage;
+        else if (mClockLatch.state()) {
+          markClock();
+
+          if (record) {
+            length = mRecordLatch.count() + 1;
+            mpProxyLength->hardSet(length);
+          }
+
+          doReset = mRecordLatch.firstOrLast()
+                  || (constants.resetOnOverdub && mOverdubLatch.first())
+                  || mEngageLatch.count() >= length
+                  || mResetLatch.state();
+        }
+
+        if (doReset) reset(constants.resetTo, !(record || overdub));
+
+        return ProcessedStep {
+          record,
+          mCurrentIndex = (mCurrentIndex + engaged) % mEndIndex,
+          mShadowIndex  = (mShadowIndex  + engaged) % mEndIndex,
+          mFadeSlew.move(record || overdub),
+          mShadowSlew.move(0)
+        };
+      }
+
+      struct ProcessedIndices {
+        int current[4], shadow[4];
+
+        inline ProcessedIndices(const ProcessedStep *steps) {
+          for (int i = 0; i < 4; i++) {
+            current[i] = steps[i].currentIndex;
+            shadow[i]  = steps[i].shadowIndex;
+          }
+        }
+      };
+
+      struct ProcessedLevels {
+        Complement input, shadow;
+        float32x4_t feedback, through;
+
+        inline ProcessedLevels(const ProcessedStep *steps, const Constants& constants) {
+          float notRecord[4], inputLevel[4], shadowLevel[4];
+          for (int i = 0; i < 4; i++) {
+            notRecord[i]   = (int)!steps[i].isRecord;
+            inputLevel[i]  = steps[i].inputLevel;
+            shadowLevel[i] = steps[i].shadowLevel;
+          }
+
+          input    = Complement { vld1q_f32(inputLevel), constants.one };
+          shadow   = Complement { vld1q_f32(shadowLevel), constants.one };
+          feedback = vld1q_f32(notRecord) * input.lerpToOne(constants.feedback);
+          through  = constants.through * input.mComplement;
         }
       };
 
       struct ProcessedInput {
-        int currentIndex[4];
-        int shadowIndex[4];
-        Complement inputLevel;
-        Complement shadowLevel;
-        float32x4_t feedbackLevel;
-        float32x4_t throughLevel;
-
-        ProcessedInput() {}
+        ProcessedIndices indices;
+        ProcessedLevels levels;
       };
 
-      struct ProcessInput {
-        inline ProcessedInput process(Sloop& self, const FrameConst &frame, int offset) {
-          ProcessLatches latch { frame, offset };
-          ProcessLengths length { frame, offset };
-          ProcessClock   clock;
+      inline ProcessedInput processInput(const Buffers& buffers, const Constants &constants, int offset) {
+        LoadedVectors v { buffers, constants, offset };
 
-          ProcessedInput out;
-          float notRecord[4], inputLevel[4], shadowLevel[4];
-
-          for (int j = 0; j < 4; j++) {
-            auto latchStep  = latch.process(self, j);
-            auto lengthStep = length.process(j);
-            auto clockStep  = clock.process(self, frame, latchStep, lengthStep);
-
-            out.currentIndex[j] = clockStep.currentIndex;
-            out.shadowIndex[j]  = clockStep.shadowIndex;
-            notRecord[j]        = (int)!clockStep.isRecord;
-            inputLevel[j]       = clockStep.inputLevel;
-            shadowLevel[j]      = clockStep.shadowLevel;
-          }
-
-          out.inputLevel    = Complement { vld1q_f32(inputLevel),  frame.one };
-          out.shadowLevel   = Complement { vld1q_f32(shadowLevel), frame.one };
-          out.feedbackLevel = vld1q_f32(notRecord) * out.inputLevel.lerpToOne(frame.feedback);
-          out.throughLevel  = frame.through * out.inputLevel.mComplement;
-
-          return out;
-        }
-      };
-
-      struct ProcessOutput {
-        inline void process(Sloop &self, const FrameConst &frame, const ProcessedInput &p, int offset) {
-          float *in  = self.getInput(0)->buffer();
-          float *out = self.getOutput(0)->buffer();
-
-          float32x4_t input = vld1q_f32(in + offset);
-
-          float32x4_t current    = self.getSampleVector(p.currentIndex, 0);
-          float32x4_t newCurrent = write(p, current, input);
-          self.setSampleVector(p.currentIndex, 0, newCurrent);
-
-          float32x4_t shadow    = self.getSampleVector(p.shadowIndex, 0);
-          float32x4_t newShadow = write(p, shadow, input);
-          self.setSampleVector(p.shadowIndex, 0, newShadow);
-
-          float32x4_t output = p.shadowLevel.lerp(newShadow, newCurrent);
-          vst1q_f32(out + offset, vmlaq_f32(output, p.throughLevel, input));
+        ProcessedStep steps[4];
+        for (int j = 0; j < 4; j++) {
+          updateLatches(v, j);
+          steps[j] = processStep(constants, v.length[j]);
         }
 
-        inline float32x4_t write(const ProcessedInput &p, float32x4_t original, float32x4_t input) {
-          float32x4_t x;
-          x = vmlaq_f32(input, original, p.feedbackLevel);
-          x = p.inputLevel.lerp(x, original);
-          x = p.shadowLevel.lerp(original, x);
-          return x;
-        }
-      };
+        return ProcessedInput {
+          ProcessedIndices { steps },
+          ProcessedLevels { steps, constants }
+        };
+      }
+
+      inline float32x4_t processSample(const int *index, int channel, const ProcessedLevels &levels, float32x4_t input) {
+        float32x4_t original = read(index, channel);
+
+        float32x4_t update;
+        update = vmlaq_f32(input, original, levels.feedback);
+        update = levels.input.lerp(update, original);
+        update = levels.shadow.lerp(original, update);
+        write(index, channel, update);
+
+        return update;
+      }
+
+      inline float32x4_t processShadow(const int *index, int channel, const ProcessedLevels &levels, float32x4_t input) {
+        float32x4_t original = read(index, channel);
+
+        float32x4_t update;
+        update = vmlaq_f32(input, original, levels.feedback);
+        update = levels.input.lerp(update, original);
+        update = levels.shadow.lerp(update, original);
+        write(index, channel, update);
+
+        return update;
+      }
+
+      inline void processMonoToMono(Buffers &buffers, const Constants &constants, const ProcessedInput &p, int offset) {
+        float32x4_t input = buffers.in(0, offset);
+
+        float32x4_t current = processSample(p.indices.current, 0, p.levels, input);
+        float32x4_t shadow  = processShadow(p.indices.shadow,  0, p.levels, input);
+
+        float32x4_t mix = p.levels.shadow.lerp(shadow, current);
+
+        buffers.out(0, offset, vmlaq_f32(mix, input, p.levels.through));
+      }
+
+      inline void processMonoToStereo(Buffers &buffers, const Constants &constants, const ProcessedInput &p, int offset) {
+        float32x4_t input = buffers.in(0, offset);
+
+        float32x4_t lCurrent = processSample(p.indices.current, 0, p.levels, input);
+        float32x4_t rCurrent = processSample(p.indices.current, 1, p.levels, input);
+        float32x4_t lShadow  = processSample(p.indices.shadow,  0, p.levels, input);
+        float32x4_t rShadow  = processSample(p.indices.shadow,  1, p.levels, input);
+
+        float32x4_t left  = p.levels.shadow.lerp(lShadow, lCurrent);
+        float32x4_t right = p.levels.shadow.lerp(rShadow, rCurrent);
+        float32x4_t mix   = constants.half * (left + right);
+
+        buffers.out(0, offset, vmlaq_f32(mix, input, p.levels.through));
+      }
+
+      inline void processStereoToMono(Buffers &buffers, const Constants &constants, const ProcessedInput &p, int offset) {
+        float32x4_t lInput = buffers.in(0, offset);
+        float32x4_t rInput = buffers.in(1, offset);
+        float32x4_t input  = constants.half * (lInput + rInput);
+
+        float32x4_t current = processSample(p.indices.current, 0, p.levels, input);
+        float32x4_t shadow  = processSample(p.indices.shadow, 0, p.levels, input);
+
+        float32x4_t mix = p.levels.shadow.lerp(shadow, current);
+
+        buffers.out(0, offset, vmlaq_f32(mix, lInput, p.levels.through));
+        buffers.out(1, offset, vmlaq_f32(mix, rInput, p.levels.through));
+      }
+
+      inline void processStereoToStereo(Buffers &buffers, const Constants &constants, const ProcessedInput &p, int offset) {
+        float32x4_t lInput = buffers.in(0, offset);
+        float32x4_t rInput = buffers.in(1, offset);
+
+        float32x4_t lCurrent = processSample(p.indices.current, 0, p.levels, lInput);
+        float32x4_t rCurrent = processSample(p.indices.current, 1, p.levels, rInput);
+        float32x4_t lShadow  = processSample(p.indices.shadow,  0, p.levels, lInput);
+        float32x4_t rShadow  = processSample(p.indices.shadow,  1, p.levels, rInput);
+
+        float32x4_t lMix = p.levels.shadow.lerp(lShadow, lCurrent);
+        float32x4_t rMix = p.levels.shadow.lerp(rShadow, rCurrent);
+
+        buffers.out(0, offset, vmlaq_f32(lMix, lInput, p.levels.through));
+        buffers.out(1, offset, vmlaq_f32(rMix, rInput, p.levels.through));
+      }
   };
 }
