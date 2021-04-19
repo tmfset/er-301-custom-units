@@ -3,16 +3,17 @@
 #include <od/graphics/sampling/TapeHeadDisplay.h>
 #include <math.h>
 #include <Sloop.h>
+#include <util.h>
 
 namespace sloop {
-  class SloopHeadDisplay : public od::TapeHeadDisplay {
+  class SloopHeadMainDisplay : public od::TapeHeadDisplay {
     public:
-      SloopHeadDisplay(Sloop *head, int left, int bottom, int width, int height) :
+      SloopHeadMainDisplay(Sloop *head, int left, int bottom, int width, int height) :
         od::TapeHeadDisplay(head, left, bottom, width, height) {
           mSampleView.setViewTimeInSeconds(2);
         }
 
-      virtual ~SloopHeadDisplay() {}
+      virtual ~SloopHeadMainDisplay() {}
 
 #ifndef SWIGLUA
       virtual void draw(od::FrameBuffer &fb) {
@@ -65,6 +66,9 @@ namespace sloop {
 #endif
 
     private:
+      int mResetAnimationState = 0;
+      bool mWasResetAnimatedLeft = false;
+
       Sloop *sloopHead() {
         return (Sloop *)mpHead;
       }
@@ -87,14 +91,64 @@ namespace sloop {
         }
       }
 
+      void drawResetIndicator(od::FrameBuffer &fb) {
+        auto sloop = sloopHead();
+        if (!sloop) return;
+
+        if (!sloop->isResetPending()) {
+          mResetAnimationState = 0;
+          return;
+        }
+
+        // int currentStep = sloop->getCurrentStep();
+        // int resetStep   = sloop->getResetStep();
+        // int dist = abs(currentStep - resetStep);
+        // int n = 1 + (4.0f * fmin(dist / (float)((sloop->numberOfClockMarks() / 2.0f) + 1), 1.0f));
+        int n = 3;
+
+        int current  = sloop->getPosition();
+        int reset    = sloop->resetPosition();
+        int isBefore = reset < current;
+
+        if (mWasResetAnimatedLeft && !isBefore) mResetAnimationState = 0;
+        if (!mWasResetAnimatedLeft && isBefore) mResetAnimationState = 0;
+        mWasResetAnimatedLeft = isBefore;
+
+        auto state    = sloop->state();
+        auto headSize = playHeadSize(state);
+        float halfHead = headSize / 2.0f;
+
+        float pps = mSampleView.mPixelsPerSample;
+        int x0  = mWorldLeft + (int)(pps * (current - mSampleView.mStart));
+        int y0  = mWorldBottom + mHeight - 10;
+        int offset = isBefore ? -(halfHead + 5) : halfHead + 2;
+
+        int s = mResetAnimationState;
+        int delay = 30;
+        int intensity = 7.0f;
+        int step = 2;
+        for (int i = 0; i < n; i++) {
+          float stage = (delay / 2.0f) * (i / (float)(n - 1));
+          float fade  = powf((delay - moddst(s, stage, delay)) / (float)delay, intensity);
+          float color = WHITE * fade;
+          fb.text(color, x0 + offset, y0, isBefore ? "<" : ">", 10);
+          offset += isBefore ? -step : step;
+        }
+
+        mResetAnimationState += 1;
+      }
+
       void drawCursor(od::FrameBuffer &fb) {
         auto sloop = sloopHead();
         if (!sloop) return;
 
         int position = sloop->getPosition();
-        float level = sloop->recordLevel();
+        float level = sloop->writeLevel();
         auto state = sloop->state();
-        mSampleView.drawPosition(fb, position, playHeadLetter(state), playHeadSize(state));
+        auto size = playHeadSize(state);
+        mSampleView.drawPosition(fb, position, playHeadLetter(state), size);
+
+        drawResetIndicator(fb);
 
         if (!isPositionInBounds(position)) return;
         if (level == 0) return;
@@ -113,10 +167,9 @@ namespace sloop {
         auto sloop = sloopHead();
         if (!sloop) return;
 
-
         drawClockMark(fb, 1, height, color);
 
-        auto length = sloop->numberOfClockMarks();
+        auto length = sloop->visibleMarks();
         for (int i = 0; i < length; i++) {
           float h = height;
           int   c = color;
@@ -126,7 +179,7 @@ namespace sloop {
             if (i % (int)pow(2, r)) { h /= 2.0f; c -=2; }
           }
 
-          drawClockMark(fb, sloop->getClockMark(i), h, c);
+          drawClockMark(fb, sloop->markAt(i), h, c);
         }
       }
 

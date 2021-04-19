@@ -16,6 +16,11 @@ namespace sloop {
     return (left < right) ? left : right;
   }
 
+  inline int moddst(int a, int b, int n) {
+    int m = mod(a - b, n);
+    return min(m, n - m);
+  }
+
   inline float fmin(float left, float right) {
     return (left < right) ? left : right;
   }
