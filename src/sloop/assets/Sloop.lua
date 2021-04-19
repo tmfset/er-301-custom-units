@@ -3,9 +3,12 @@ local sloop = require "sloop.libsloop"
 local Class = require "Base.Class"
 local Unit = require "Unit"
 local SloopView = require "sloop.SloopView"
+local TaskListControl = require "sloop.TaskListControl"
+local OptionControl = require "sloop.SloopOptionControl"
+local FlagSelect = require "sloop.SloopFlagControl"
+local SloopHeader = require "sloop.SloopHeader"
 local GainBias = require "Unit.ViewControl.GainBias"
 local Fader = require "Unit.ViewControl.Fader"
-local OptionControl = require "Unit.MenuControl.OptionControl"
 local MenuHeader = require "Unit.MenuControl.Header"
 local Task = require "Unit.MenuControl.Task"
 local pool = require "Sample.Pool"
@@ -22,13 +25,18 @@ function Sloop:init(args)
   Unit.init(self, args)
 end
 
-function Sloop:addComparatorControl(name, mode, default)
+function Sloop:addBranchlessComparatorControl(name, mode, default)
   local gate = self:addObject(name, app.Comparator())
   gate:setMode(mode)
-  self:addMonoBranch(name, gate, "In", gate, "Out")
   if default then
     gate:setOptionValue("State", default)
   end
+  return gate
+end
+
+function Sloop:addComparatorControl(name, mode, default)
+  local gate = self:addBranchlessComparatorControl(name, mode, default);
+  self:addMonoBranch(name, gate, "In", gate, "Out")
   return gate
 end
 
@@ -47,24 +55,31 @@ function Sloop:addParameterAdapterControl(name)
 end
 
 function Sloop:onLoadGraph(channelCount)
-  local clock   = self:addComparatorControl("clock", app.COMPARATOR_TRIGGER_ON_RISE)
-  local engage  = self:addComparatorControl("engage", app.COMPARATOR_TOGGLE, 1)
-  local record  = self:addComparatorControl("record", app.COMPARATOR_GATE)
-  local overdub = self:addComparatorControl("overdub", app.COMPARATOR_GATE)
-  local reset   = self:addComparatorControl("reset", app.COMPARATOR_TRIGGER_ON_RISE)
-  local length  = self:addGainBiasControl("length")
-  local rLength = self:addGainBiasControl("rLength")
-  local feedback = self:addParameterAdapterControl("feedback")
-  local resetTo  = self:addParameterAdapterControl("resetTo")
+  local clock     = self:addComparatorControl("clock", app.COMPARATOR_TRIGGER_ON_RISE)
+  local engage    = self:addComparatorControl("engage", app.COMPARATOR_TOGGLE, 1)
+  local record    = self:addComparatorControl("record", app.COMPARATOR_GATE)
+  local overdub   = self:addComparatorControl("overdub", app.COMPARATOR_GATE)
+  local reset     = self:addBranchlessComparatorControl("reset", app.COMPARATOR_TRIGGER_ON_RISE)
+  local length    = self:addGainBiasControl("length")
+  local dubLength = self:addGainBiasControl("dubLength")
+  local feedback  = self:addParameterAdapterControl("feedback")
+  local resetTo   = self:addParameterAdapterControl("resetTo")
 
-  local head = self:addObject("head", sloop.Sloop(length:getParameter("Bias"), channelCount > 1))
-  connect(clock,   "Out", head, "Clock")
-  connect(engage,  "Out", head, "Engage")
-  connect(record,  "Out", head, "Record")
-  connect(overdub, "Out", head, "Overdub")
-  connect(reset,   "Out", head, "Reset")
-  connect(length,  "Out", head, "Length")
-  connect(rLength, "Out", head, "Record Length")
+  local head = self:addObject("head", sloop.Sloop(
+    length:getParameter("Bias"),
+    dubLength:getParameter("Bias"),
+    channelCount > 1
+  ))
+
+  connect(clock,     "Out", head, "Clock")
+  connect(engage,    "Out", head, "Engage")
+  connect(record,    "Out", head, "Record")
+  connect(overdub,   "Out", head, "Overdub")
+  connect(reset,     "Out", head, "Reset")
+  connect(length,    "Out", head, "Length")
+  connect(dubLength, "Out", head, "Overdub Length")
+
+  self:addMonoBranch(reset:name(), reset, "In", head, "Reset Out")
 
   tie(head, "Feedback", feedback, "Out")
   tie(head, "Reset To", resetTo, "Out")
@@ -74,32 +89,49 @@ function Sloop:onLoadGraph(channelCount)
     connect(self, "In"..i,  head, "In"..i)
     connect(head, "Out"..i, self, "Out"..i)
   end
-
-  self:setInitialBuffer(channelCount)
 end
 
-function Sloop:setInitialBuffer(channelCount)
-  if self.sample then
-    return
+
+function Sloop:serialize()
+  local t = Unit.serialize(self)
+
+  local sample = self.sample
+  if sample then
+    t.sample = pool.serializeSample(sample)
   end
 
-  local length = 15
-  if not length then
-    return
+  local marks = self.objects.head:getClockMarks()
+  t.clockMarks = {}
+  for i = 1, marks:size() do
+    t.clockMarks[i] = marks:get(i - 1)
   end
 
-  local sample, status = pool.create {
-    channels = channelCount,
-    secs     = length,
-    root     = "sloop"
-  }
+  t.currentStep = self.objects.head:currentStep()
 
-  if not sample then
-    local Overlay = require "Overlay"
-    Overlay.mainFlashMessage("Failed to create buffer.", status)
+  return t
+end
+
+function Sloop:deserialize(t)
+  Unit.deserialize(self, t)
+
+  if t.sample then
+    local sample = pool.deserializeSample(t.sample)
+    if sample then
+      self:setSample(sample)
+    else
+      local Utils = require "Utils"
+      app.logError("%s:deserialize: failed to load sample.", self)
+      Utils.pp(t.sample)
+    end
   end
 
-  self:setSample(sample)
+  local marks = self.objects.head:getClockMarks()
+  local saved = t.clockMarks or {}
+  for i = 1, #saved do
+    marks:set(i - 1, saved[i])
+  end
+
+  self.objects.head:setCurrentStep(t.currentStep or 0)
 end
 
 
@@ -118,7 +150,7 @@ function Sloop:setSample(sample)
     self.sampleEditor:setSample(sample)
   end
 
-  self:notifyControls("setSample", sample)
+  self:notifyControls("setSample", sample, self:describeBuffer())
 end
 
 function Sloop:doCreateBuffer()
@@ -144,9 +176,9 @@ function Sloop:doAttachBufferFromPool()
 
   local task = function(sample)
     if sample then
+      self:setSample(sample)
       local Overlay = require "Overlay"
       Overlay.mainFlashMessage("Attached buffer: %s", sample.name)
-      self:setSample(sample)
     end
   end
 
@@ -157,9 +189,9 @@ end
 function Sloop:doAttachSampleFromCard()
   local task = function(sample)
     if sample then
+      self:setSample(sample)
       local Overlay = require "Overlay"
       Overlay.mainFlashMessage("Attached sample: %s",sample.name)
-      self:setSample(sample)
     end
   end
 
@@ -168,15 +200,27 @@ function Sloop:doAttachSampleFromCard()
 end
 
 function Sloop:doDetachBuffer()
+  self:setSample(nil)
   local Overlay = require "Overlay"
   Overlay.mainFlashMessage("Buffer detached.")
-  self:setSample()
 end
 
 function Sloop:doZeroBuffer()
   local Overlay = require "Overlay"
-  Overlay.mainFlashMessage("Buffer zeroed.")
   self.objects.head:zeroBuffer()
+  Overlay.mainFlashMessage("Buffer zeroed.")
+end
+
+function Sloop:doClearSlices()
+  local n = self.objects.head:clearSlices()
+  local Overlay = require "Overlay"
+  Overlay.mainFlashMessage("Deleted "..n.." slices.")
+end
+
+function Sloop:doCreateSlices()
+  local n = self.objects.head:createSlices()
+  local Overlay = require "Overlay"
+  Overlay.mainFlashMessage("Created "..n.." slices.")
 end
 
 function Sloop:showSampleEditor()
@@ -185,7 +229,7 @@ function Sloop:showSampleEditor()
       local SampleEditor = require "Sample.Editor"
       self.sampleEditor = SampleEditor(self, self.objects.head)
       self.sampleEditor:setSample(self.sample)
-      self.sampleEditor:setPointerLabel("R")
+      self.sampleEditor:setPointerLabel("P")
     end
     self.sampleEditor:show()
   else
@@ -194,132 +238,119 @@ function Sloop:showSampleEditor()
   end
 end
 
-function Sloop:describeBuffer()
+function Sloop:describeBuffer(length)
   if self.sample then
-    local bufferName = self.sample:getFilenameForDisplay(30)
+    local bufferName = self.sample:getFilenameForDisplay(length or 18) -- 25, 18
     local bufferLength = self.sample:getDurationText()
     return bufferLength..", "..bufferName
   end
+
+  return "Nothing attached"
 end
 
-function Sloop:setCreateBufferMenu(controls, menu)
-  local bufferMenuDescription = ""
-
-  if self.sample then
-    bufferMenuDescription = "Modify Buffer"
-  else
-    bufferMenuDescription = "Attach a Buffer!"
-  end
-
-  controls.bufferHeader = MenuHeader {
-    description = bufferMenuDescription
-  }
-  menu[#menu + 1] = "bufferHeader"
-
-  controls.createNew = Task {
-    description = "New...",
-    task        = function() self:doCreateBuffer() end
-  }
-  menu[#menu + 1] = "createNew"
-
-  controls.attachExisting = Task {
-    description = "Pool...",
-    task        = function() self:doAttachBufferFromPool() end
-  }
-  menu[#menu + 1] = "attachExisting"
-
-  controls.selectFromCard = Task {
-    description = "Card...",
-    task        = function() self:doAttachSampleFromCard() end
-  }
-  menu[#menu + 1] = "selectFromCard"
-end
-
-function Sloop:setModifyBufferMenu(controls, menu)
-  controls.editBuffer = Task {
-    description = "Edit...",
-    task        = function() self:showSampleEditor() end
-  }
-  menu[#menu + 1] = "editBuffer"
-
-  controls.detachBuffer = Task {
-    description = "Detach!",
-    task        = function() self:doDetachBuffer() end
-  }
-  menu[#menu + 1] = "detachBuffer"
-
-  controls.zeroBuffer = Task {
-    description = "Zero!",
-    task        = function() self:doZeroBuffer() end
-  }
-  menu[#menu + 1] = "zeroBuffer"
-end
 
 function Sloop:onShowMenu(objects, branches)
   local controls, sub, menu = {}, {}, {}
 
-  controls.bufferDescription = MenuHeader {
-    description = "At"
+  controls.header = SloopHeader {}
+  menu[#menu + 1] = "header"
+
+  controls.attachBuffer = TaskListControl {
+    description = "Attach buffer",
+    descriptionWidth = 3,
+    tasks = {
+      {
+        description = "New...",
+        task        = function() self:doCreateBuffer() end
+      },
+      {
+        description = "Pool...",
+        task        = function() self:doAttachBufferFromPool() end
+      },
+      {
+        description = "Card...",
+        task        = function() self:doAttachSampleFromCard() end
+      }
+    }
   }
-
-  local attached = ""
-  if not self.sample then
-    self:setCreateBufferMenu(controls, menu)
-  else
-    attached = " ("..self:describeBuffer()..")"
-  end
-
-  controls.recordingHeader = MenuHeader {
-    description = "Recording"..attached
-  }
-  menu[#menu + 1] = "recordingHeader"
-
-  -- controls.recordMode = OptionControl {
-  --   description      = "Mode",
-  --   descriptionWidth = 2,
-  --   option           = self._options.continuousMode.option,
-  --   choices          = { "continuous", "manual" },
-  --   onUpdate         = self._options.continuousMode.sync
-  -- }
-  -- menu[#menu + 1] = "recordMode"
-
-  -- controls.recordLength = OptionControl {
-  --   description      = "Length",
-  --   descriptionWidth = 2,
-  --   option           = self._options.fixedRecord.option,
-  --   choices          = { "locked", "free" },
-  --   onUpdate         = self._options.fixedRecord.sync
-  -- }
-  -- menu[#menu + 1] = "recordLength"
-
-  -- controls.resetHeader = MenuHeader {
-  --   description = "Reset On..."
-  -- }
-  -- menu[#menu + 1] = "resetHeader"
-
-  -- controls.resetOnDisengage = OptionControl {
-  --   description      = "Disengage",
-  --   descriptionWidth = 2,
-  --   option           = self._options.resetOnDisengage.option,
-  --   choices          = { "yes", "no" },
-  --   onUpdate         = self._options.resetOnDisengage.sync
-  -- }
-  -- menu[#menu + 1] = "resetOnDisengage"
-
-  -- controls.resetOnRecord = OptionControl {
-  --   description      = "Record",
-  --   descriptionWidth = 2,
-  --   option           = self._options.resetOnRecord.option,
-  --   choices          = { "yes", "no" },
-  --   onUpdate         = self._options.resetOnRecord.sync
-  -- }
-  -- menu[#menu + 1] = "resetOnRecord"
-
+  menu[#menu + 1] = "attachBuffer"
 
   if self.sample then
-    self:setCreateBufferMenu(controls, menu)
-    self:setModifyBufferMenu(controls, menu)
+    controls.modifyBuffer = TaskListControl {
+      description = "Modify buffer",
+      descriptionWidth = 3,
+      tasks = {
+        {
+          description = "Edit...",
+          task        = function() self:showSampleEditor() end
+        },
+        {
+          description = "Detach!",
+          task        = function() self:doDetachBuffer() end
+        },
+        {
+          description = "Zero!",
+          task        = function() self:doZeroBuffer() end
+        }
+      }
+    }
+    menu[#menu + 1] = "modifyBuffer"
+
+    controls.modifySlices = TaskListControl {
+      description = "Modify slices",
+      descriptionWidth = 4,
+      tasks = {
+        {
+          description = "Create!",
+          task        = function() self:doCreateSlices() end
+        },
+        {
+          description = "Clear!",
+          task        = function() self:doClearSlices() end
+        }
+      }
+    }
+    menu[#menu + 1] = "modifySlices"
   end
+
+  controls.configHeader = SloopHeader {
+    description = "Configuration:"
+  }
+  menu[#menu + 1] = "configHeader"
+
+  controls.dubLength = OptionControl {
+    description      = "Overdub length",
+    descriptionWidth = 3,
+    option           = objects.head:getOption("Lock Overdub Length"),
+    choices          = { "locked", "free" },
+    choicesPadding   = 1
+  }
+  menu[#menu + 1] = "dubLength"
+
+  controls.resetMode = OptionControl {
+    description      = "Manual reset mode",
+    descriptionWidth = 3,
+    option           = objects.head:getOption("Reset Mode"),
+    choices          = { "jump", "step", "random" }
+  }
+  menu[#menu + 1] = "resetMode"
+
+  controls.resetOn = FlagSelect {
+    description      = "Auto reset on...",
+    descriptionWidth = 3,
+    option           = objects.head:getOption("Reset Flags"),
+    flags            = { "disengage", "eoc", "overdub" }
+  }
+  menu[#menu + 1] = "resetOn"
+
+  controls.sliceMode = FlagSelect {
+    description      = "Auto slice on...",
+    descriptionWidth = 3,
+    option           = objects.head:getOption("Slice Mode"),
+    flags            = { "clock", "reset" },
+    flagsPadding     = 1
+  }
+  menu[#menu + 1] = "sliceMode"
 
   if self.sample then
     sub[#sub + 1] = {
@@ -373,18 +404,22 @@ end
 function Sloop:onLoadViews()
   return {
     wave2 = SloopView {
+      parent = self,
       head  = self.objects.head,
-      width = 2 * app.SECTION_PLY
+      width = 2 * app.SECTION_PLY,
+      description = self:describeBuffer()
     },
     wave3 = SloopView {
+      parent = self,
       head  = self.objects.head,
-      width = 3 * app.SECTION_PLY
+      width = 3 * app.SECTION_PLY,
+      description = self:describeBuffer()
     },
     clock   = self:gateView("clock", "Clock"),
     engage  = self:gateView("engage", "Engage"),
-    record  = self:gateView("record", "Record"),
+    record  = self:gateView("record", "Continuous Record"),
     overdub = self:gateView("overdub", "Overdub"),
-    reset   = self:gateView("reset", "Reset"),
+    reset   = self:gateView("reset", "Manual Reset"),
     length  = GainBias {
       button        = "length",
       description   = "Length",
@@ -396,12 +431,12 @@ function Sloop:onLoadViews()
       biasPrecision = 0,
       initialBias   = 4
     },
-    rLength  = GainBias {
-      button        = "rLength",
-      description   = "Record Length",
-      branch        = self.branches.rLength,
-      gainbias      = self.objects.rLength,
-      range         = self.objects.rLengthRange,
+    dubLength  = GainBias {
+      button        = "olength",
+      description   = "Overdub Length",
+      branch        = self.branches.dubLength,
+      gainbias      = self.objects.dubLength,
+      range         = self.objects.dubLengthRange,
       gainMap       = self.intMap(-self.max, self.max),
       biasMap       = self.intMap(1, self.max),
       biasPrecision = 0,
@@ -425,7 +460,7 @@ function Sloop:onLoadViews()
       gainbias      = self.objects.resetTo,
       range         = self.objects.resetTo,
       gainMap       = self.intMap(-self.max, self.max),
-      biasMap       = self.intMap(0, self.max),
+      biasMap       = self.intMap(-self.max, self.max),
       biasPrecision = 0,
       initialBias   = 0
     },
@@ -466,16 +501,20 @@ function Sloop:onLoadViews()
       initial     = 1
     }
   }, {
-    expanded  = { "clock", "reset", "record", "overdub", "through" },
+    expanded  = { "clock", "reset", "record", "overdub" },
 
-    clock     = { "clock",    "wave2", "engage", "length" },
-    reset     = { "reset",    "wave2", "resetTo", "fade" },
-    record    = { "record",   "wave2", "fadeIn", "fadeOut" },
-    overdub   = { "overdub",  "wave2", "feedback", "fadeIn", "fadeOut" },
-    through   = { "through",  "wave3" },
+    clock     = { "clock",   "wave2", "engage", "length" },
+    reset     = { "reset",   "wave2", "resetTo", "fade" },
+    record    = { "record",  "wave2", "length", "dubLength" },
+    overdub   = { "overdub", "wave2", "feedback", "dubLength" },
 
     collapsed = { "wave3" },
   }
+end
+
+function Sloop:onRemove()
+  self:setSample(nil)
+  Unit.onRemove(self)
 end
 
 return Sloop

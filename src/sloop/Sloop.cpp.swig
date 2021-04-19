@@ -5,12 +5,16 @@
 
 #undef SWIGLUA
 
+#include <ClockMarks.h>
 #include <Sloop.h>
-#include <SloopHeadDisplay.h>
+#include <SloopHeadMainDisplay.h>
+#include <SloopHeadSubDisplay.h>
 
 #define SWIGLUA
 
 %}
 
+%include <ClockMarks.h>
 %include <Sloop.h>
-%include <SloopHeadDisplay.h>
+%include <SloopHeadMainDisplay.h>
+%include <SloopHeadSubDisplay.h>

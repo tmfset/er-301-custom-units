@@ -13,13 +13,44 @@ namespace sloop {
     if (mpSample == 0) return;
 
     updateFades();
+    updateDubLengthLock();
+    updateManualResetStep(false);
 
-    Buffers buffers { *this };
+    Buffers   buffers   { *this };
     Constants constants { *this };
 
-    for (int i = 0; i < FRAMELENGTH; i += 4) {
-      auto p = processInput(buffers, constants, i);
-      processMonoToMono(buffers, constants, p, i);
+    if (channels() < 2) {
+      if (mpSample->mChannelCount < 2) {
+        // Mono unit + mono sample
+        for (int i = 0; i < FRAMELENGTH; i += 4) {
+          auto p = processInput(buffers, constants, i);
+          processResetOut(buffers, p, i);
+          processMonoToMono(buffers, constants, p, i);
+        }
+      } else {
+        // Mono unit + stereo sample
+        for (int i = 0; i < FRAMELENGTH; i += 4) {
+          auto p = processInput(buffers, constants, i);
+          processResetOut(buffers, p, i);
+          processMonoToStereo(buffers, constants, p, i);
+        }
+      }
+    } else {
+      if (mpSample->mChannelCount < 2) {
+        // Stereo unit + mono sample
+        for (int i = 0; i < FRAMELENGTH; i += 4) {
+          auto p = processInput(buffers, constants, i);
+          processResetOut(buffers, p, i);
+          processStereoToMono(buffers, constants, p, i);
+        }
+      } else {
+        // Stereo unit + stereo sample
+        for (int i = 0; i < FRAMELENGTH; i += 4) {
+          auto p = processInput(buffers, constants, i);
+          processResetOut(buffers, p, i);
+          processStereoToStereo(buffers, constants, p, i);
+        }
+      }
     }
   }
 }

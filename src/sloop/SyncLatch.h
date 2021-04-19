@@ -1,5 +1,9 @@
 #pragma once
 
+#define BUILDOPT_VERBOSE
+#define BUILDOPT_DEBUG_LEVEL 10
+#include <hal/log.h>
+
 namespace sloop {
   class SyncLatch {
     public:
@@ -11,20 +15,8 @@ namespace sloop {
         this->mState   = other.mState;
       }
 
-      inline void readVector(int32_t *out, uint32_t const * high) {
-        for (int i = 0; i < 4; i++) {
-          out[i] = read(high[i]);
-        }
-      }
-
-      inline void readVectorSync(int32_t *out, uint32_t const * high, int32_t const * sync) {
-        for (int i = 0; i < 4; i++) {
-          out[i] = readSync(high[i], sync[i]);
-        }
-      }
-
-      inline bool readSync(bool high, bool sync) {
-        mCount = mState ? mCount + sync : 0;
+      inline bool readSyncCount(bool high, bool sync) {
+        mCount += mState && sync;
 
         if (mState) mEnable = true;
         else        mEnable = (mEnable || !high) && !mTrigger;
@@ -35,7 +27,7 @@ namespace sloop {
         return mState;
       }
 
-      inline bool readSyncMax(bool high, bool sync, int max) {
+      inline bool readSyncCountMax(bool high, bool sync, int max) {
         mCount = mState ? mCount + sync : 0;
 
         if (mState) mEnable = mCount >= max;
@@ -47,27 +39,54 @@ namespace sloop {
         return mState;
       }
 
-      inline bool read(bool high) {
-        if (mTrigger) mEnable = true;
-        else          mEnable = mEnable || !high;
+      inline bool readSync(bool high, bool sync) {
+        mEnable = (mEnable || !high) && !mTrigger;
 
-        if (mEnable) mTrigger = mState = high;
+        if (mEnable) mTrigger = high;
+        if (sync)    mState   = mTrigger;
 
-        return mTrigger;
+        return mState;
       }
 
-      inline bool state() { return mState; }
+      inline bool read(bool high) {
+        if (mState) mEnable = true;
+        else        mEnable = mEnable || !high;
 
-      inline int count() { return mCount; }
+        if (mEnable) mState = mTrigger = high;
+
+        return mState;
+      }
+
+      inline bool readGateSyncCount(bool high, bool sync) {
+        mCount += mState && sync;
+        mTrigger = (sync && high) || (!sync && mState);
+        mState   = mTrigger;
+        mEnable  = true;
+        return mState;
+      }
+
+      inline bool readTrigger(bool high) {
+        mTrigger = mEnable && high;
+        mState   = mTrigger;
+        mEnable  = !mTrigger && !high;
+        return mState;
+      }
+
+      inline bool readTriggerSync(bool high, bool sync) {
+        mTrigger = (mEnable && high) || (mTrigger && !mState);
+        mState   = sync && mTrigger;
+        mEnable  = (!mTrigger && !high) || mState;
+        return mState;
+      }
+
+      inline bool state() const     { return mState; }
+      inline bool triggered() const { return mTrigger; }
+
+      inline int  count() const       { return mCount; }
       inline void setCount(int count) { mCount = count; }
 
-      inline bool first() {
-        return mCount == 0;
-      }
-
-      inline bool firstOrLast() {
-        return mState ? mCount == 0 : mCount != 0;
-      }
+      inline bool first() const       { return mCount == 0; }
+      inline bool firstOrLast() const { return mState ? first() : !first(); }
 
     private:
       int  mCount   = 0;

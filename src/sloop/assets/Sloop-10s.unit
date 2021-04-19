@@ -1,0 +1,32 @@
+local shared = {
+{};
+} -- shared
+shared[1]["active"] = false;
+shared[1]["enter"] = nil --[[functions with upvalue not supported]];
+shared[1]["__className__"] = "State";
+shared[1]["__instanceName__"] = "Fine";
+shared[1]["paused"] = false;
+local obj1 = {
+	["activeView"] = "expanded";
+	["loadInfo"] = {
+		["moduleName"] = "Sloop";
+		["id"] = "Sloop";
+		["category"] = "Recording and Looping";
+		["libraryName"] = "sloop";
+		["title"] = "Sloop";
+	};
+  ["objects"] = { };
+	["sample"] = {
+		["opts"] = {
+			["type"] = "buffer";
+			["secs"] = 10;
+		};
+	};
+	["firmwareVersion"] = "0.6.09";
+	["unitVersion"] = 1;
+	["controlBranches"] = {
+	};
+	["branches"] = { };
+	["bypass"] = false;
+}
+return obj1
