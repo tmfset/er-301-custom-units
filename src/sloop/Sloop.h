@@ -304,7 +304,6 @@ namespace sloop {
         float fadeOut = sp / fmax(mFadeOut.value(), sp);
 
         mRecordSlew.setRiseFall(fadeIn, fadeOut);
-        mRecordSlew.setRiseFall(0.1f, 0.1f);
         mOverdubSlew.setRiseFall(fadeIn, fadeOut);
         mShadowSlew.setRiseFall(1, fade);
       }
