@@ -7,14 +7,6 @@ shared[1]["enter"] = nil --[[functions with upvalue not supported]];
 shared[1]["__instanceName__"] = "Fine";
 shared[1]["__className__"] = "State";
 local obj1 = {
-	["currentStep"] = 3;
-	["clockMarks"] = {
-		[1] = 0;
-		[2] = 6399;
-		[3] = 12798;
-		[4] = 19197;
-		[5] = 25596;
-	};
 	["objects"] = {
 		["engage"] = {
 			["options"] = {
@@ -27,7 +19,7 @@ local obj1 = {
 		["feedback"] = {
 			["params"] = {
 				["Gain"] = 0.0;
-				["Bias"] = 0.505;
+				["Bias"] = 0.3;
 			};
 		};
 		["head"] = {
@@ -96,40 +88,13 @@ local obj1 = {
 		};
 	};
 	["controls"] = {
-		["wave2"] = {
-			["fadeInEncoderState"] = shared[1];
-			["throughEncoderState"] = shared[1];
-			["gain"] = 0;
-			["fadeOutEncoderState"] = shared[1];
-			["time"] = 1.995;
-		};
-		["feedback"] = {
-			["encoderState"] = "Fine";
-			["gainEncoderState"] = "Coarse";
-		};
-		["wave3"] = {
-			["fadeInEncoderState"] = shared[1];
-			["throughEncoderState"] = shared[1];
-			["gain"] = 0;
-			["fadeOutEncoderState"] = shared[1];
-			["time"] = 1.995;
-		};
-		["length"] = {
-			["gainEncoderState"] = "Coarse";
-		};
 		["overdub"] = {
 			["customizations"] = {
 				["outputMode"] = 1;
 			};
 		};
-		["dubLength"] = {
-			["gainEncoderState"] = "Coarse";
-		};
-		["resetTo"] = {
-			["gainEncoderState"] = "Coarse";
-		};
 	};
-	["activeView"] = "clock";
+	["activeView"] = "overdub";
 	["sample"] = {
 		["opts"] = {
 			["type"] = "buffer";
