@@ -5,26 +5,92 @@ return {
   contact = "tomj.fiset@gmail.com",
   author  = "tomf",
   units   = {
-    { category = "Sequencers" },
-    { title = "Register", moduleName = "Register", keywords = "sequencer, register" },
-    { title = "Turing", moduleName = "Turing", keywords = "sequencer, turing" },
-    { title = "Seq", moduleName = "Seq", keywords = "sequencer" },
+    {
+      title = "Register",
+      moduleName = "Register",
+      category = "Sequencers",
+      keywords = "sequencer, register"
+    },
+    {
+      title = "Turing",
+      moduleName = "Turing",
+      category = "Sequencers",
+      keywords = "sequencer, turing"
+    },
+    {
+      title = "Seq",
+      moduleName = "Seq",
+      category = "Sequencers",
+      keywords = "sequencer"
+    },
 
-    { category = "Latches" },
-    { title = "Latch", moduleName = "Latch", keywords = "latch" },
-    { title = "DLatch", moduleName = "DLatch", keywords = "latch" },
-    { title = "Pick", moduleName = "Pick", keywords = "pick" },
+    {
+      title = "Latch",
+      moduleName = "Latch",
+      category = "Latches",
+      keywords = "latch"
+    },
+    {
+      title = "DLatch",
+      moduleName = "DLatch",
+      category = "Latches",
+      keywords = "latch"
+    },
+    {
+      title = "Pick",
+      moduleName = "Pick",
+      category = "Latches",
+      keywords = "pick"
+    },
 
-    { category = "Clocks" },
-    { title = "Pulse", moduleName = "Pulse", keywords = "pulse, square" },
-    { title = "Wait", moduleName = "Wait", keywords = "divide, delay" },
-    { title = "Euclid", moduleName = "Euclid", keyword = "rhythm, clock" },
-    { title = "Chance", moduleName = "Chance", keyword = "rhythm, clock" },
+    {
+      title = "Pulse",
+      moduleName = "Pulse",
+      category = "Clocks",
+      keywords = "pulse, square"
+    },
+    {
+      title = "Wait",
+      moduleName = "Wait",
+      category = "Clocks",
+      keywords = "divide, delay"
+    },
+    {
+      title = "Euclid",
+      moduleName = "Euclid",
+      category = "Clocks",
+      keyword = "rhythm, clock"
+    },
+    {
+      title = "Chance",
+      moduleName = "Chance",
+      category = "Clocks",
+      keyword = "rhythm, clock"
+    },
 
-    { category = "Logic" },
-    { title = "And", moduleName = "And", keywords = "and" },
-    { title = "Or", moduleName = "Or", keywords = "or" },
-    { title = "Not", moduleName = "Not", keywords = "not" },
-    { title = "Trig", moduleName = "Trig", keywords = "trig" }
+    {
+      title = "And",
+      moduleName = "And",
+      category = "Logic",
+      keywords = "and"
+    },
+    {
+      title = "Or",
+      moduleName = "Or",
+      category = "Logic",
+      keywords = "or"
+    },
+    {
+      title = "Not",
+      moduleName = "Not",
+      category = "Logic",
+      keywords = "not"
+    },
+    {
+      title = "Trig",
+      moduleName = "Trig",
+      category = "Logic",
+      keywords = "trig"
+    }
   }
 }
