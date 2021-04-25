@@ -56,7 +56,7 @@ function SloopView:init(args)
     end)(),
     message       = "Input through level.",
     commitMessage = "Updated through level.",
-    encoderState  = Encoder.Fine
+    encoderState  = Encoder.Coarse
   }
 
   self.fadeIn = {
