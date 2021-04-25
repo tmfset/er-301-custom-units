@@ -250,7 +250,7 @@ namespace sloop {
       inline bool sliceModeClock()    { return mSliceMode.getFlag(0); }
       inline bool sliceModeReset()    { return mSliceMode.getFlag(1); }
 
-      inline void reset(bool record, bool manual, bool shadow) {
+      inline void reset(bool manual, bool shadow) {
         int step = manual ? mManualResetStep : 0;
 
         mEngageLatch.setCount(step);
@@ -261,7 +261,7 @@ namespace sloop {
         if (shadow) mShadowSlew.setValue(1);
         if (sliceModeReset()) createSlices();
 
-        updateManualResetStep(manual);
+        updateManualResetStep(true);
       }
 
       inline void markClock() {
@@ -366,7 +366,7 @@ namespace sloop {
         }
 
         inline void out(int channel, int offset, float32x4_t value) {
-          vst1q_f32(mpOut[0] + offset, value);
+          vst1q_f32(mpOut[channel] + offset, value);
         }
 
         inline float32x4_t clock(int offset)  const    { return vld1q_f32(mpClock     + offset); }
@@ -440,6 +440,9 @@ namespace sloop {
         bool manualReset = mResetLatch.state();
         bool doReset     = false;
 
+        bool isManualReset = false;
+        bool isShadowReset = true;
+
         if (!engaged) {
           doReset = constants.resetOnDisengage;
         } else if (mClockLatch.state()) {
@@ -455,9 +458,12 @@ namespace sloop {
           bool onEoc     = constants.resetOnEndOfCycle && mEngageLatch.count() >= length;
           bool onManual  = manualReset && !record;
           doReset = onRecord || onOverdub || onEoc || onManual;
+
+          isManualReset = onManual;
+          isShadowReset = !record;
         }
 
-        if (doReset) reset(record, manualReset && !mRecordLatch.firstOrLast(), !record);
+        if (doReset) reset(isManualReset, isShadowReset);
 
         mCurrentIndex += engaged;
         mShadowIndex  += engaged;
@@ -580,8 +586,8 @@ namespace sloop {
 
         float32x4_t lCurrent = processSample(p.indices.current, 0, p.levels, input);
         float32x4_t rCurrent = processSample(p.indices.current, 1, p.levels, input);
-        float32x4_t lShadow  = processSample(p.indices.shadow,  0, p.levels, input);
-        float32x4_t rShadow  = processSample(p.indices.shadow,  1, p.levels, input);
+        float32x4_t lShadow  = processShadow(p.indices.shadow,  0, p.levels, input);
+        float32x4_t rShadow  = processShadow(p.indices.shadow,  1, p.levels, input);
 
         float32x4_t left  = p.levels.shadow.lerp(lShadow, lCurrent);
         float32x4_t right = p.levels.shadow.lerp(rShadow, rCurrent);
@@ -596,7 +602,7 @@ namespace sloop {
         float32x4_t input  = constants.half * (lInput + rInput);
 
         float32x4_t current = processSample(p.indices.current, 0, p.levels, input);
-        float32x4_t shadow  = processSample(p.indices.shadow, 0, p.levels, input);
+        float32x4_t shadow  = processShadow(p.indices.shadow, 0, p.levels, input);
 
         float32x4_t mix = p.levels.shadow.lerp(shadow, current);
 
@@ -610,8 +616,8 @@ namespace sloop {
 
         float32x4_t lCurrent = processSample(p.indices.current, 0, p.levels, lInput);
         float32x4_t rCurrent = processSample(p.indices.current, 1, p.levels, rInput);
-        float32x4_t lShadow  = processSample(p.indices.shadow,  0, p.levels, lInput);
-        float32x4_t rShadow  = processSample(p.indices.shadow,  1, p.levels, rInput);
+        float32x4_t lShadow  = processShadow(p.indices.shadow,  0, p.levels, lInput);
+        float32x4_t rShadow  = processShadow(p.indices.shadow,  1, p.levels, rInput);
 
         float32x4_t lMix = p.levels.shadow.lerp(lShadow, lCurrent);
         float32x4_t rMix = p.levels.shadow.lerp(rShadow, rCurrent);

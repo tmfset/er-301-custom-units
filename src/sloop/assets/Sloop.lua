@@ -240,9 +240,15 @@ end
 
 function Sloop:describeBuffer(length)
   if self.sample then
-    local bufferName = self.sample:getFilenameForDisplay(length or 18) -- 25, 18
-    local bufferLength = self.sample:getDurationText()
-    return bufferLength..", "..bufferName
+    local total = length or 26
+
+    local duration = self.sample:getDurationText()
+    local channels = self.sample:getChannelText()
+    local info = channels.."/"..duration.." "
+
+    local remaining = total - string.len(info)
+    local name = self.sample:getFilenameForDisplay(remaining)
+    return info..name
   end
 
   return "Nothing attached"
@@ -409,12 +415,6 @@ function Sloop:onLoadViews()
       width = 2 * app.SECTION_PLY,
       description = self:describeBuffer()
     },
-    wave3 = SloopView {
-      parent = self,
-      head  = self.objects.head,
-      width = 3 * app.SECTION_PLY,
-      description = self:describeBuffer()
-    },
     clock   = self:gateView("clock", "Clock"),
     engage  = self:gateView("engage", "Engage"),
     record  = self:gateView("record", "Continuous Record"),
@@ -468,7 +468,7 @@ function Sloop:onLoadViews()
       button      = "fade",
       description = "Fade",
       param       = self.objects.head:getParameter("Fade"),
-      map         = Encoder.getMap("[0,1]"),
+      map         = Encoder.getMap("[0,0.25]"),
       units       = app.unitSecs,
       precision   = 3,
       initial     = 0.005
@@ -508,7 +508,7 @@ function Sloop:onLoadViews()
     record    = { "record",  "wave2", "length", "dubLength" },
     overdub   = { "overdub", "wave2", "feedback", "dubLength" },
 
-    collapsed = { "wave3" },
+    collapsed = { "wave2" },
   }
 end
 
