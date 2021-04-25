@@ -1,6 +1,6 @@
 # top-level makefile
 
-PROJECTS = lojik sloop
+PROJECTS = lojik sloop strike
 
 all: $(PROJECTS)
 
@@ -23,15 +23,15 @@ am335x-docker:
 	docker build docker/er-301-am335x-build-env/ -t er-301-am335x-build-env
 
 release:
-	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units er-301-am335x-build-env:latest \
+	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units tomjfiset/er-301-am335x-build-env:1.0.0 \
 		make -j all ARCH=am335x PROFILE=release
 
 er-301-docker:
-	docker run --privileged -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units/er-301 er-301-am335x-build-env:latest \
+	docker run --privileged -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units/er-301 tomjfiset/er-301-am335x-build-env:1.0.0 \
 		make -j ARCH=am335x PROFILE=release
 
 release-missing:
-	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units er-301-am335x-build-env:latest \
+	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units tomjfiset/er-301-am335x-build-env:1.0.0 \
 		make -j sloop-missing ARCH=am335x PROFILE=release
 
 clean:
