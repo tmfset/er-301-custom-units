@@ -127,7 +127,8 @@ namespace strike {
 
         float32x4_t ai = vdupq_n_f32(vgetq_lane_f32(cf.alpha0inv, i));
 
-        float32x4_t s = vmlaq_f32(b[i] * in, a[i], out);
+        float32x4_t s2 = vmlaq_f32(a[i] * in, b[i], out
+        float32x4_t s = ai * vmlaq_f32(b[i] * in, a[i], out);
         float32x2_t t = vpadd_f32(vget_low_f32(s), vget_high_f32(s));
         t = vpadd_f32(t, t);
 
@@ -163,5 +164,15 @@ namespace strike {
 
       return out;
     }
+  };
+
+  struct sv_filter {
+    float32x4_t in, out;
+
+    sv_filter() {
+      in  = vdupq_n_f32(0.0f);
+      out = vdupq_n_f32(0.0f);
+    }
+
   };
 }
