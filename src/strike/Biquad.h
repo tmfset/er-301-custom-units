@@ -20,9 +20,7 @@ namespace biquad {
   // https://arachnoid.com/BiQuadDesigner/index.html
   template <FilterType FT>
   struct Coefficients {
-    Coefficients(float f, float q, float sr);
-
-    void initCommon(float f, float q, float sr) {
+    inline Coefficients(float f, float q, float sr) {
       theta = 2.0f * M_PI * f / sr;
       st    = sin(theta);
       ct    = cos(theta);
@@ -33,6 +31,8 @@ namespace biquad {
       a2    = 1.0f - alpha;
     }
 
+    inline void initType();
+
     float theta, st, ct;
     float alpha, a0I;
     float a0, a1, a2;
@@ -40,24 +40,21 @@ namespace biquad {
   };
 
   template <>
-  inline Coefficients<LOWPASS>::Coefficients(float f, float q, float sr) {
-    this->initCommon(f, q, sr);
+  inline void Coefficients<LOWPASS>::initType() {
     b1 = 1.0f - ct;
     b0 = b1 / 2.0f;
     b2 = b0;
   }
 
   template <>
-  inline Coefficients<HIGHPASS>::Coefficients(float f, float q, float sr) {
-    this->initCommon(f, q, sr);
+  inline void Coefficients<HIGHPASS>::initType() {
     b1 = -(1.0f + ct);
     b0 = -b1 / 2.0f;
     b2 = b0;
   }
 
   template <>
-  inline Coefficients<BANDPASS>::Coefficients(float f, float q, float sr) {
-    this->initCommon(f, q, sr);
+  inline void Coefficients<BANDPASS>::initType() {
     b0 = alpha;
     b1 = 0;
     b2 = -alpha;
