@@ -5,10 +5,10 @@
 
 #undef SWIGLUA
 
-#include <Biquad.h>
+#include <Filter.h>
 
 #define SWIGLUA
 
 %}
 
-%include <Biquad.h>
+%include <Filter.h>

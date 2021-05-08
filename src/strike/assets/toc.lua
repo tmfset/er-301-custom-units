@@ -6,8 +6,8 @@ return {
     author  = "tomf",
     units   = {
       {
-        title = "Biquad",
-        moduleName = "Biquad"
+        title = "Filter",
+        moduleName = "Filter"
       }
     }
   }

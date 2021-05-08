@@ -1,178 +1,146 @@
 #pragma once
 
+#include <math.h>
+#include <hal/constants.h>
 #include <hal/simd.h>
 #include <hal/neon.h>
 
-namespace strike {
-  struct simd_tanh_constants {
-    float32x4_t c1, c2, c3, c4, c5, c6;
+#define BUILDOPT_VERBOSE
+#define BUILDOPT_DEBUG_LEVEL 10
+#include <hal/log.h>
 
-    inline simd_tanh_constants() {
-      c1 = vdupq_n_f32(378);
-      c2 = vdupq_n_f32(17325);
-      c3 = vdupq_n_f32(135135);
-      c4 = vdupq_n_f32(28);
-      c5 = vdupq_n_f32(3150);
-      c6 = vdupq_n_f32(62370);
+namespace util {
+  namespace simd {
+    struct clamp {
+      float32x4_t min, max;
+
+      inline clamp(float _min, float _max) {
+        min = vdupq_n_f32(_min);
+        max = vdupq_n_f32(_max);
+      }
+
+      inline clamp(const float32x4_t _min, const float32x4_t _max) {
+        min = _min;
+        max = _max;
+      }
+
+      inline float32x4_t process(const float32x4_t in) {
+        return vmaxq_f32(min, vminq_f32(max, in));
+      }
+    };
+
+    struct vpo {
+      float32x4_t glog2;
+
+      inline vpo() {
+        glog2 = vdupq_n_f32(FULLSCALE_IN_VOLTS * logf(2.0f));
+      }
+
+      inline float32x4_t process(const float32x4_t vpo, const float32x4_t f0) {
+        return f0 * simd_exp(vpo * glog2);
+      }
+    };
+
+    struct tanh {
+      float32x4_t c1, c2, c3, c4, c5, c6;
+
+      inline tanh() {
+        c1 = vdupq_n_f32(378);
+        c2 = vdupq_n_f32(17325);
+        c3 = vdupq_n_f32(135135);
+        c4 = vdupq_n_f32(28);
+        c5 = vdupq_n_f32(3150);
+        c6 = vdupq_n_f32(62370);
+      }
+
+      // tanh approximation (neon w/ division via newton's method)
+      // https://varietyofsound.wordpress.com/2011/02/14/efficient-tanh-computation-using-lamberts-continued-fraction/
+      inline float32x4_t process(float32x4_t in) {
+        float32x4_t x, x2, a, b, invb;
+
+        x  = in;
+        x2 = x * x;
+
+        a = vmlaq_f32(c2, x2, x2 + c1);
+        a = vmlaq_f32(c3, x2, a) * x;
+
+        b = vmlaq_f32(c5, x2, c4);
+        b = vmlaq_f32(c6, x2, b);
+        b = vmlaq_f32(c3, x2, b);
+
+        invb = simd_invert(b);
+        return a * invb;
+      }
+    };
+
+    // Push a new value into the front of the vector.
+    inline float32x4_t pushq_f32(const float32x4_t current, const float next) {
+      float32x4_t t = vtrnq_f32(current, current).val[0];
+      float32x4_t z = vzipq_f32(current, current).val[0];
+      float32x4_t s = vtrnq_f32(z, t).val[0];
+      return vsetq_lane_f32(next, s, 0);
     }
-  };
 
-  // tanh approximation (neon w/ division via newton's method)
+    // Add all lanes together.
+    inline float sumq_f32(const float32x4_t v) {
+      auto pair = vpadd_f32(vget_low_f32(v), vget_high_f32(v));
+      pair = vpadd_f32(pair, pair);
+      return vget_lane_f32(pair, 0);
+    }
+
+    // Reverse the lane order.
+    inline float32x4_t revq_f32(const float32x4_t v) {
+      auto pair = vrev64q_f32(v);
+      return vcombine_f32(vget_high_f32(pair), vget_low_f32(pair));
+    }
+
+    // See: rtocq_f32
+    // A partial version. Same principle, but optimized for two rows using the
+    // rem value to fill in the ends.
+    inline void rtocq_p_f32(
+      float32x4_t* out,
+      const float32x4_t a,
+      const float32x4_t b,
+      const float32x2_t rem
+    ) {
+      float32x4x2_t ab = vzipq_f32(a, b);
+
+      out[0] = vcombine_f32( vget_low_f32(ab.val[0]), rem);
+      out[1] = vcombine_f32(vget_high_f32(ab.val[0]), rem);
+      out[2] = vcombine_f32( vget_low_f32(ab.val[1]), rem);
+      out[3] = vcombine_f32(vget_high_f32(ab.val[1]), rem);
+    }
+
+    // Consider the four input vectors as rows in a matrix and create four new
+    // vectors from the columns of that matrix.
+    inline void rtocq_f32(
+      float32x4_t* out,
+      const float32x4_t a,
+      const float32x4_t b,
+      const float32x4_t c,
+      const float32x4_t d
+    ) {
+      float32x4x2_t ab = vzipq_f32(a, b);
+      float32x4x2_t cd = vzipq_f32(c, d);
+
+      out[0] = vcombine_f32( vget_low_f32(ab.val[0]),  vget_low_f32(cd.val[0]));
+      out[1] = vcombine_f32(vget_high_f32(ab.val[0]), vget_high_f32(cd.val[0]));
+      out[2] = vcombine_f32( vget_low_f32(ab.val[1]),  vget_low_f32(cd.val[1]));
+      out[3] = vcombine_f32(vget_high_f32(ab.val[1]), vget_high_f32(cd.val[1]));
+    }
+  }
+
+  // tanh approximation
   // https://varietyofsound.wordpress.com/2011/02/14/efficient-tanh-computation-using-lamberts-continued-fraction/
-  inline float32x4_t simd_tanh(float32x4_t in, const simd_tanh_constants &c) {
-    float32x4_t x, x2, a, b, invb;
+  inline float tanh(float in) {
+    float x, x2, a, b;
 
     x  = in;
     x2 = x * x;
 
-    a = vmlaq_f32(c.c2, x2, x2 + c.c1);
-    a = vmlaq_f32(c.c3, x2, a) * x;
+    a = (((x2 + 378) * x2 + 17325) * x2 + 135135) * x;
+    b = ((28 * x2 + 3150) * x2 + 62370) * x2 + 135135;
 
-    b = vmlaq_f32(c.c5, x2, c.c4);
-    b = vmlaq_f32(c.c6, x2, b);
-    b = vmlaq_f32(c.c3, x2, b);
-
-    invb = simd_invert(b);
-    return a * invb;
+    return a / b;
   }
-
-  struct simd_constants {
-    float32x4_t negTwo;
-    float32x4_t negOne;
-    float32x2_t zeroh;
-    float32x4_t zero;
-    float32x4_t half;
-    float32x4_t one;
-    float32x4_t two;
-
-    inline simd_constants() {
-      negTwo = vdupq_n_f32(-2.0f);
-      negOne = vdupq_n_f32(-1.0f);
-      zeroh  = vdup_n_f32(0.0f);
-      zero   = vdupq_n_f32(0.0f);
-      half   = vdupq_n_f32(0.5f);
-      one    = vdupq_n_f32(1.0f);
-      two    = vdupq_n_f32(2.0f);
-    }
-  };
-
-  // https://webaudio.github.io/Audio-EQ-Cookbook/audio-eq-cookbook.html
-  struct simd_biquad_coefficients {
-    float32x4_t beta0, beta1, beta2;
-    float32x4_t alpha0, alpha1, alpha2;
-    float32x4_t alpha0inv;
-
-    inline simd_biquad_coefficients(float32x4_t f, float32x4_t q, const simd_constants &c) {
-      float32x4_t qinv  = simd_invert(q);
-      float32x4_t theta = f;
-
-      float32x4_t sinTheta, cosTheta;
-      simd_sincos(theta, &sinTheta, &cosTheta);
-
-      beta1 = c.one - cosTheta;
-      beta0 = beta1 * c.half;
-      beta2 = beta0;
-
-      float32x4_t alpha = sinTheta * c.half * qinv;
-
-      alpha0 = c.one + alpha;
-      alpha0inv = simd_invert(alpha0);
-      alpha0 = c.negOne * alpha0; // Negated
-
-      alpha1 = c.two * cosTheta; // Negated
-      alpha2 = alpha - c.one; // Negated
-    }
-  };
-
-  inline float32x4_t push_lane_f32(float32x4_t current, float next) {
-    float32x4_t t = vtrnq_f32(current, current).val[0];
-    float32x4_t z = vzipq_f32(current, current).val[0];
-    float32x4_t s = vtrnq_f32(z, t).val[0];
-    return vsetq_lane_f32(next, s, 0);
-  }
-
-  struct simd_biquad {
-    float32x4_t in, out;
-
-    inline simd_biquad() {
-      in  = vdupq_n_f32(0.0f);
-      out = vdupq_n_f32(0.0f);
-    }
-
-
-    float32x4_t process(
-      float *buffer,
-      int offset,
-      const simd_biquad_coefficients& cf,
-      const simd_constants &c
-    ) {
-      float32x4x2_t bleft  = vzipq_f32(cf.beta0, cf.beta1);
-      float32x4x2_t bright = vzipq_f32(cf.beta2, c.zero);
-      float32x4x2_t aleft  = vzipq_f32(cf.alpha1, cf.alpha2);
-
-      float32x4_t b[4], a[4];
-      b[0] = vcombine_f32(vget_low_f32(bleft.val[0]), vget_low_f32(bright.val[0]));
-      b[1] = vcombine_f32(vget_high_f32(bleft.val[0]), vget_high_f32(bright.val[0]));
-      b[2] = vcombine_f32(vget_low_f32(bleft.val[1]), vget_low_f32(bright.val[1]));
-      b[3] = vcombine_f32(vget_high_f32(bleft.val[1]), vget_high_f32(bright.val[1]));
-
-      a[0] = vcombine_f32(vget_low_f32(aleft.val[0]), c.zeroh);
-      a[1] = vcombine_f32(vget_high_f32(aleft.val[0]), c.zeroh);
-      a[2] = vcombine_f32(vget_low_f32(aleft.val[1]), c.zeroh);
-      a[3] = vcombine_f32(vget_high_f32(aleft.val[1]), c.zeroh);
-
-      for (int i = 0; i < 4; i++) {
-        float next = buffer[offset + i];
-        in = push_lane_f32(in, next);
-
-        float32x4_t ai = vdupq_n_f32(vgetq_lane_f32(cf.alpha0inv, i));
-
-        float32x4_t s2 = vmlaq_f32(a[i] * in, b[i], out
-        float32x4_t s = ai * vmlaq_f32(b[i] * in, a[i], out);
-        float32x2_t t = vpadd_f32(vget_low_f32(s), vget_high_f32(s));
-        t = vpadd_f32(t, t);
-
-        float r = vget_lane_f32(t, 0);
-        out = push_lane_f32(out, r);
-      }
-
-      // for (int i = 0; i < 4; i++) {
-      //   float next = buffer[offset + i];
-      //   in = simd_push_lane(in, next);
-
-      //   float32x4_t b = c.beta0;
-      //   b = vsetq_lane_f32(vgetq_lane_f32(c.beta0, i), b, 0);
-      //   b = vsetq_lane_f32(vgetq_lane_f32(c.beta1, i), b, 1);
-      //   b = vsetq_lane_f32(vgetq_lane_f32(c.beta2, i), b, 2);
-      //   b = vsetq_lane_f32(0.0f, b, 3);
-
-      //   float32x4_t a = c.alpha0;
-      //   a = vsetq_lane_f32(-vgetq_lane_f32(c.alpha1, i), a, 0);
-      //   a = vsetq_lane_f32(-vgetq_lane_f32(c.alpha2, i), a, 1);
-      //   a = vsetq_lane_f32(0.0f, a, 2);
-      //   a = vsetq_lane_f32(0.0f, a, 3);
-
-      //   float32x4_t ai = vdupq_n_f32(vgetq_lane_f32(c.alpha0inv, i));
-
-      //   float32x4_t s = ai * vmlaq_f32(b * in, a, out);
-      //   float32x2_t t = vpadd_f32(vget_low_f32(s), vget_high_f32(s));
-      //   t = vpadd_f32(t, t);
-
-      //   float r = vget_lane_f32(t, 0);
-      //   out = simd_push_lane(out, r);
-      // }
-
-      return out;
-    }
-  };
-
-  struct sv_filter {
-    float32x4_t in, out;
-
-    sv_filter() {
-      in  = vdupq_n_f32(0.0f);
-      out = vdupq_n_f32(0.0f);
-    }
-
-  };
 }
