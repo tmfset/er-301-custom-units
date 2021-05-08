@@ -32,23 +32,22 @@ function Filter.addConstantOffsetControl(self, name)
 end
 
 function Filter:onLoadGraph(channelCount)
+  local stereo = channelCount > 1
+
   local vpo   = self:addConstantOffsetControl("vpo")
   local f0    = self:addGainBiasControl("f0")
   local q     = self:addGainBiasControl("q")
   local gain  = self:addGainBiasControl("gain")
 
-  local op = self:addObject("op", strike.Filter())
+  local op = self:addObject("op", strike.Filter(stereo))
   connect(vpo,  "Out", op, "V/Oct")
   connect(f0,   "Out", op, "Fundamental")
   connect(q,    "Out", op, "Resonance")
   connect(gain, "Out", op, "Gain")
 
-  connect(self, "In1", op, "Left In")
-  connect(op, "Left Out", self, "Out1")
-
-  if channelCount > 1 then
-    connect(self, "In2", op, "Right In")
-    connect(op, "Right Out", self, "Out2")
+  for i = 1, stereo and 2 or 1 do
+    connect(self, "In"..i, op, "In"..i)
+    connect(op, "Out"..i, self, "Out"..i)
   end
 end
 

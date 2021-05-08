@@ -109,9 +109,7 @@ namespace biquad {
 
     template <FilterType FT>
     struct Coefficients {
-      inline Coefficients(const Constants &c, const float32x4_t f, const float32x4_t q);
-
-      void initCommon(const Constants &c, const float32x4_t f, const float32x4_t q) {
+      inline Coefficients(const Constants &c, const float32x4_t f, const float32x4_t q) {
         theta = f * c.twoPiOverSampleRate;
         simd_sincos(theta, &st, &ct);
 
@@ -122,33 +120,44 @@ namespace biquad {
         a0I   = simd_invert(a0);
         a1    = c.negTwo * ct;
         a2    = c.one - alpha;
+
+        initType(c);
+
+        util::simd::rtocq_f32(a, a1, a2, c.zero, c.zero);
+        util::simd::rtocq_f32(b, b0, b1, b2, c.zero);
+
+        float _aI[4];
+        vst1q_f32(_aI, a0I);
+        for (int i = 0; i < 4; i++)
+          aI[i] = vdupq_n_f32(_aI[i]);
       }
+
+      inline void initType(const Constants &c);
 
       float32x4_t theta, st, ct;
       float32x4_t alpha, a0I;
       float32x4_t a0, a1, a2;
       float32x4_t b0, b1, b2;
+
+      float32x4_t a[4], b[4], aI[4];
     };
 
     template <>
-    inline Coefficients<LOWPASS>::Coefficients(const Constants &c, const float32x4_t f, const float32x4_t q) {
-      this->initCommon(c, f, q);
+    inline void Coefficients<LOWPASS>::initType(const Constants &c) {
       b1 = c.one - ct;
       b0 = b1 * c.half;
       b2 = b0;
     }
 
     template <>
-    inline Coefficients<HIGHPASS>::Coefficients(const Constants &c, const float32x4_t f, const float32x4_t q) {
-      this->initCommon(c, f, q);
+    inline void Coefficients<HIGHPASS>::initType(const Constants &c) {
       b1 = c.negOne - ct;
       b0 = b1 * c.negHalf;
       b2 = b0;
     }
 
     template <>
-    inline Coefficients<BANDPASS>::Coefficients(const Constants &c, const float32x4_t f, const float32x4_t q) {
-      this->initCommon(c, f, q);
+    inline void Coefficients<BANDPASS>::initType(const Constants &c) {
       b0 = alpha;
       b1 = c.zero;
       b2 = alpha * c.negOne;
@@ -160,22 +169,20 @@ namespace biquad {
       }
 
       template <FilterType FT>
-      inline float32x4_t process(const Constants &c, const Coefficients<FT> &cf, float32x4_t input) {
-        float32x4_t a[4], b[4];
-        util::simd::rtocq_p_f32(a, cf.a1, cf.a2, c.zeroX2);
-        util::simd::rtocq_f32(b, cf.b0, cf.b1, cf.b2, c.zero);
-
-        float xs[4], a0I[4];
+      inline float32x4_t process(const Coefficients<FT> &cf, float32x4_t input) {
+        float xs[4];
         vst1q_f32(xs, input);
-        vst1q_f32(a0I, cf.a0I);
+        return processArray(cf, xs);
+      }
 
+      template <FilterType FT>
+      inline float32x4_t processArray(const Coefficients<FT> &cf, const float *xs) {
         for (int i = 0; i < 4; i++) {
           x = util::simd::pushq_f32(x, xs[i]);
 
-          float32x4_t aI = vdupq_n_f32(a0I[i]);
-          float32x4_t terms = aI * ((b[i] * x) - (a[i] * y));
-
+          float32x4_t terms = cf.aI[i] * vmlsq_f32(cf.b[i] * x, cf.a[i], y);
           float _y = util::simd::sumq_f32(terms);
+
           y = util::simd::pushq_f32(y, _y);
         }
 
