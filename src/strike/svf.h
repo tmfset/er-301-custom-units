@@ -43,6 +43,8 @@ namespace svf {
       float a1[4], a2[4], a3[4];
     };
 
+    // https://www.cytomic.com/files/dsp/SvfLinearTrapOptimised2.pdf
+    // https://github.com/FredAntonCorvest/Common-DSP
     struct Filter {
       inline Filter() {
         ic1eq = ic2eq = 0;
