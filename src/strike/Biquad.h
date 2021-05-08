@@ -62,12 +62,12 @@ namespace biquad {
 
   struct Filter {
     template <FilterType FT>
-    float process(Coefficients<FT> c, float x) {
-      float y = (c.b0 * x
-              + c.b1 * mXz1
-              + c.b2 * mXz2
-              - c.a1 * mYz1
-              - c.a2 * mYz2) * c.a0I;
+    float process(const Coefficients<FT> &cf, float x) {
+      float y = (cf.b0 * x
+              + cf.b1 * mXz1
+              + cf.b2 * mXz2
+              - cf.a1 * mYz1
+              - cf.a2 * mYz2) * cf.a0I;
         
       mXz2 = mXz1;
       mXz1 = x;

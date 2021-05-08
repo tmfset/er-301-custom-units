@@ -73,6 +73,13 @@ namespace util {
       }
     };
 
+    inline float32x4_t tanq_f32(float32x4_t value) {
+      float32x4_t sin, cos;
+      simd_sincos(value, &sin, &cos);
+      auto cosI = simd_invert(cos);
+      return sin * cosI;
+    }
+
     // Push a new value into the front of the vector.
     inline float32x4_t pushq_f32(const float32x4_t current, const float next) {
       float32x4_t t = vtrnq_f32(current, current).val[0];
