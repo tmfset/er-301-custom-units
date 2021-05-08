@@ -47,9 +47,16 @@ namespace strike {
 #ifndef SWIGLUA
       virtual void process();
 
-      template <biquad::FilterType FT> void processType() {
-        float *in[mChannelCount], *out[mChannelCount];
-        for (int channel = 0; channel < mChannelCount; channel++) {
+      template <biquad::FilterType FT>
+      inline void processType() {
+        if (mChannelCount == 1) processTypeChannel<FT, 1>();
+        else                    processTypeChannel<FT, 2>();
+      }
+
+      template <biquad::FilterType FT, int CH>
+      inline void processTypeChannel() {
+        float *in[CH], *out[CH];
+        for (int channel = 0; channel < CH; channel++) {
           in[channel]  = getInput(channel)->buffer();
           out[channel] = getOutput(channel)->buffer();
         }
@@ -78,7 +85,7 @@ namespace strike {
             sClpQ.process(sClpQ.min + vQ)
           };
 
-          for (int c = 0; c < mChannelCount; c++) {
+          for (int c = 0; c < CH; c++) {
             auto _in = vld1q_f32(in[c] + i);
             auto _out = mFilter.at(c).process(cf, _in * vGain);
             vst1q_f32(out[c] + i, sTanh.process(_out));
@@ -86,10 +93,10 @@ namespace strike {
         }
       }
 
-      od::Inlet  mVpo      { "V/Oct" };
-      od::Inlet  mF0       { "Fundamental" };
-      od::Inlet  mGain     { "Gain" };
-      od::Inlet  mQ        { "Resonance" };
+      od::Inlet  mVpo  { "V/Oct" };
+      od::Inlet  mF0   { "Fundamental" };
+      od::Inlet  mGain { "Gain" };
+      od::Inlet  mQ    { "Resonance" };
 
       od::Option mMode { "Mode", STRIKE_FILTER_MODE_LOWPASS };
 #endif
