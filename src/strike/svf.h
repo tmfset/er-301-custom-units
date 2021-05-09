@@ -39,7 +39,7 @@ namespace svf {
 
     struct Filter {
       inline Filter() {
-        ic1eq = ic2eq = 0;
+        iceq = vdup_n_f32(0);
       }
 
       inline float32x4_t process(const Coefficients &cf, const float32x4_t input) {
@@ -107,8 +107,6 @@ namespace svf {
       }
 
       float32x2_t iceq;
-
-      float ic1eq, ic2eq;
     };
   }
 }
