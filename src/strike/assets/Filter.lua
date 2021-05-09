@@ -39,7 +39,7 @@ function Filter:onLoadGraph(channelCount)
   local q     = self:addGainBiasControl("q")
   local gain  = self:addGainBiasControl("gain")
 
-  local op = self:addObject("op", strike.Filter(stereo))
+  local op = self:addObject("op", strike.StateVariableFilter(stereo))
   connect(vpo,  "Out", op, "V/Oct")
   connect(f0,   "Out", op, "Fundamental")
   connect(q,    "Out", op, "Resonance")

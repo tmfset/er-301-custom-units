@@ -55,9 +55,11 @@ namespace strike {
       template <int CH>
       inline void processTypeChannel() {
         float *in[CH], *out[CH];
+        svf::simd::Filter *filter[CH];
         for (int channel = 0; channel < CH; channel++) {
           in[channel]  = getInput(channel)->buffer();
           out[channel] = getOutput(channel)->buffer();
+          filter[channel] = &mFilter.at(channel);
         }
 
         float *vpo  = mVpo.buffer();
@@ -65,10 +67,9 @@ namespace strike {
         float *gain = mGain.buffer();
         float *q    = mQ.buffer();
 
-        util::simd::clamp sClpUnit { -1.0f, 1.0f };
-        util::simd::clamp sClpQ    { 0.707107f, 30.0f };
-        util::simd::vpo   sVpo     { };
-        util::simd::tanh  sTanh    { };
+        const util::simd::clamp sClpUnit { -1.0f, 1.0f };
+        const util::simd::clamp sClpQ    { 0.707107f, 30.0f };
+        const util::simd::vpo   sVpo     { };
 
         svf::simd::Constants sBc { globalConfig.sampleRate };
 
@@ -81,13 +82,13 @@ namespace strike {
           svf::simd::Coefficients cf {
             sBc,
             sVpo.process(sClpUnit.process(vVpo), vF0),
-            sClpQ.process(sClpQ.min + vQ)
+            sClpQ.processOffset(vQ)
           };
 
           for (int c = 0; c < CH; c++) {
             auto _in = vld1q_f32(in[c] + i);
-            auto _out = mFilter.at(c).process(cf, _in * vGain);
-            vst1q_f32(out[c] + i, sTanh.process(_out));
+            auto _out = filter[c]->process(cf, _in * vGain);
+            vst1q_f32(out[c] + i, util::simd::tanh(_out));
           }
         }
       }

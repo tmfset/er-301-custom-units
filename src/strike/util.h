@@ -11,73 +11,89 @@
 
 namespace util {
   namespace simd {
+    inline float32x4_t invert(float32x4_t x) {
+      float32x4_t inv;
+      // https://en.wikipedia.org/wiki/Division_algorithm#Newton.E2.80.93Raphson_division
+      inv = vrecpeq_f32(x);
+      // iterate 3 times for 24 bits of precision
+      inv *= vrecpsq_f32(x, inv);
+      inv *= vrecpsq_f32(x, inv);
+      inv *= vrecpsq_f32(x, inv);
+      return inv;
+    }
+
     struct clamp {
-      float32x4_t min, max;
+      const float32x4_t min, max;
 
-      inline clamp(float _min, float _max) {
-        min = vdupq_n_f32(_min);
-        max = vdupq_n_f32(_max);
+      inline clamp(float _min, float _max) :
+        min(vdupq_n_f32(_min)),
+        max(vdupq_n_f32(_max)) { }
+
+      inline clamp(const float32x4_t _min, const float32x4_t _max):
+        min(_min),
+        max(_max) { }
+
+      inline float32x4_t process(const float32x4_t in) const {
+        return vminq_f32(max, vmaxq_f32(min, in));
       }
 
-      inline clamp(const float32x4_t _min, const float32x4_t _max) {
-        min = _min;
-        max = _max;
-      }
-
-      inline float32x4_t process(const float32x4_t in) {
-        return vmaxq_f32(min, vminq_f32(max, in));
+      inline float32x4_t processOffset(const float32x4_t in) const {
+        return vminq_f32(max, vmaxq_f32(min, in + min));
       }
     };
 
+    // tanh approximation (neon w/ division via newton's method)
+    // https://varietyofsound.wordpress.com/2011/02/14/efficient-tanh-computation-using-lamberts-continued-fraction/
+    inline float32x4_t tanh(const float32x4_t in) {
+      float32x4_t x, x2, a, b, invb;
+
+      x  = in;
+      x2 = x * x;
+
+      a = vmlaq_f32(vdupq_n_f32(17325), x2, x2 + vdupq_n_f32(378));
+      a = vmlaq_f32(vdupq_n_f32(135135), x2, a) * x;
+
+      b = vmlaq_f32(vdupq_n_f32(3150), x2, vdupq_n_f32(28));
+      b = vmlaq_f32(vdupq_n_f32(62370), x2, b);
+      b = vmlaq_f32(vdupq_n_f32(135135), x2, b);
+
+      invb = invert(b);
+      return a * invb;
+    }
+
+    inline float32x4_t tan(const float32x4_t f) {
+      float32x4_t sin, cos;
+      simd_sincos(f, &sin, &cos);
+      float32x4_t cosI = invert(cos);
+      return sin * cosI;
+    }
+
     struct vpo {
-      float32x4_t glog2;
+      const float32x4_t glog2 = vdupq_n_f32(FULLSCALE_IN_VOLTS * logf(2.0f));
 
-      inline vpo() {
-        glog2 = vdupq_n_f32(FULLSCALE_IN_VOLTS * logf(2.0f));
-      }
-
-      inline float32x4_t process(const float32x4_t vpo, const float32x4_t f0) {
+      inline float32x4_t process(const float32x4_t vpo, const float32x4_t f0) const {
         return f0 * simd_exp(vpo * glog2);
       }
     };
 
-    struct tanh {
-      float32x4_t c1, c2, c3, c4, c5, c6;
+    inline float32x2_t make_f32(float a, float b) {
+      float x[2];
+      x[0] = a;
+      x[1] = b;
+      return vld1_f32(x);
+    }
 
-      inline tanh() {
-        c1 = vdupq_n_f32(378);
-        c2 = vdupq_n_f32(17325);
-        c3 = vdupq_n_f32(135135);
-        c4 = vdupq_n_f32(28);
-        c5 = vdupq_n_f32(3150);
-        c6 = vdupq_n_f32(62370);
-      }
+    inline float32x4_t makeq_f32(float a, float b, float c, float d) {
+      float x[4];
+      x[0] = a;
+      x[1] = b;
+      x[2] = c;
+      x[3] = d;
+      return vld1q_f32(x);
+    }
 
-      // tanh approximation (neon w/ division via newton's method)
-      // https://varietyofsound.wordpress.com/2011/02/14/efficient-tanh-computation-using-lamberts-continued-fraction/
-      inline float32x4_t process(float32x4_t in) {
-        float32x4_t x, x2, a, b, invb;
-
-        x  = in;
-        x2 = x * x;
-
-        a = vmlaq_f32(c2, x2, x2 + c1);
-        a = vmlaq_f32(c3, x2, a) * x;
-
-        b = vmlaq_f32(c5, x2, c4);
-        b = vmlaq_f32(c6, x2, b);
-        b = vmlaq_f32(c3, x2, b);
-
-        invb = simd_invert(b);
-        return a * invb;
-      }
-    };
-
-    inline float32x4_t tanq_f32(float32x4_t value) {
-      float32x4_t sin, cos;
-      simd_sincos(value, &sin, &cos);
-      auto cosI = simd_invert(cos);
-      return sin * cosI;
+    inline float32x2_t padd_self(const float32x2_t v) {
+      return vpadd_f32(v, v);
     }
 
     // Push a new value into the front of the vector.

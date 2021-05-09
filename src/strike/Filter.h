@@ -69,7 +69,6 @@ namespace strike {
         util::simd::clamp sClpUnit { -1.0f, 1.0f };
         util::simd::clamp sClpQ    { 0.707107f, 30.0f };
         util::simd::vpo   sVpo     { };
-        util::simd::tanh  sTanh    { };
 
         biquad::simd::Constants sBc { globalConfig.sampleRate };
 
@@ -88,7 +87,7 @@ namespace strike {
           for (int c = 0; c < CH; c++) {
             auto _in = vld1q_f32(in[c] + i);
             auto _out = mFilter.at(c).process(cf, _in * vGain);
-            vst1q_f32(out[c] + i, sTanh.process(_out));
+            vst1q_f32(out[c] + i, util::simd::tanh(_out));
           }
         }
       }
