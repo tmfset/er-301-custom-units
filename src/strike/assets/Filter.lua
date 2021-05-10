@@ -31,6 +31,12 @@ function Filter.addConstantOffsetControl(self, name)
   return co;
 end
 
+function Filter.linMap(min, max, superCoarse, coarse, fine, superFine)
+  local map = app.LinearDialMap(min, max)
+  map:setSteps(superCoarse, coarse, fine, superFine)
+  return map
+end
+
 function Filter:onLoadGraph(channelCount)
   local stereo = channelCount > 1
 
@@ -38,12 +44,14 @@ function Filter:onLoadGraph(channelCount)
   local f0    = self:addGainBiasControl("f0")
   local q     = self:addGainBiasControl("q")
   local gain  = self:addGainBiasControl("gain")
+  local mix   = self:addGainBiasControl("mix")
 
   local op = self:addObject("op", strike.StateVariableFilter(stereo))
   connect(vpo,  "Out", op, "V/Oct")
   connect(f0,   "Out", op, "Fundamental")
   connect(q,    "Out", op, "Resonance")
   connect(gain, "Out", op, "Gain")
+  connect(mix,  "Out", op, "Mix")
 
   for i = 1, stereo and 2 or 1 do
     connect(self, "In"..i, op, "In"..i)
@@ -78,8 +86,8 @@ function Filter:onLoadViews()
       branch        = self.branches.q,
       gainbias      = self.objects.q,
       range         = self.objects.qRange,
-      biasMap       = Encoder.getMap("[0,10]"),
-      gainMap       = Encoder.getMap("[-10,10]"),
+      biasMap       = self.linMap(  0, 30, 1, 0.1, 0.01, 0.001),
+      gainMap       = self.linMap(-30, 30, 1, 0.1, 0.01, 0.001),
       biasUnits     = app.unitNone,
       biasPrecision = 3,
       initialBias   = 0
@@ -90,13 +98,26 @@ function Filter:onLoadViews()
       branch        = self.branches.gain,
       gainbias      = self.objects.gain,
       range         = self.objects.gainRange,
-      biasMap       = Encoder.getMap("[0,10]"),
+      biasMap       = self.linMap(  0, 30, 1, 0.1, 0.01, 0.001),
+      gainMap       = self.linMap(-30, 30, 1, 0.1, 0.01, 0.001),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = 0
+    },
+    mix = GainBias {
+      button        = "mix",
+      description   = "Mode Mix",
+      branch        = self.branches.mix,
+      gainbias      = self.objects.mix,
+      range         = self.objects.mixRange,
+      biasMap       = Encoder.getMap("[0,1]"),
+      gainMap       = Encoder.getMap("[-1,1]"),
       biasUnits     = app.unitNone,
       biasPrecision = 3,
-      initialBias   = 1
-    },
+      initialBias   = 0
+    }
   }, {
-    expanded  = { "vpo", "f0",  "q", "gain" },
+    expanded  = { "vpo", "f0",  "q", "gain", "mix" },
     collapsed = {}
   }
 end

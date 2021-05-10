@@ -24,7 +24,11 @@ namespace svf {
     };
 
     struct Coefficients {
-      inline Coefficients(const Constants &c, const float32x4_t f, const float32x4_t q) {
+      inline Coefficients(
+        const Constants &c,
+        const float32x4_t f,
+        const float32x4_t q
+      ) {
         g = util::simd::tan(f * c.piOverSampleRate);
         k = util::simd::invert(q);
 
@@ -42,20 +46,17 @@ namespace svf {
         iceq = vdup_n_f32(0);
       }
 
-      inline float32x4_t process(const Coefficients &cf, const float32x4_t input) {
-        float xs[4];
-        vst1q_f32(xs, input);
-        return processArray(cf, xs);
-      }
-
-      inline float32x4_t processArray(const Coefficients &cf, const float *xs) {
+      inline float32x4_t process(
+        const Coefficients &cf,
+        const float32x4_t input,
+        const float32x4_t mix
+      ) {
         // Reference:
         //   https://www.cytomic.com/files/dsp/SvfLinearTrapOptimised2.pdf
         //   https://github.com/FredAntonCorvest/Common-DSP
         //
         // Heavily optimized to do all operations in parallel. Tested by
-        // examining the assembly, the entire loop is inlined for excellent
-        // speed.
+        // examining the assembly.
         //
         // Here's the value matrix derived from the original sources:
         //
@@ -85,25 +86,42 @@ namespace svf {
 
         float32x2_t _iceq = iceq;
 
-        float out[4];
+        float xs[4], _m1[4], _m2[4];
+        vst1q_f32(xs, input);
+
         for (int i = 0; i < 4; i++) {
           auto t1 = a1223[i] * mt1;
           auto t2 = vtrnq_f32(a1223[i], mt2).val[1];
           auto t3 = vcombine_f32(_iceq, _iceq);
           auto t4 = vtrnq_f32(vdupq_n_f32(xs[i]), t3).val[1];
 
-          auto v1v2 = t1 * t3 + t2 * t4;
-          auto v1  = util::simd::padd_self(vget_low_f32(v1v2));
-          auto v2  = util::simd::padd_self(vget_high_f32(v1v2));
+          auto vp  = vmlaq_f32(t1 * t3, t2, t4);
+          auto v1  = util::simd::padd_self(vget_low_f32(vp));
+          auto v2  = util::simd::padd_self(vget_high_f32(vp));
+          auto v12 = vtrn_f32(v1, v2).val[0];
 
-          _iceq = vsub_f32(vmul_n_f32(vtrn_f32(v1, v2).val[0], 2), _iceq);
+          _iceq = vsub_f32(vmul_n_f32(v12, 2), _iceq);
 
-          out[i] = vget_lane_f32(v2, 0);
+          _m1[i] = vget_lane_f32(v12, 0);
+          _m2[i] = vget_lane_f32(v12, 1);
         }
 
         iceq = _iceq;
 
-        return vld1q_f32(out);
+        auto lp = vld1q_f32(_m2);
+        auto bp = vld1q_f32(_m1);
+        auto hp = vmlsq_f32(input, cf.k, bp) - lp;
+
+        auto half = vdupq_n_f32(0.5);
+        auto one  = vdupq_n_f32(1.0);
+
+        auto dst   = util::simd::twice(vabdq_f32(mix, half));
+        auto bpLvl = vmlsq_f32(bp,    dst, bp);
+        auto lpLvl = vmlaq_f32(bpLvl, dst, lp);
+        auto hpLvl = vmlaq_f32(bpLvl, dst, hp);
+
+        auto clm = vcvtq_n_f32_u32(vcltq_f32(mix, half), 32);
+        return vmlaq_f32(clm * lpLvl, one - clm, hpLvl);
       }
 
       float32x2_t iceq;

@@ -22,6 +22,23 @@ namespace util {
       return inv;
     }
 
+    struct complement {
+      const float32x4_t v;
+      const float32x4_t c;
+
+      inline complement(float32x4_t _v) :
+        v(_v),
+        c(vdupq_n_f32(1) - _v) {}
+
+      // inline float32x4_t lerp(const float32x4_t from, const float32x4_t to) const {
+      //   return vmlaq_f32(from * value, to, comp);
+      // }
+
+      // inline float32x4_t lerp(float32x4_t in, float32x4_t t) {
+
+      // }
+    };
+
     struct clamp {
       const float32x4_t min, max;
 
@@ -40,7 +57,19 @@ namespace util {
       inline float32x4_t processOffset(const float32x4_t in) const {
         return vminq_f32(max, vmaxq_f32(min, in + min));
       }
+
+      inline float32x4_t low(const float32x4_t in) const {
+        return vmaxq_f32(min, in);
+      }
+
+      inline float32x4_t lowBase(const float32x4_t in) const {
+        return low(in + min);
+      }
     };
+
+    inline float32x4_t twice(const float32x4_t x) {
+      return x + x;
+    }
 
     // tanh approximation (neon w/ division via newton's method)
     // https://varietyofsound.wordpress.com/2011/02/14/efficient-tanh-computation-using-lamberts-continued-fraction/
@@ -70,9 +99,11 @@ namespace util {
 
     struct vpo {
       const float32x4_t glog2 = vdupq_n_f32(FULLSCALE_IN_VOLTS * logf(2.0f));
+      const clamp fClp { 0.0001f, (float)(globalConfig.sampleRate / 4) };
+      const clamp vClp { -1.0, 1.0 };
 
       inline float32x4_t process(const float32x4_t vpo, const float32x4_t f0) const {
-        return f0 * simd_exp(vpo * glog2);
+        return fClp.process(f0 * simd_exp(vClp.process(vpo) * glog2));
       }
     };
 

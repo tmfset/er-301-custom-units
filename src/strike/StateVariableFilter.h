@@ -38,6 +38,7 @@ namespace strike {
         addInput(mF0);
         addInput(mGain);
         addInput(mQ);
+        addInput(mMix);
 
         addOption(mMode);
       }
@@ -66,37 +67,37 @@ namespace strike {
         float *f0   = mF0.buffer();
         float *gain = mGain.buffer();
         float *q    = mQ.buffer();
+        float *mix  = mMix.buffer();
 
-        const util::simd::clamp sClpUnit { -1.0f, 1.0f };
-        const util::simd::clamp sClpQ    { 0.707107f, 30.0f };
+        const util::simd::clamp sClpQ    { 0.707107f, 100.0f };
+        const util::simd::clamp sClpGain { 1.0, 100.0 };;
         const util::simd::vpo   sVpo     { };
 
-        svf::simd::Constants sBc { globalConfig.sampleRate };
+        const svf::simd::Constants sBc { globalConfig.sampleRate };
 
         for (int i = 0; i < FRAMELENGTH; i += 4) {
-          auto vVpo  = vld1q_f32(vpo  + i);
-          auto vF0   = vld1q_f32(f0   + i);
-          auto vGain = vld1q_f32(gain + i);
-          auto vQ    = vld1q_f32(q    + i);
+          auto vMix  = vld1q_f32(mix + i);
+          auto vGain = sClpGain.lowBase(vld1q_f32(gain + i));
 
           svf::simd::Coefficients cf {
             sBc,
-            sVpo.process(sClpUnit.process(vVpo), vF0),
-            sClpQ.processOffset(vQ)
+            sVpo.process(vld1q_f32(vpo + i), vld1q_f32(f0 + i)),
+            sClpQ.lowBase(vld1q_f32(q + i))
           };
 
           for (int c = 0; c < CH; c++) {
             auto _in = vld1q_f32(in[c] + i);
-            auto _out = filter[c]->process(cf, _in * vGain);
+            auto _out = filter[c]->process(cf, _in * vGain, vMix);
             vst1q_f32(out[c] + i, util::simd::tanh(_out));
           }
         }
       }
 
-      od::Inlet  mVpo  { "V/Oct" };
-      od::Inlet  mF0   { "Fundamental" };
-      od::Inlet  mGain { "Gain" };
-      od::Inlet  mQ    { "Resonance" };
+      od::Inlet mVpo  { "V/Oct" };
+      od::Inlet mF0   { "Fundamental" };
+      od::Inlet mGain { "Gain" };
+      od::Inlet mQ    { "Resonance" };
+      od::Inlet mMix  { "Mix" };
 
       od::Option mMode { "Mode", STRIKE_FILTER_MODE_LOWPASS };
 #endif
