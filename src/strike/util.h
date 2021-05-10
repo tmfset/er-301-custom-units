@@ -22,21 +22,19 @@ namespace util {
       return inv;
     }
 
-    struct complement {
-      const float32x4_t v;
-      const float32x4_t c;
+    struct clamp_low {
+      const float32x4_t min;
 
-      inline complement(float32x4_t _v) :
-        v(_v),
-        c(vdupq_n_f32(1) - _v) {}
+      inline clamp_low(float _min) :
+        min(vdupq_n_f32(_min)) {}
 
-      // inline float32x4_t lerp(const float32x4_t from, const float32x4_t to) const {
-      //   return vmlaq_f32(from * value, to, comp);
-      // }
+      inline float32x4_t low(const float32x4_t in) const {
+        return vmaxq_f32(min, in);
+      }
 
-      // inline float32x4_t lerp(float32x4_t in, float32x4_t t) {
-
-      // }
+      inline float32x4_t lowBase(const float32x4_t in) const {
+        return low(in + min);
+      }
     };
 
     struct clamp {
@@ -52,18 +50,6 @@ namespace util {
 
       inline float32x4_t process(const float32x4_t in) const {
         return vminq_f32(max, vmaxq_f32(min, in));
-      }
-
-      inline float32x4_t processOffset(const float32x4_t in) const {
-        return vminq_f32(max, vmaxq_f32(min, in + min));
-      }
-
-      inline float32x4_t low(const float32x4_t in) const {
-        return vmaxq_f32(min, in);
-      }
-
-      inline float32x4_t lowBase(const float32x4_t in) const {
-        return low(in + min);
       }
     };
 

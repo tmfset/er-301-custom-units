@@ -6,46 +6,24 @@
 #include <util.h>
 
 namespace svf {
-  enum FilterType {
-    LOWPASS,
-    HIGHPASS,
-    BANDPASS
-  };
-
   namespace simd {
-    struct Constants {
-      inline Constants(int sampleRate) {
-        one = vdupq_n_f32(1.0f);
-        piOverSampleRate = vdupq_n_f32(M_PI / (float)sampleRate);
-      }
-
-      float32x4_t one;
-      float32x4_t piOverSampleRate;
-    };
-
     struct Coefficients {
-      inline Coefficients(
-        const Constants &c,
-        const float32x4_t f,
-        const float32x4_t q
-      ) {
-        g = util::simd::tan(f * c.piOverSampleRate);
+      void update(const float32x4_t f, const float32x4_t q) {
+        auto g = util::simd::tan(f * piOverSampleRate);
         k = util::simd::invert(q);
 
-        a1 = util::simd::invert(vmlaq_f32(c.one, g, g + k));
+        a1 = util::simd::invert(vmlaq_f32(vdupq_n_f32(1.0f), g, g + k));
         a2 = g * a1;
         a3 = g * a2;
       }
 
-      float32x4_t g, k;
+      const float32x4_t piOverSampleRate = vdupq_n_f32(M_PI / (float)globalConfig.sampleRate);
+
+      float32x4_t k;
       float32x4_t a1, a2, a3;
     };
 
     struct Filter {
-      inline Filter() {
-        iceq = vdup_n_f32(0);
-      }
-
       inline float32x4_t process(
         const Coefficients &cf,
         const float32x4_t input,
@@ -124,7 +102,7 @@ namespace svf {
         return vmlaq_f32(clm * lpLvl, one - clm, hpLvl);
       }
 
-      float32x2_t iceq;
+      float32x2_t iceq = vdup_n_f32(0);;
     };
   }
 }

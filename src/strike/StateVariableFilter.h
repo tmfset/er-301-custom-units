@@ -63,31 +63,29 @@ namespace strike {
           filter[channel] = &mFilter.at(channel);
         }
 
-        float *vpo  = mVpo.buffer();
-        float *f0   = mF0.buffer();
-        float *gain = mGain.buffer();
-        float *q    = mQ.buffer();
-        float *mix  = mMix.buffer();
+        const float *vpo  = mVpo.buffer();
+        const float *f0   = mF0.buffer();
+        const float *gain = mGain.buffer();
+        const float *q    = mQ.buffer();
+        const float *mix  = mMix.buffer();
 
-        const util::simd::clamp sClpQ    { 0.707107f, 100.0f };
-        const util::simd::clamp sClpGain { 1.0, 100.0 };;
+        const util::simd::clamp_low sClpQ    { 0.707107f };
+        const util::simd::clamp_low sClpGain { 1.0 };;
         const util::simd::vpo   sVpo     { };
 
-        const svf::simd::Constants sBc { globalConfig.sampleRate };
+        svf::simd::Coefficients cf;
 
         for (int i = 0; i < FRAMELENGTH; i += 4) {
-          auto vMix  = vld1q_f32(mix + i);
-          auto vGain = sClpGain.lowBase(vld1q_f32(gain + i));
+          const auto vMix  = vld1q_f32(mix + i);
+          const auto vGain = sClpGain.lowBase(vld1q_f32(gain + i));
 
-          svf::simd::Coefficients cf {
-            sBc,
-            sVpo.process(vld1q_f32(vpo + i), vld1q_f32(f0 + i)),
-            sClpQ.lowBase(vld1q_f32(q + i))
-          };
+          const auto _f = sVpo.process(vld1q_f32(vpo + i), vld1q_f32(f0 + i));
+          const auto _q = sClpQ.lowBase(vld1q_f32(q + i));
+          cf.update(_f, _q);
 
           for (int c = 0; c < CH; c++) {
-            auto _in = vld1q_f32(in[c] + i);
-            auto _out = filter[c]->process(cf, _in * vGain, vMix);
+            const auto _in = vld1q_f32(in[c] + i);
+            const auto _out = filter[c]->process(cf, _in * vGain, vMix);
             vst1q_f32(out[c] + i, util::simd::tanh(_out));
           }
         }
