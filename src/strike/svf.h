@@ -8,26 +8,30 @@
 namespace svf {
   namespace simd {
     struct Coefficients {
-      void update(const float32x4_t f, const float32x4_t q) {
+      void update(const float32x4_t f, const float32x4_t q, const float32x4_t m) {
         auto g = util::simd::tan(f * piOverSampleRate);
         k = util::simd::invert(q);
 
         a1 = util::simd::invert(vmlaq_f32(vdupq_n_f32(1.0f), g, g + k));
         a2 = g * a1;
         a3 = g * a2;
+
+        auto half = vdupq_n_f32(0.5);
+        dst = util::simd::twice(vabdq_f32(m, half));
+        clm = vcvtq_n_f32_u32(vcltq_f32(m, half), 32);
       }
 
       const float32x4_t piOverSampleRate = vdupq_n_f32(M_PI / (float)globalConfig.sampleRate);
 
       float32x4_t k;
       float32x4_t a1, a2, a3;
+      float32x4_t dst, clm;
     };
 
     struct Filter {
       inline float32x4_t process(
         const Coefficients &cf,
-        const float32x4_t input,
-        const float32x4_t mix
+        const float32x4_t input
       ) {
         // Reference:
         //   https://www.cytomic.com/files/dsp/SvfLinearTrapOptimised2.pdf
@@ -90,16 +94,11 @@ namespace svf {
         auto bp = vld1q_f32(_m1);
         auto hp = vmlsq_f32(input, cf.k, bp) - lp;
 
-        auto half = vdupq_n_f32(0.5);
-        auto one  = vdupq_n_f32(1.0);
+        auto bpLvl = vmlsq_f32(bp,    cf.dst, bp);
+        auto lpLvl = vmlaq_f32(bpLvl, cf.dst, lp);
+        auto hpLvl = vmlaq_f32(bpLvl, cf.dst, hp);
 
-        auto dst   = util::simd::twice(vabdq_f32(mix, half));
-        auto bpLvl = vmlsq_f32(bp,    dst, bp);
-        auto lpLvl = vmlaq_f32(bpLvl, dst, lp);
-        auto hpLvl = vmlaq_f32(bpLvl, dst, hp);
-
-        auto clm = vcvtq_n_f32_u32(vcltq_f32(mix, half), 32);
-        return vmlaq_f32(clm * lpLvl, one - clm, hpLvl);
+        return util::simd::lerp(hpLvl, lpLvl, cf.clm);
       }
 
       float32x2_t iceq = vdup_n_f32(0);;

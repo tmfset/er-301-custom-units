@@ -69,9 +69,9 @@ namespace strike {
         const float *q    = mQ.buffer();
         const float *mix  = mMix.buffer();
 
-        const util::simd::clamp_low sClpQ    { 0.707107f };
         const util::simd::clamp_low sClpGain { 1.0 };;
-        const util::simd::vpo   sVpo     { };
+        const util::simd::exp_scale qScale   { 0.70710678118f, 1000.0f };
+        const util::simd::vpo_scale sVpo     { };
 
         svf::simd::Coefficients cf;
 
@@ -80,12 +80,12 @@ namespace strike {
           const auto vGain = sClpGain.lowBase(vld1q_f32(gain + i));
 
           const auto _f = sVpo.process(vld1q_f32(vpo + i), vld1q_f32(f0 + i));
-          const auto _q = sClpQ.lowBase(vld1q_f32(q + i));
-          cf.update(_f, _q);
+          const auto _q = qScale.process(vld1q_f32(q + i));
+          cf.update(_f, _q, vMix);
 
           for (int c = 0; c < CH; c++) {
             const auto _in = vld1q_f32(in[c] + i);
-            const auto _out = filter[c]->process(cf, _in * vGain, vMix);
+            const auto _out = filter[c]->process(cf, _in * vGain);
             vst1q_f32(out[c] + i, util::simd::tanh(_out));
           }
         }

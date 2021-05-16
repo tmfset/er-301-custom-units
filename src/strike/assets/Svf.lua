@@ -6,16 +6,16 @@ local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
 local Pitch = require "Unit.ViewControl.Pitch"
 
-local Filter = Class {}
-Filter:include(Unit)
+local Svf = Class {}
+Svf:include(Unit)
 
-function Filter:init(args)
-  args.title = "Filter"
-  args.mnemonic = "F"
+function Svf:init(args)
+  args.title = "Svf"
+  args.mnemonic = "svf"
   Unit.init(self, args)
 end
 
-function Filter.addGainBiasControl(self, name)
+function Svf.addGainBiasControl(self, name)
   local gb    = self:addObject(name, app.GainBias());
   local range = self:addObject(name.."Range", app.MinMax())
   connect(gb, "Out", range, "In")
@@ -23,7 +23,7 @@ function Filter.addGainBiasControl(self, name)
   return gb;
 end
 
-function Filter.addConstantOffsetControl(self, name)
+function Svf.addConstantOffsetControl(self, name)
   local co    = self:addObject(name, app.ConstantOffset());
   local range = self:addObject(name.."Range", app.MinMax())
   connect(co, "Out", range, "In")
@@ -31,13 +31,13 @@ function Filter.addConstantOffsetControl(self, name)
   return co;
 end
 
-function Filter.linMap(min, max, superCoarse, coarse, fine, superFine)
+function Svf.linMap(min, max, superCoarse, coarse, fine, superFine)
   local map = app.LinearDialMap(min, max)
   map:setSteps(superCoarse, coarse, fine, superFine)
   return map
 end
 
-function Filter:onLoadGraph(channelCount)
+function Svf:onLoadGraph(channelCount)
   local stereo = channelCount > 1
 
   local vpo   = self:addConstantOffsetControl("vpo")
@@ -59,7 +59,7 @@ function Filter:onLoadGraph(channelCount)
   end
 end
 
-function Filter:onLoadViews()
+function Svf:onLoadViews()
   return {
     vpo = Pitch {
       button      = "V/oct",
@@ -86,8 +86,8 @@ function Filter:onLoadViews()
       branch        = self.branches.q,
       gainbias      = self.objects.q,
       range         = self.objects.qRange,
-      biasMap       = self.linMap(  0, 30, 1, 0.1, 0.01, 0.001),
-      gainMap       = self.linMap(-30, 30, 1, 0.1, 0.01, 0.001),
+      biasMap       = Encoder.getMap("[0,1]"),
+      gainMap       = Encoder.getMap("[-1,1]"),
       biasUnits     = app.unitNone,
       biasPrecision = 3,
       initialBias   = 0
@@ -98,8 +98,8 @@ function Filter:onLoadViews()
       branch        = self.branches.gain,
       gainbias      = self.objects.gain,
       range         = self.objects.gainRange,
-      biasMap       = self.linMap(  0, 30, 1, 0.1, 0.01, 0.001),
-      gainMap       = self.linMap(-30, 30, 1, 0.1, 0.01, 0.001),
+      biasMap       = self.linMap(  0, 10, 1, 0.1, 0.01, 0.001),
+      gainMap       = self.linMap(-10, 10, 1, 0.1, 0.01, 0.001),
       biasUnits     = app.unitNone,
       biasPrecision = 2,
       initialBias   = 0
@@ -122,4 +122,4 @@ function Filter:onLoadViews()
   }
 end
 
-return Filter
+return Svf

@@ -66,9 +66,9 @@ namespace strike {
         float *gain = mGain.buffer();
         float *q    = mQ.buffer();
 
-        util::simd::clamp sClpUnit { -1.0f, 1.0f };
-        util::simd::clamp sClpQ    { 0.707107f, 30.0f };
-        util::simd::vpo   sVpo     { };
+        util::simd::clamp     sClpUnit { -1.0f, 1.0f };
+        util::simd::exp_scale qScale   { 0.707107f, 1000.0f };
+        util::simd::vpo_scale sVpo     { };
 
         biquad::simd::Constants sBc { globalConfig.sampleRate };
 
@@ -78,11 +78,9 @@ namespace strike {
           auto vGain = vld1q_f32(gain + i);
           auto vQ    = vld1q_f32(q    + i);
 
-          biquad::simd::Coefficients<FT> cf {
-            sBc,
-            sVpo.process(sClpUnit.process(vVpo), vF0),
-            sClpQ.process(sClpQ.min + vQ)
-          };
+          const auto _f = sVpo.process(vld1q_f32(vpo + i), vld1q_f32(f0 + i));
+          const auto _q = qScale.process(vld1q_f32(q + i));
+          biquad::simd::Coefficients<FT> cf { sBc, _f, _q };
 
           for (int c = 0; c < CH; c++) {
             auto _in = vld1q_f32(in[c] + i);

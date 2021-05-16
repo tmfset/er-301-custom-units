@@ -57,10 +57,14 @@ namespace util {
       return x + x;
     }
 
+    inline float32x4_t floor(const float32x4_t x) {
+      return vcvtq_f32_s32(vcvtq_s32_f32(x));
+    }
+
     // tanh approximation (neon w/ division via newton's method)
     // https://varietyofsound.wordpress.com/2011/02/14/efficient-tanh-computation-using-lamberts-continued-fraction/
     inline float32x4_t tanh(const float32x4_t in) {
-      float32x4_t x, x2, a, b, invb;
+      float32x4_t x, x2, a, b;
 
       x  = in;
       x2 = x * x;
@@ -72,24 +76,39 @@ namespace util {
       b = vmlaq_f32(vdupq_n_f32(62370), x2, b);
       b = vmlaq_f32(vdupq_n_f32(135135), x2, b);
 
-      invb = invert(b);
-      return a * invb;
+      return a * invert(b);;
     }
 
     inline float32x4_t tan(const float32x4_t f) {
       float32x4_t sin, cos;
       simd_sincos(f, &sin, &cos);
-      float32x4_t cosI = invert(cos);
-      return sin * cosI;
+      return sin * invert(cos);
     }
 
-    struct vpo {
-      const float32x4_t glog2 = vdupq_n_f32(FULLSCALE_IN_VOLTS * logf(2.0f));
+    struct vpo_scale {
+      const float32x4_t logMax = vdupq_n_f32(FULLSCALE_IN_VOLTS * logf(2.0f));
       const clamp fClp { 0.0001f, (float)(globalConfig.sampleRate / 4) };
       const clamp vClp { -1.0, 1.0 };
 
       inline float32x4_t process(const float32x4_t vpo, const float32x4_t f0) const {
-        return fClp.process(f0 * simd_exp(vClp.process(vpo) * glog2));
+        return fClp.process(f0 * simd_exp(vClp.process(vpo) * logMax));
+      }
+    };
+
+    inline float32x4_t lerp(const float32x4_t from, const float32x4_t to, const float32x4_t by) {
+      return vmlaq_f32(vmlsq_f32(from, from, by), to, by);
+    }
+
+    struct exp_scale {
+      const float32x4_t logMin, logMax;
+      const clamp xClp { 0.0, 1.0 };
+
+      inline exp_scale(float min, float max) :
+        logMin(vdupq_n_f32(logf(min))),
+        logMax(vdupq_n_f32(logf(max))) { }
+
+      inline float32x4_t process(const float32x4_t x) const {
+        return simd_exp(lerp(logMin, logMax, xClp.process(x)));
       }
     };
 
@@ -183,4 +202,23 @@ namespace util {
 
     return a / b;
   }
+
+  struct exp_scale {
+    const float min, max;
+    const float logMin, logMax;
+
+    inline exp_scale(float _min, float _max) :
+      min(_min),
+      max(_max),
+      logMin(logf(min)),
+      logMax(logf(max + min)) { }
+
+    inline float process(const float x) const {
+      return expf(x * logMax + (1 - x) * logMin);
+    }
+
+    inline float processBase(const float x) const {
+      return expf(x * logMax + (1 - x) * logMin) - min;
+    }
+  };
 }

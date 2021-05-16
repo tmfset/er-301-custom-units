@@ -5,10 +5,8 @@ return {
     contact = "tomj.fiset@gmail.com",
     author  = "tomf",
     units   = {
-      {
-        title = "Filter",
-        moduleName = "Filter"
-      }
+      { title = "Svf", moduleName = "Svf" },
+      { title = "Arc", moduleName = "Arc" },
     }
   }
   
