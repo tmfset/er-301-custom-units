@@ -19,7 +19,6 @@ local obj1 = {
 	["sample"] = {
 		["opts"] = {
 			["type"] = "buffer";
-			["channels"] = 1;
 			["secs"] = 15;
 		};
 	};
