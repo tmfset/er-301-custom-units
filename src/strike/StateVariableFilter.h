@@ -71,7 +71,6 @@ namespace strike {
 
         const util::simd::clamp_low sClpGain { 1.0 };;
         const util::simd::exp_scale qScale   { 0.70710678118f, 1000.0f };
-        const util::simd::vpo_scale sVpo     { };
 
         svf::simd::Coefficients cf;
 
@@ -79,7 +78,7 @@ namespace strike {
           const auto vMix  = vld1q_f32(mix + i);
           const auto vGain = sClpGain.lowBase(vld1q_f32(gain + i));
 
-          const auto _f = sVpo.process(vld1q_f32(vpo + i), vld1q_f32(f0 + i));
+          const auto _f = util::simd::vpo_scale(vld1q_f32(vpo + i), vld1q_f32(f0 + i));
           const auto _q = qScale.process(vld1q_f32(q + i));
           cf.update(_f, _q, vMix);
 

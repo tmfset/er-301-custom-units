@@ -11,7 +11,7 @@
 
 namespace util {
   namespace simd {
-    inline float32x4_t invert(float32x4_t x) {
+    inline float32x4_t invert(const float32x4_t x) {
       float32x4_t inv;
       // https://en.wikipedia.org/wiki/Division_algorithm#Newton.E2.80.93Raphson_division
       inv = vrecpeq_f32(x);
@@ -20,6 +20,10 @@ namespace util {
       inv *= vrecpsq_f32(x, inv);
       inv *= vrecpsq_f32(x, inv);
       return inv;
+    }
+
+    inline float32x4_t lnot(const float32x4_t x) {
+      return vdupq_n_f32(1) - x;
     }
 
     struct clamp_low {
@@ -53,6 +57,14 @@ namespace util {
       }
     };
 
+    inline float32x4_t clamp_unit(const float32x4_t x) {
+      return vminq_f32(vdupq_n_f32(1), vmaxq_f32(vdupq_n_f32(-1), x));
+    }
+
+    inline float32x4_t clamp_punit(const float32x4_t x) {
+      return vminq_f32(vdupq_n_f32(1), vmaxq_f32(vdupq_n_f32(0), x));
+    }
+
     inline float32x4_t twice(const float32x4_t x) {
       return x + x;
     }
@@ -85,32 +97,69 @@ namespace util {
       return sin * invert(cos);
     }
 
-    struct vpo_scale {
-      const float32x4_t logMax = vdupq_n_f32(FULLSCALE_IN_VOLTS * logf(2.0f));
-      const clamp fClp { 0.0001f, (float)(globalConfig.sampleRate / 4) };
-      const clamp vClp { -1.0, 1.0 };
+    const float32x4_t vpoLogMax = vdupq_n_f32(FULLSCALE_IN_VOLTS * logf(2.0f));
+    const clamp vpoFreqClamp { 1, (float)(globalConfig.sampleRate / 4) };
 
-      inline float32x4_t process(const float32x4_t vpo, const float32x4_t f0) const {
-        return fClp.process(f0 * simd_exp(vClp.process(vpo) * logMax));
-      }
-    };
+    inline float32x4_t vpo_scale(
+      const float32x4_t vpo,
+      const float32x4_t f0
+    ) {
+      return vpoFreqClamp.process(f0 * simd_exp(vpo * vpoLogMax));
+    }
 
     inline float32x4_t lerp(const float32x4_t from, const float32x4_t to, const float32x4_t by) {
       return vmlaq_f32(vmlsq_f32(from, from, by), to, by);
     }
 
+    inline float32x4_t fcgt(const float32x4_t x, const float32x4_t v) {
+      return vcvtq_n_f32_u32(vcgtq_f32(x, v), 32);
+    }
+
+    inline float32x4_t fclt(const float32x4_t x, const float32x4_t v) {
+      return vcvtq_n_f32_u32(vcltq_f32(x, v), 32);
+    }
+
+    inline float32x4_t cgtqz_f32(const float32x4_t x) {
+      return fcgt(x, vdupq_n_f32(0));
+    }
+
+    inline float32x4_t magnitude(const float32x4_t x) {
+      return vabdq_f32(x, vdupq_n_f32(0));
+    }
+
+    inline void cgt_as_bool(bool *out, const float32x4_t x, const float32x4_t v) {
+      uint32_t _h[4];
+      vst1q_u32(_h, vcgtq_f32(x, v));
+      for (int i = 0; i < 4; i++) {
+        out[i] = _h[i];
+      }
+    }
+
     struct exp_scale {
-      const float32x4_t logMin, logMax;
+      const float32x4_t min, logMin, logMax;
       const clamp xClp { 0.0, 1.0 };
 
-      inline exp_scale(float min, float max) :
-        logMin(vdupq_n_f32(logf(min))),
-        logMax(vdupq_n_f32(logf(max))) { }
+      inline exp_scale(float _min, float _max) :
+        min(vdupq_n_f32(_min)),
+        logMin(vdupq_n_f32(logf(_min))),
+        logMax(vdupq_n_f32(logf(_max))) { }
 
       inline float32x4_t process(const float32x4_t x) const {
         return simd_exp(lerp(logMin, logMax, xClp.process(x)));
       }
+
+      inline float32x4_t processBase(const float32x4_t x) const {
+        return process(x) - min;
+      }
     };
+
+    inline float32x4_t exp_unit_scale(const float32x4_t x, float degree) {
+      auto d = vdupq_n_f32(degree);
+      auto ld = vdupq_n_f32(logf(degree));
+      //auto z = vdupq_n_f32(0);
+      // vmlaq_f32(vmlsq_f32(from, from, by), to, by)
+      return simd_exp(vmlsq_f32(ld, ld, x)) - d;
+    }
 
     inline float32x2_t make_f32(float a, float b) {
       float x[2];
@@ -188,6 +237,25 @@ namespace util {
       out[3] = vcombine_f32(vget_high_f32(ab.val[1]), vget_high_f32(cd.val[1]));
     }
   }
+
+  struct latch {
+    inline bool readTrigger(bool high) {
+      if (high) { mTrigger = mEnable; mEnable = false; }
+      else      { mTrigger = false;   mEnable = true; }
+      return mTrigger;
+    }
+
+    inline void readTriggers(bool *out, const float32x4_t high) {
+      uint32_t _h[4];
+      vst1q_u32(_h, vcgtq_f32(high, vdupq_n_f32(0)));
+      for (int i = 0; i < 4; i++) {
+        out[i] = readTrigger(_h[i]);
+      }
+    }
+
+    bool mEnable  = true;
+    bool mTrigger = false;
+  };
 
   // tanh approximation
   // https://varietyofsound.wordpress.com/2011/02/14/efficient-tanh-computation-using-lamberts-continued-fraction/

@@ -19,19 +19,37 @@ namespace svf {
         auto half = vdupq_n_f32(0.5);
         dst = util::simd::twice(vabdq_f32(m, half));
         clm = vcvtq_n_f32_u32(vcltq_f32(m, half), 32);
+
+        //util::simd::rtocq_f32(a1223, a1, a2, a2, a3);
+      }
+
+      void updateLowpass(const float32x4_t f, const float32x4_t q) {
+        auto g = util::simd::tan(f * piOverSampleRate);
+        k = util::simd::invert(q);
+
+        a1 = util::simd::invert(vmlaq_f32(vdupq_n_f32(1.0f), g, g + k));
+        a2 = g * a1;
+        a3 = g * a2;
+
+        dst = vdupq_n_f32(0.5);
+        clm = vdupq_n_f32(1);
+
+        //util::simd::rtocq_f32(a1223, a1, a2, a2, a3);
       }
 
       const float32x4_t piOverSampleRate = vdupq_n_f32(M_PI / (float)globalConfig.sampleRate);
 
       float32x4_t k;
-      float32x4_t a1, a2, a3;
       float32x4_t dst, clm;
+      float32x4_t a1, a2, a3;
     };
 
     struct Filter {
-      inline float32x4_t process(
+      inline void processCommon(
         const Coefficients &cf,
-        const float32x4_t input
+        const float32x4_t input,
+        float32x4_t &lp,
+        float32x4_t &bp
       ) {
         // Reference:
         //   https://www.cytomic.com/files/dsp/SvfLinearTrapOptimised2.pdf
@@ -63,8 +81,9 @@ namespace svf {
 
         float32x4_t a1223[4];
         util::simd::rtocq_f32(a1223, cf.a1, cf.a2, cf.a2, cf.a3);
-        auto mt1 = util::simd::makeq_f32(1, -1, 1, -1);
-        auto mt2 = util::simd::makeq_f32(0, 0, 1, 1);
+
+        const auto mt1 = vtrnq_f32(vdupq_n_f32(1), vdupq_n_f32(-1)).val[0];
+        const auto mt2 = vcombine_f32(vdup_n_f32(0), vdup_n_f32(1));
 
         float32x2_t _iceq = iceq;
 
@@ -90,8 +109,17 @@ namespace svf {
 
         iceq = _iceq;
 
-        auto lp = vld1q_f32(_m2);
-        auto bp = vld1q_f32(_m1);
+        lp = vld1q_f32(_m2);
+        bp = vld1q_f32(_m1);
+      }
+
+      inline float32x4_t process(
+        const Coefficients &cf,
+        const float32x4_t input
+      ) {
+        float32x4_t lp, bp;
+        processCommon(cf, input, lp, bp);
+
         auto hp = vmlsq_f32(input, cf.k, bp) - lp;
 
         auto bpLvl = vmlsq_f32(bp,    cf.dst, bp);
@@ -101,7 +129,16 @@ namespace svf {
         return util::simd::lerp(hpLvl, lpLvl, cf.clm);
       }
 
-      float32x2_t iceq = vdup_n_f32(0);;
+      inline float32x4_t processLowpass(
+        const Coefficients &cf,
+        const float32x4_t input
+      ) {
+        float32x4_t lp, bp;
+        processCommon(cf, input, lp, bp);
+        return lp;
+      }
+
+      float32x2_t iceq = vdup_n_f32(0);
     };
   }
 }

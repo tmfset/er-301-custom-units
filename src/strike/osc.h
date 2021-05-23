@@ -4,48 +4,73 @@
 #include <hal/simd.h>
 #include <hal/neon.h>
 #include <util.h>
+#include <shape.h>
 
 namespace osc {
   namespace simd {
-    struct Frequency {
-      inline void update(const float32x4_t f) {
-        phaseDelta = f * samplePeriod;
-      }
-
-      const float32x4_t samplePeriod = vdupq_n_f32(globalConfig.samplePeriod);
-      float32x4_t phaseDelta = vdupq_n_f32(0);
-    };
-
-    struct Oscillator {
-      inline float32x4_t process(
-        const Frequency &cf,
-        const uint32x4_t sync
+    struct Phase {
+      inline float32x4_t envelope(
+        const float32x4_t delta,
+        const float32x4_t trig,
+        const float32x4_t loop
       ) {
-        uint32_t _sync[4];
-        vst1q_u32(_sync, sync);
-
-        float _phase[4], _factor[4], base = phase;
-        for (int i = 0, x = 1; i < 4; i++, x++) {
-          if (_sync[i]) { base = 0; x = 0; }
-          _phase[i]  = base;
-          _factor[i] = x;
-        }
-
-        float32x4_t p = vld1q_f32(_phase);
-        float32x4_t f = vld1q_f32(_factor);
-        p = vmlaq_f32(p, f, cf.phaseDelta);
-        p = p - util::simd::floor(p);
-
-        float32x4_t wrap = p - vdupq_n_f32(1);
-        float32x4_t mask = vcvtq_n_f32_u32(vcltq_f32(wrap, vdupq_n_f32(0)), 32);
-        p = vmaxq_f32(p * mask, wrap);
-
+        bool _trig[4];
+        trigger.readTriggers(_trig, trig);
+        auto isLoop = util::simd::cgtqz_f32(loop);
+        auto p = accumulate(phase, delta, _trig);
+        p = vmlsq_f32(p, isLoop, util::simd::floor(p));
+        p = vminq_f32(p, vdupq_n_f32(1));
         phase = vgetq_lane_f32(p, 3);
-
         return p;
       }
 
+      inline float32x4_t oscillator(
+        const float32x4_t delta,
+        const float32x4_t sync
+      ) {
+        bool _sync[4];
+        util::simd::cgt_as_bool(_sync, sync, vdupq_n_f32(0));
+        auto p = accumulate(phase, delta, _sync);
+        p = p - util::simd::floor(p);
+        phase = vgetq_lane_f32(p, 3);
+        return p;
+      }
+
+      inline float32x4_t accumulate(
+        const float from,
+        const float32x4_t delta,
+        const bool *sync
+      ) const {
+        float _base[4], _scale[4], base = phase;
+        for (int i = 0, s = 1; i < 4; i++, s++) {
+          if (sync[i]) { base = 0; s = 0; }
+          _base[i] = base;
+          _scale[i] = s;
+        }
+        return vmlaq_f32(vld1q_f32(_base), delta, vld1q_f32(_scale));
+      }
+
+      util::latch trigger;
       float phase = 0.0f;
+    };
+
+    struct Fin {
+      Phase phase;
+
+      inline float32x4_t process(
+        const float32x4_t freq,
+        const float32x4_t width,
+        const float32x4_t sync,
+        const shape::simd::Bend &bend
+      ) {
+        auto delta = freq * vdupq_n_f32(globalConfig.samplePeriod);
+
+        return shape::simd::fin(
+          phase.oscillator(delta, sync),
+          width,
+          bend
+        );
+      }
     };
   }
 }

@@ -5,14 +5,16 @@
 
 #undef SWIGLUA
 
-#include <Filter.h>
 #include <StateVariableFilter.h>
-#include <AD.h>
+#include <ADEnvelope.h>
+#include <FinOscillator.h>
+#include <LowPassGate.h>
 
 #define SWIGLUA
 
 %}
 
-%include <Filter.h>
 %include <StateVariableFilter.h>
-%include <AD.h>
+%include <ADEnvelope.h>
+%include <FinOscillator.h>
+%include <LowPassGate.h>

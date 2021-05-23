@@ -13,7 +13,7 @@ Arc:include(Unit)
 
 function Arc:init(args)
   args.title = "Arc"
-  args.mnemonic = "arc"
+  args.mnemonic = "ad"
   Unit.init(self, args)
 end
 
@@ -49,6 +49,19 @@ function Arc.linMap(min, max, superCoarse, coarse, fine, superFine)
   return map
 end
 
+function Arc.expMap(min, max, resolution, degree)
+  local map = app.LUTDialMap(1)
+  map:add(min)
+  for x = 1, resolution do
+    local v = x / resolution
+    local e = math.exp(v * math.log(max + degree) + (1 - v) * math.log(min + degree)) - degree
+    --local e = math.log(v * math.exp(max + degree) + (1 - v) * math.exp(min + degree)) + degree
+    map:add(e)
+  end
+  map:add(max)
+  return map
+end
+
 function Arc:onLoadGraph(channelCount)
   local stereo = channelCount > 1
 
@@ -60,12 +73,12 @@ function Arc:onLoadGraph(channelCount)
   local height   = self:addGainBiasControl("height")
 
   for i = 1, channelCount do
-    local op = self:addObject("op", strike.AD())
+    local op = self:addObject("op"..i, strike.ADEnvelope())
     connect(self,     "In"..i, op, "In")
     connect(rise,     "Out",   op, "Rise")
     connect(fall,     "Out",   op, "Fall")
-    connect(bendUp,   "Out",   op, "Bend Up")
-    connect(bendDown, "Out",   op, "Bend Down")
+    connect(bendUp,   "Out", op, "Bend Up")
+    connect(bendDown, "Out", op, "Bend Down")
     connect(loop,     "Out",   op, "Loop")
     connect(height,   "Out",   op, "Height")
     connect(op,       "Out", self, "Out"..i)
@@ -74,17 +87,13 @@ end
 
 function Arc:onLoadViews()
   return {
-    wave1 = OutputScope {
-      monitor = self,
-      width   = 1 * app.SECTION_PLY
-    },
     rise = GainBias {
       button = "rise",
       branch = self.branches.rise,
       description = "Rise Time",
       gainbias = self.objects.rise,
       range = self.objects.riseRange,
-      biasMap = Encoder.getMap("ADSR"),
+      biasMap = self.linMap(0, 10, 1, 0.1, 0.01, 0.001),
       biasUnits = app.unitSecs,
       initialBias = 0.050
     },
@@ -94,9 +103,9 @@ function Arc:onLoadViews()
       description = "Fall Time",
       gainbias = self.objects.fall,
       range = self.objects.fallRange,
-      biasMap = Encoder.getMap("ADSR"),
+      biasMap = self.linMap(0, 10, 1, 0.1, 0.01, 0.001),
       biasUnits = app.unitSecs,
-      initialBias = 0.100
+      initialBias = 0.200
     },
     loop = Gate {
       button = "loop",
@@ -105,23 +114,23 @@ function Arc:onLoadViews()
       comparator = self.objects.loop
     },
     bendUp = GainBias {
-      button        = "bendUp",
+      button        = "rBend",
       description   = "Rise Bend",
       branch        = self.branches.bendUp,
       gainbias      = self.objects.bendUp,
       range         = self.objects.bendUpRange,
-      biasMap       = Encoder.getMap("[0,1]"),
+      biasMap       = Encoder.getMap("[-1,1]"),
       gainMap       = Encoder.getMap("[-1,1]"),
       biasPrecision = 3,
       initialBias   = 0
     },
     bendDown = GainBias {
-      button        = "bendDown",
+      button        = "fBend",
       description   = "Fall Bend",
       branch        = self.branches.bendDown,
       gainbias      = self.objects.bendDown,
       range         = self.objects.bendDownRange,
-      biasMap       = Encoder.getMap("[0,1]"),
+      biasMap       = Encoder.getMap("[-1,1]"),
       gainMap       = Encoder.getMap("[-1,1]"),
       biasPrecision = 3,
       initialBias   = 0
@@ -139,9 +148,7 @@ function Arc:onLoadViews()
       initialBias   = 1
     }
   }, {
-    expanded  = { "rise", "fall", "loop", "height" },
-    rise      = { "rise", "wave1", "bendUp" },
-    fall      = { "fall", "wave1", "bendDown" },
+    expanded  = { "rise", "bendUp", "fall", "bendDown", "loop", "height" },
     collapsed = {}
   }
 end

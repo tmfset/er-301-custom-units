@@ -7,6 +7,8 @@ return {
     units   = {
       { title = "Svf", moduleName = "Svf" },
       { title = "Arc", moduleName = "Arc" },
+      { title = "Fin", moduleName = "Fin" },
+      { title = "Lpg", moduleName = "Lpg" },
     }
   }
   
