@@ -28,10 +28,15 @@ function Lpg.addComparatorControl(self, name, mode, default)
   return gate
 end
 
-function Lpg.addGainBiasControl(self, name)
+function Lpg.addGainBiasControlNoBranch(self, name)
   local gb    = self:addObject(name, app.GainBias());
   local range = self:addObject(name.."Range", app.MinMax())
   connect(gb, "Out", range, "In")
+  return gb;
+end
+
+function Lpg.addGainBiasControl(self, name)
+  local gb = self:addGainBiasControlNoBranch(name);
   self:addMonoBranch(name, gb, "In", gb, "Out")
   return gb;
 end
@@ -54,11 +59,11 @@ function Lpg:onLoadGraph(channelCount)
   local stereo = channelCount > 1
 
   local trig   = self:addComparatorControl("trig", app.COMPARATOR_TRIGGER_ON_RISE)
-  local loop   = self:addComparatorControl("loop", app.COMPARATOR_TOGGLE)
-  local rise   = self:addGainBiasControl("rise")
-  local fall   = self:addGainBiasControl("fall")
+  local loop   = self:addComparatorControl("loop", app.COMPARATOR_TOGGLE, 1)
+  local rise   = self:addGainBiasControlNoBranch("rise")
+  local fall   = self:addGainBiasControlNoBranch("fall")
   local bend   = self:addGainBiasControl("bend")
-  local height = self:addGainBiasControl("height")
+  local height = self:addGainBiasControlNoBranch("height")
 
   local op = self:addObject("op", strike.LowPassGate(stereo))
   connect(trig,   "Out", op, "Trig")
@@ -72,51 +77,56 @@ function Lpg:onLoadGraph(channelCount)
     connect(self, "In"..i, op, "In"..i)
     connect(op, "Out"..i, self, "Out"..i)
   end
+
+  self:addMonoBranch("rise",   rise,   "In", self.objects.op, "EOF")
+  self:addMonoBranch("fall",   fall,   "In", self.objects.op, "EOR")
+  self:addMonoBranch("height", height, "In", self.objects.op, "Env")
 end
 
 function Lpg:onShowMenu(objects, branches)
   return {
-    bendMode = OptionControl {
-      description = "Bend Mode",
-      option      = self.objects.op:getOption("Bend Mode"),
-      choices     = { "together", "inverted" }
+    mode = OptionControl {
+      description      = "Bend Mode",
+      option           = self.objects.op:getOption("Bend Mode"),
+      choices          = { "hump", "fin" },
+      descriptionWidth = 2
     }
-  }, { "bendMode" }
+  }, { "mode" }
 end
 
 function Lpg:onLoadViews()
   return {
     trig = Gate {
-      button = "trig",
+      button      = "trig",
       description = "Trigger",
-      branch = self.branches.trig,
-      comparator = self.objects.trig
+      branch      = self.branches.trig,
+      comparator  = self.objects.trig
     },
     loop = Gate {
-      button = "loop",
+      button      = "loop",
       description = "Loop",
-      branch = self.branches.loop,
-      comparator = self.objects.loop
+      branch      = self.branches.loop,
+      comparator  = self.objects.loop
     },
     rise = GainBias {
-      button = "rise",
-      branch = self.branches.rise,
+      button      = "rise",
+      branch      = self.branches.rise,
       description = "Rise Time",
-      gainbias = self.objects.rise,
-      range = self.objects.riseRange,
-      biasMap = self.linMap(0, 10, 1, 0.1, 0.01, 0.001),
-      biasUnits = app.unitSecs,
-      initialBias = 0.050
+      gainbias    = self.objects.rise,
+      range       = self.objects.riseRange,
+      biasMap     = self.linMap(0, 10, 0.1, 0.01, 0.001, 0.001),
+      biasUnits   = app.unitSecs,
+      initialBias = 0.005
     },
     fall = GainBias {
-      button = "fall",
-      branch = self.branches.fall,
+      button      = "fall",
+      branch      = self.branches.fall,
       description = "Fall Time",
-      gainbias = self.objects.fall,
-      range = self.objects.fallRange,
-      biasMap = self.linMap(0, 10, 1, 0.1, 0.01, 0.001),
-      biasUnits = app.unitSecs,
-      initialBias = 0.200
+      gainbias    = self.objects.fall,
+      range       = self.objects.fallRange,
+      biasMap     = self.linMap(0, 10, 0.1, 0.01, 0.001, 0.001),
+      biasUnits   = app.unitSecs,
+      initialBias = 0.500
     },
     bend = GainBias {
       button        = "bend",
@@ -127,7 +137,7 @@ function Lpg:onLoadViews()
       biasMap       = Encoder.getMap("[-1,1]"),
       gainMap       = Encoder.getMap("[-1,1]"),
       biasPrecision = 3,
-      initialBias   = 0
+      initialBias   = -0.5
     },
     height = GainBias {
       button        = "height",
@@ -142,7 +152,7 @@ function Lpg:onLoadViews()
       initialBias   = 1
     }
   }, {
-    expanded  = { "trig", "loop", "rise", "fall", "bend", "height" },
+    expanded  = { "trig", "rise", "fall", "bend", "loop", "height" },
     collapsed = {}
   }
 end

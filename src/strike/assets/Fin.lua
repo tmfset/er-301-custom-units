@@ -75,12 +75,13 @@ end
 
 function Fin:onShowMenu(objects, branches)
   return {
-    bendMode = OptionControl {
-      description = "Bend Mode",
-      option      = self.objects.op:getOption("Bend Mode"),
-      choices     = { "together", "inverted" }
+    mode = OptionControl {
+      description      = "Bend Mode",
+      option           = self.objects.op:getOption("Bend Mode"),
+      choices          = { "hump", "fin" },
+      descriptionWidth = 2
     }
-  }, { "bendMode" }
+  }, { "mode" }
 end
 
 function Fin:onLoadViews()
@@ -117,7 +118,7 @@ function Fin:onLoadViews()
       gainbias      = self.objects.width,
       range         = self.objects.widthRange,
       biasMap       = Encoder.getMap("[0,1]"),
-      biasUnits     = app.unitNone,
+      gainMap       = Encoder.getMap("[-1,1]"),
       biasPrecision = 2,
       initialBias   = 0.5
     },
@@ -128,7 +129,7 @@ function Fin:onLoadViews()
       gainbias      = self.objects.gain,
       range         = self.objects.gain,
       biasMap       = Encoder.getMap("[-1,1]"),
-      biasUnits     = app.unitNone,
+      gainMap       = Encoder.getMap("[-1,1]"),
       biasPrecision = 2,
       initialBias   = 0.5
     },
@@ -141,7 +142,7 @@ function Fin:onLoadViews()
       biasMap       = Encoder.getMap("[-1,1]"),
       gainMap       = Encoder.getMap("[-1,1]"),
       biasPrecision = 3,
-      initialBias   = 0
+      initialBias   = -0.5
     }
   }, {
     expanded  = { "tune", "freq", "sync", "width", "bend", "gain" },

@@ -3,7 +3,6 @@
 #include <od/objects/Object.h>
 #include <od/config.h>
 #include <osc.h>
-#include <shape.h>
 
 namespace strike {
   class FinOscillator : public od::Object {
@@ -17,6 +16,7 @@ namespace strike {
         addInput(mWidth);
         addInput(mGain);
         addInput(mBend);
+
         addOption(mBendMode);
       }
 
@@ -35,26 +35,21 @@ namespace strike {
         const float *gain  = mGain.buffer();
         const float *bend  = mBend.buffer();
 
-        shape::BendMode bendMode = (shape::BendMode)mBendMode.value();
+        osc::shape::BendMode bendMode = static_cast<osc::shape::BendMode>(mBendMode.value());
 
         for (int i = 0; i < FRAMELENGTH; i += 4) {
-          auto o = mOscillator.process(
-            util::simd::vpo_scale(
-              vld1q_f32(vpo + i),
-              vld1q_f32(freq + i)
-            ),
-            vld1q_f32(width + i),
-            vld1q_f32(sync + i),
-            shape::simd::Bend {
-              bendMode,
-              vld1q_f32(bend + i)
-            }
-          );
+          auto _vpo   = vld1q_f32(vpo   + i);
+          auto _f0    = vld1q_f32(freq  + i);
+          auto _width = vld1q_f32(width + i);
+          auto _sync  = vld1q_f32(sync  + i);
+          auto _gain  = vld1q_f32(gain  + i);
+          auto _bend  = vld1q_f32(bend  + i);
 
-          auto g = vld1q_f32(gain + i);
-          auto s = vmlaq_n_f32(vdupq_n_f32(-1), o, 2.0f);
+          auto f = osc::Frequency::vpoWidth(_vpo, _f0, _width);
+          auto b = osc::shape::Bend { bendMode, _bend };
+          auto o = mOscillator.process<osc::shape::FIN_SHAPE_POW3>(f, b, _sync);
 
-          vst1q_f32(out + i, s * g);
+          vst1q_f32(out + i, vmlaq_f32(vnegq_f32(_gain), _gain, o + o));
         }
       }
 
@@ -66,9 +61,9 @@ namespace strike {
       od::Inlet  mWidth    { "Width" };
       od::Inlet  mGain     { "Gain" };
       od::Inlet  mBend     { "Bend" };
-      od::Option mBendMode { "Bend Mode", shape::BEND_NORMAL };
+      od::Option mBendMode { "Bend Mode", osc::shape::BEND_INVERTED };
 #endif
     private:
-      osc::simd::Fin mOscillator;
+      osc::Fin mOscillator;
   };
 }

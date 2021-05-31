@@ -5,10 +5,11 @@ return {
     contact = "tomj.fiset@gmail.com",
     author  = "tomf",
     units   = {
-      { title = "Svf", moduleName = "Svf" },
       { title = "Arc", moduleName = "Arc" },
-      { title = "Fin", moduleName = "Fin" },
-      { title = "Lpg", moduleName = "Lpg" },
+      { title = "Fin Osc", moduleName = "Fin" },
+      { title = "Sieve", moduleName = "Sieve" },
+      { title = "Bique", moduleName = "Bique" },
+      { title = "LPG!", moduleName = "Lpg" },
     }
   }
   

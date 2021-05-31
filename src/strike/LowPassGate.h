@@ -5,24 +5,17 @@
 #include <sstream>
 #include <vector>
 #include <util.h>
-#include <env.h>
-#include <shape.h>
-#include <svf.h>
-
-#define BUILDOPT_VERBOSE
-#define BUILDOPT_DEBUG_LEVEL 10
-#include <hal/log.h>
+#include <osc.h>
+#include <filter.h>
+#include <stdlib.h>
 
 namespace strike {
   class LowPassGate : public od::Object {
     public:
       LowPassGate(bool stereo) {
-        logInfo("LPG ctor");
-
         mChannelCount = stereo ? 2 : 1;
 
         mFilter.reserve(mChannelCount);
-
         for (int channel = 0; channel < mChannelCount; channel++) {
           std::ostringstream inName;
           inName << "In" << channel + 1;
@@ -32,9 +25,11 @@ namespace strike {
           outName << "Out" << channel + 1;
           addOutputFromHeap(new od::Outlet { outName.str() });
 
-          mFilter.push_back(svf::simd::Filter {});
+          mFilter.push_back(filter::biquad::Filter<2> {});
         }
 
+        addOutput(mEof);
+        addOutput(mEor);
         addOutput(mEnv);
 
         addInput(mTrig);
@@ -52,9 +47,65 @@ namespace strike {
 #ifndef SWIGLUA
       virtual void process();
 
-      template <int CH>
-      void processChannels();
+      void processInternal() {
+        int cc = mChannelCount;
+        float *in[cc], *out[cc];
+        filter::biquad::Filter<2> *filter[cc];
+        for (int channel = 0; channel < cc; channel++) {
+          in[channel]  = getInput(channel)->buffer();
+          out[channel] = getOutput(channel)->buffer();
+          filter[channel] = &mFilter.at(channel);
+        }
 
+        float *eof = mEof.buffer();
+        float *eor = mEor.buffer();
+        float *env = mEnv.buffer();
+
+        const float *trig   = mTrig.buffer();
+        const float *loop   = mLoop.buffer();
+        const float *rise   = mRise.buffer();
+        const float *fall   = mFall.buffer();
+        const float *bend   = mBend.buffer();
+        const float *height = mHeight.buffer();
+
+        osc::shape::BendMode bendMode = static_cast<osc::shape::BendMode>(mBendMode.value());
+
+        const auto filterCutoff = vdupq_n_f32(27.5f);
+
+        filter::biquad::Coefficients cf;
+
+        for (int i = 0; i < FRAMELENGTH; i += 4) {
+          auto f = osc::Frequency::riseFall(
+            vld1q_f32(rise + i),
+            vld1q_f32(fall + i)
+          );
+
+          const osc::shape::Bend b { bendMode, vld1q_f32(bend + i) };
+          auto e = mEnvelope.process<osc::shape::FIN_SHAPE_POW3>(f, b,
+            vld1q_f32(trig + i),
+            vld1q_f32(loop + i));
+
+          auto h = vld1q_f32(height + i);
+          cf.update(
+            e * h,
+            filterCutoff,
+            vdupq_n_f32(0),
+            filter::biquad::LOWPASS
+          );
+
+          for (int c = 0; c < cc; c++) {
+            filter[c]->process(cf, vld1q_f32(in[c] + i) * e);
+            vst1q_f32(out[c] + i, filter[c]->mode12dB());
+          }
+
+          vst1q_f32(eof + i, mEnvelope.eof());
+          vst1q_f32(eor + i, mEnvelope.eor());
+          vst1q_f32(env + i, e);
+        }
+      }
+
+      od::Outlet mEof { "EOF" };
+      od::Outlet mEor { "EOR" };
       od::Outlet mEnv { "Env" };
 
       od::Inlet mTrig   { "Trig" };
@@ -65,12 +116,11 @@ namespace strike {
       od::Inlet mBend   { "Bend" };
       od::Inlet mHeight { "Height" };
 
-      od::Option mBendMode { "Bend Mode", shape::BEND_NORMAL };
+      od::Option mBendMode { "Bend Mode", osc::shape::BEND_NORMAL };
 #endif
     private:
       int mChannelCount = 1;
-      std::vector<svf::simd::Filter> mFilter;
-      env::simd::AD mEnvelope;
-      svf::simd::Filter mEnvelopeFilter;
+      std::vector<filter::biquad::Filter<2>> mFilter;
+      osc::AD mEnvelope;
   };
 }

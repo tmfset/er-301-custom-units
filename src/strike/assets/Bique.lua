@@ -5,17 +5,19 @@ local Encoder = require "Encoder"
 local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
 local Pitch = require "Unit.ViewControl.Pitch"
+local MOptionControl = require "Unit.MenuControl.OptionControl"
+local DualOptionControl = require "strike.DualOptionControl"
 
-local Svf = Class {}
-Svf:include(Unit)
+local Bique = Class {}
+Bique:include(Unit)
 
-function Svf:init(args)
-  args.title = "Svf"
-  args.mnemonic = "svf"
+function Bique:init(args)
+  args.title = "Bique"
+  args.mnemonic = "bqc"
   Unit.init(self, args)
 end
 
-function Svf.addGainBiasControl(self, name)
+function Bique.addGainBiasControl(self, name)
   local gb    = self:addObject(name, app.GainBias());
   local range = self:addObject(name.."Range", app.MinMax())
   connect(gb, "Out", range, "In")
@@ -23,7 +25,7 @@ function Svf.addGainBiasControl(self, name)
   return gb;
 end
 
-function Svf.addConstantOffsetControl(self, name)
+function Bique.addConstantOffsetControl(self, name)
   local co    = self:addObject(name, app.ConstantOffset());
   local range = self:addObject(name.."Range", app.MinMax())
   connect(co, "Out", range, "In")
@@ -31,27 +33,25 @@ function Svf.addConstantOffsetControl(self, name)
   return co;
 end
 
-function Svf.linMap(min, max, superCoarse, coarse, fine, superFine)
+function Bique.linMap(min, max, superCoarse, coarse, fine, superFine)
   local map = app.LinearDialMap(min, max)
   map:setSteps(superCoarse, coarse, fine, superFine)
   return map
 end
 
-function Svf:onLoadGraph(channelCount)
+function Bique:onLoadGraph(channelCount)
   local stereo = channelCount > 1
 
   local vpo   = self:addConstantOffsetControl("vpo")
   local f0    = self:addGainBiasControl("f0")
   local q     = self:addGainBiasControl("q")
   local gain  = self:addGainBiasControl("gain")
-  local mix   = self:addGainBiasControl("mix")
 
-  local op = self:addObject("op", strike.StateVariableFilter(stereo))
+  local op = self:addObject("op", strike.Bique(stereo))
   connect(vpo,  "Out", op, "V/Oct")
   connect(f0,   "Out", op, "Fundamental")
   connect(q,    "Out", op, "Resonance")
   connect(gain, "Out", op, "Gain")
-  connect(mix,  "Out", op, "Mix")
 
   for i = 1, stereo and 2 or 1 do
     connect(self, "In"..i, op, "In"..i)
@@ -59,7 +59,7 @@ function Svf:onLoadGraph(channelCount)
   end
 end
 
-function Svf:onLoadViews()
+function Bique:onLoadViews()
   return {
     vpo = Pitch {
       button      = "V/oct",
@@ -98,28 +98,25 @@ function Svf:onLoadViews()
       branch        = self.branches.gain,
       gainbias      = self.objects.gain,
       range         = self.objects.gainRange,
-      biasMap       = self.linMap(  0, 10, 1, 0.1, 0.01, 0.001),
-      gainMap       = self.linMap(-10, 10, 1, 0.1, 0.01, 0.001),
+      biasMap       = self.linMap(  0, 10, 0.1, 0.01, 0.001, 0.001),
+      gainMap       = self.linMap(-10, 10, 0.1, 0.01, 0.001, 0.001),
       biasUnits     = app.unitNone,
       biasPrecision = 2,
-      initialBias   = 0
+      initialBias   = 1
     },
-    mix = GainBias {
-      button        = "mix",
-      description   = "Mode Mix",
-      branch        = self.branches.mix,
-      gainbias      = self.objects.mix,
-      range         = self.objects.mixRange,
-      biasMap       = Encoder.getMap("[0,1]"),
-      gainMap       = Encoder.getMap("[-1,1]"),
-      biasUnits     = app.unitNone,
-      biasPrecision = 3,
-      initialBias   = 0
+    type = DualOptionControl {
+      button       = "type",
+      descriptionA = "Type",
+      optionA      = self.objects.op:getOption("Type"),
+      choicesA     = { "LP", "BP", "HP" },
+      descriptionB = "Mode",
+      optionB      = self.objects.op:getOption("Mode"),
+      choicesB     = { "12dB", "24dB", "36dB" }
     }
   }, {
-    expanded  = { "vpo", "f0",  "q", "gain", "mix" },
-    collapsed = {}
+    expanded  = { "type", "vpo", "f0",  "q", "gain" },
+    collapsed = { "type" }
   }
 end
 
-return Svf
+return Bique
