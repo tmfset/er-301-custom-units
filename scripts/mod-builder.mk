@@ -43,6 +43,10 @@ swig_object = $(swig_wrapper:%.cpp=%.o)
 c_sources = $(filter %.c,$(sources))
 cpp_sources = $(filter %.cpp,$(sources))
 
+assembly = $(addprefix $(out_dir)/,$(c_sources:%.c=%.s))
+assembly += $(addprefix $(out_dir)/,$(cpp_sources:%.cpp=%.s))
+assembly += $(swig_wrapper:%.cpp=%.s)
+
 objects = $(addprefix $(out_dir)/,$(c_sources:%.c=%.o))
 objects += $(addprefix $(out_dir)/,$(cpp_sources:%.cpp=%.o))
 objects += $(swig_object)
@@ -96,9 +100,13 @@ CFLAGS.swig += $(addprefix -D,$(symbols))
 
 all: $(package_file)
 
+asm: $(assembly)
+
 $(swig_wrapper): $(headers) Makefile
 
 $(objects): $(headers) Makefile
+
+$(assembly): $(headers) Makefile
 
 $(lib_file): $(objects)
 	@echo [LINK $@]
@@ -125,6 +133,12 @@ install-sd:
 	cp $(package_file) /Volumes/NO\ Name/ER-301/packages/
 
 # C/C++ compilation rules
+
+#  -fverbose-asm -fno-toplevel-reorder
+$(out_dir)/%.s: %.cpp
+	@echo [S $<]
+	@mkdir -p $(@D)
+	@$(CPP) $(CFLAGS) -w -std=gnu++11 -S $< -o $@
 
 $(out_dir)/%.o: %.c
 	@echo [C $<]
