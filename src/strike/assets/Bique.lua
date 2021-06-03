@@ -13,7 +13,7 @@ Bique:include(Unit)
 
 function Bique:init(args)
   args.title = "Bique"
-  args.mnemonic = "bqc"
+  args.mnemonic = "bcf"
   Unit.init(self, args)
 end
 
@@ -111,7 +111,8 @@ function Bique:onLoadViews()
       choicesA     = { "LP", "BP", "HP" },
       descriptionB = "Mode",
       optionB      = self.objects.op:getOption("Mode"),
-      choicesB     = { "12dB", "24dB", "36dB" }
+      choicesB     = { "12dB", "24dB", "36dB" },
+      muteOnChange = true
     }
   }, {
     expanded  = { "type", "vpo", "f0",  "q", "gain" },

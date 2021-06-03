@@ -46,7 +46,7 @@ namespace osc {
   struct Phase {
     inline float32x4_t envelope(
       const float32x4_t delta,
-      const float32x4_t trig,
+      const uint32x4_t trig,
       const float32x4_t loop
     ) {
       bool t[4];
@@ -214,7 +214,7 @@ namespace osc {
     inline float32x4_t process(
       const Frequency& freq,
       const shape::Bend &bend,
-      const float32x4_t trig,
+      const uint32x4_t trig,
       const float32x4_t loop
     ) {
       return shape::fin<FS>(

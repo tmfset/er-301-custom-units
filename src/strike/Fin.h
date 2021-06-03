@@ -5,9 +5,9 @@
 #include <osc.h>
 
 namespace strike {
-  class FinOscillator : public od::Object {
+  class Fin : public od::Object {
     public:
-      FinOscillator() {
+      Fin() {
         addOutput(mOut);
 
         addInput(mVpo);
@@ -20,7 +20,7 @@ namespace strike {
         addOption(mBendMode);
       }
 
-      virtual ~FinOscillator() { }
+      virtual ~Fin() { }
 
 #ifndef SWIGLUA
       virtual void process();

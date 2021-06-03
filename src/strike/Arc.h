@@ -3,6 +3,7 @@
 #include <od/objects/Object.h>
 #include <od/config.h>
 #include <osc.h>
+#include <sense.h>
 
 namespace strike {
   class Arc : public od::Object {
@@ -21,6 +22,7 @@ namespace strike {
         addInput(mBend);
 
         addOption(mBendMode);
+        addOption(mSense);
       }
 
       virtual ~Arc() { }
@@ -42,9 +44,10 @@ namespace strike {
         const float *bend   = mBend.buffer();
 
         osc::shape::BendMode bendMode = static_cast<osc::shape::BendMode>(mBendMode.value());
+        const auto sense = vdupq_n_f32(getSense(mSense));
 
         for (int i = 0; i < FRAMELENGTH; i += 4) {
-          auto _in       = vld1q_f32(in     + i);
+          auto _in       = vcgtq_f32(vld1q_f32(in + i), sense);
           auto _loop     = vld1q_f32(loop   + i);
           auto _rise     = vld1q_f32(rise   + i);
           auto _fall     = vld1q_f32(fall   + i);
@@ -73,6 +76,7 @@ namespace strike {
       od::Inlet mBend   { "Bend" };
 
       od::Option mBendMode { "Bend Mode", osc::shape::BEND_NORMAL };
+      od::Option mSense { "Sense", INPUT_SENSE_LOW };
 #endif
     private:
       osc::AD mEnvelope;

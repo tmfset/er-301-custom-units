@@ -366,9 +366,9 @@ namespace util {
       return mTrigger;
     }
 
-    inline void readTriggers(bool *out, const float32x4_t high) {
+    inline void readTriggers(bool *out, const uint32x4_t high) {
       uint32_t _h[4];
-      vst1q_u32(_h, vcgtq_f32(high, vdupq_n_f32(0)));
+      vst1q_u32(_h, high);
       for (int i = 0; i < 4; i++) {
         out[i] = readTrigger(_h[i]);
       }

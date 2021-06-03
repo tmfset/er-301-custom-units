@@ -5,11 +5,12 @@ return {
     contact = "tomj.fiset@gmail.com",
     author  = "tomf",
     units   = {
-      { title = "Arc", moduleName = "Arc" },
-      { title = "Fin Osc", moduleName = "Fin" },
-      { title = "Sieve", moduleName = "Sieve" },
-      { title = "Bique", moduleName = "Bique" },
-      { title = "LPG!", moduleName = "Lpg" },
+      { title = "Arc (AD)", moduleName = "Arc" },
+      { title = "Fin (Osc)", moduleName = "Fin" },
+      { title = "Sieve (SVF)", moduleName = "Sieve" },
+      { title = "Bique (BCF)", moduleName = "Bique" },
+      { title = "Strike (LPG)", moduleName = "Strike" },
+      { title = "Tanh", moduleName = "Tanh" }
     }
   }
   

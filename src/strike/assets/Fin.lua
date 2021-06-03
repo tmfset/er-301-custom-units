@@ -60,7 +60,7 @@ function Fin:onLoadGraph(channelCount)
   local gain     = self:addGainBiasControl("gain")
   local bend     = self:addGainBiasControl("bend")
 
-  local op = self:addObject("op", strike.FinOscillator())
+  local op = self:addObject("op", strike.Fin())
   connect(tune,     "Out", op, "V/Oct")
   connect(freq,     "Out", op, "Frequency")
   connect(sync,     "Out", op, "Sync")
@@ -76,10 +76,9 @@ end
 function Fin:onShowMenu(objects, branches)
   return {
     mode = OptionControl {
-      description      = "Bend Mode",
-      option           = self.objects.op:getOption("Bend Mode"),
-      choices          = { "hump", "fin" },
-      descriptionWidth = 2
+      description = "Bend Mode",
+      option      = self.objects.op:getOption("Bend Mode"),
+      choices     = { "hump", "fin" }
     }
   }, { "mode" }
 end

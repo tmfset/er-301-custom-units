@@ -10,9 +10,9 @@
 #include <stdlib.h>
 
 namespace strike {
-  class LowPassGate : public od::Object {
+  class Strike : public od::Object {
     public:
-      LowPassGate(bool stereo) {
+      Strike(bool stereo) {
         mChannelCount = stereo ? 2 : 1;
 
         mFilter.reserve(mChannelCount);
@@ -42,7 +42,7 @@ namespace strike {
         addOption(mBendMode);
       }
 
-      virtual ~LowPassGate() { }
+      virtual ~Strike() { }
 
 #ifndef SWIGLUA
       virtual void process();
@@ -82,7 +82,7 @@ namespace strike {
 
           const osc::shape::Bend b { bendMode, vld1q_f32(bend + i) };
           auto e = mEnvelope.process<osc::shape::FIN_SHAPE_POW3>(f, b,
-            vld1q_f32(trig + i),
+            vcgtq_f32(vld1q_f32(trig + i), vdupq_n_f32(0)),
             vld1q_f32(loop + i));
 
           auto h = vld1q_f32(height + i);

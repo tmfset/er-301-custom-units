@@ -9,16 +9,16 @@ local OutputScope = require "Unit.ViewControl.OutputScope"
 local OptionControl = require "Unit.MenuControl.OptionControl"
 local Pitch = require "Unit.ViewControl.Pitch"
 
-local Lpg = Class {}
-Lpg:include(Unit)
+local Strike = Class {}
+Strike:include(Unit)
 
-function Lpg:init(args)
-  args.title = "Lpg"
+function Strike:init(args)
+  args.title = "Strike"
   args.mnemonic = "lpg"
   Unit.init(self, args)
 end
 
-function Lpg.addComparatorControl(self, name, mode, default)
+function Strike.addComparatorControl(self, name, mode, default)
   local gate = self:addObject(name, app.Comparator())
   gate:setMode(mode)
   self:addMonoBranch(name, gate, "In", gate, "Out")
@@ -28,20 +28,20 @@ function Lpg.addComparatorControl(self, name, mode, default)
   return gate
 end
 
-function Lpg.addGainBiasControlNoBranch(self, name)
+function Strike.addGainBiasControlNoBranch(self, name)
   local gb    = self:addObject(name, app.GainBias());
   local range = self:addObject(name.."Range", app.MinMax())
   connect(gb, "Out", range, "In")
   return gb;
 end
 
-function Lpg.addGainBiasControl(self, name)
+function Strike.addGainBiasControl(self, name)
   local gb = self:addGainBiasControlNoBranch(name);
   self:addMonoBranch(name, gb, "In", gb, "Out")
   return gb;
 end
 
-function Lpg.addConstantOffsetControl(self, name)
+function Strike.addConstantOffsetControl(self, name)
   local co    = self:addObject(name, app.ConstantOffset());
   local range = self:addObject(name.."Range", app.MinMax())
   connect(co, "Out", range, "In")
@@ -49,23 +49,23 @@ function Lpg.addConstantOffsetControl(self, name)
   return co;
 end
 
-function Lpg.linMap(min, max, superCoarse, coarse, fine, superFine)
+function Strike.linMap(min, max, superCoarse, coarse, fine, superFine)
   local map = app.LinearDialMap(min, max)
   map:setSteps(superCoarse, coarse, fine, superFine)
   return map
 end
 
-function Lpg:onLoadGraph(channelCount)
+function Strike:onLoadGraph(channelCount)
   local stereo = channelCount > 1
 
   local trig   = self:addComparatorControl("trig", app.COMPARATOR_TRIGGER_ON_RISE)
-  local loop   = self:addComparatorControl("loop", app.COMPARATOR_TOGGLE, 1)
+  local loop   = self:addComparatorControl("loop", app.COMPARATOR_TOGGLE)
   local rise   = self:addGainBiasControlNoBranch("rise")
   local fall   = self:addGainBiasControlNoBranch("fall")
   local bend   = self:addGainBiasControl("bend")
   local height = self:addGainBiasControlNoBranch("height")
 
-  local op = self:addObject("op", strike.LowPassGate(stereo))
+  local op = self:addObject("op", strike.Strike(stereo))
   connect(trig,   "Out", op, "Trig")
   connect(loop,   "Out", op, "Loop")
   connect(rise,   "Out", op, "Rise")
@@ -83,18 +83,17 @@ function Lpg:onLoadGraph(channelCount)
   self:addMonoBranch("height", height, "In", self.objects.op, "Env")
 end
 
-function Lpg:onShowMenu(objects, branches)
+function Strike:onShowMenu(objects, branches)
   return {
     mode = OptionControl {
-      description      = "Bend Mode",
-      option           = self.objects.op:getOption("Bend Mode"),
-      choices          = { "hump", "fin" },
-      descriptionWidth = 2
+      description = "Bend Mode",
+      option      = self.objects.op:getOption("Bend Mode"),
+      choices     = { "hump", "fin" }
     }
   }, { "mode" }
 end
 
-function Lpg:onLoadViews()
+function Strike:onLoadViews()
   return {
     trig = Gate {
       button      = "trig",
@@ -152,9 +151,9 @@ function Lpg:onLoadViews()
       initialBias   = 1
     }
   }, {
-    expanded  = { "trig", "rise", "fall", "bend", "loop", "height" },
+    expanded  = { "trig", "loop", "rise", "fall", "bend", "height" },
     collapsed = {}
   }
 end
 
-return Lpg
+return Strike

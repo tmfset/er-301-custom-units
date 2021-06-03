@@ -58,12 +58,16 @@ end
 function Arc:onShowMenu(objects, branches)
   return {
     mode = OptionControl {
-      description      = "Bend Mode",
-      option           = self.objects.op1:getOption("Bend Mode"),
-      choices          = { "hump", "fin" },
-      descriptionWidth = 2
+      description = "Bend Mode",
+      option      = self.objects.op1:getOption("Bend Mode"),
+      choices     = { "hump", "fin" }
+    },
+    sense = OptionControl {
+      description = "Input Sense",
+      option      = self.objects.op1:getOption("Sense"),
+      choices     = { "low", "high" }
     }
-  }, { "mode" }
+  }, { "mode", "sense" }
 end
 
 function Arc:onLoadGraph(channelCount)
@@ -83,7 +87,7 @@ function Arc:onLoadGraph(channelCount)
     connect(loop,   "Out",   op, "Loop")
     connect(height, "Out",   op, "Height")
 
-    if channelCount > 1 then
+    if i > 1 then
       tie(op, "Bend Mode", self.objects.op1, "Bend Mode")
     end
 
@@ -147,7 +151,7 @@ function Arc:onLoadViews()
       initialBias   = 1
     }
   }, {
-    expanded  = { "rise", "fall", "bend", "loop", "height" },
+    expanded  = { "loop", "rise", "fall", "bend", "height" },
     collapsed = {}
   }
 end
