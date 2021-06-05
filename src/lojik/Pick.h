@@ -9,9 +9,9 @@ namespace lojik {
     public:
       Pick() {
         addInput(mIn);
+        addOutput(mOut);
         addInput(mAlt);
         addInput(mPick);
-        addOutput(mOut);
       }
 
       virtual ~Pick() { }
@@ -25,24 +25,21 @@ namespace lojik {
         float *pick = mPick.buffer();
         float *out  = mOut.buffer();
 
-        float32x4_t zero = vdupq_n_f32(0);
-
         for (int i = 0; i < FRAMELENGTH; i += 4) {
-          uint32_t pc[4];
-          vst1q_u32(pc, vcgtq_f32(vld1q_f32(pick + i), zero));
-          for (int j = 0; j < 4; j++) {
-            float next = 0.0f;
-            if (pc[j]) next = alt[i + j];
-            else       next = in[i + j];
-            out[i + j] = next;
-          }
+          auto p = vbslq_f32(
+            vcgtq_f32(vld1q_f32(pick + i), vdupq_n_f32(0)),
+            vld1q_f32(in + i),
+            vld1q_f32(alt + i)
+          );
+
+          vst1q_f32(out + i, p);
         }
       }
 
       od::Inlet  mIn   { "In" };
+      od::Outlet mOut  { "Out" };
       od::Inlet  mAlt  { "Alt" };
       od::Inlet  mPick { "Pick" };
-      od::Outlet mOut  { "Out" };
 #endif
   };
 }
