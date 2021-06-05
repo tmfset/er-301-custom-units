@@ -20,15 +20,19 @@ end
 function Wait:onLoadGraph(channelCount)
   local count  = self:addGainBiasControl("count")
   local invert = self:addComparatorControl("invert", app.COMPARATOR_TOGGLE)
-  local arm    = self:addComparatorControl("arm", app.COMPARATOR_TRIGGER_ON_RISE)
+  local arm    = self:addComparatorControl("arm", app.COMPARATOR_TOGGLE)
 
   for i = 1, channelCount do
-    local op = self:addObject("op", lojik.Wait())
+    local op = self:addObject("op"..i, lojik.Wait())
     connect(self, "In"..i, op, "In")
 
     connect(count,  "Out", op, "Count")
     connect(invert, "Out", op, "Invert")
     connect(arm,    "Out", op, "Arm")
+
+    if i > 1 then
+      tie(op, "Input Sense", self.objects.op1, "Input Sense")
+    end
 
     connect(op, "Out", self, "Out"..i)
   end
@@ -37,7 +41,7 @@ end
 
 function Wait:onShowMenu(objects)
   return {
-    sensitivity = self.senseOptionControl(objects.op)
+    sensitivity = self.senseOptionControl(objects.op1)
   }, { "mode", "sensitivity" }
 end
 
