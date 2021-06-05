@@ -5,6 +5,7 @@
 #include <hal/simd.h>
 #include <sense.h>
 #include <OneTime.h>
+#include <util.h>
 
 #define WAIT_MODE_LOW  1
 #define WAIT_MODE_HIGH 2
@@ -34,10 +35,8 @@ namespace lojik {
         float *arm    = mArm.buffer();
         float *out    = mOut.buffer();
 
-        float32x4_t sense = vdupq_n_f32(getSense(mSense));
-        float32x4_t zero  = vdupq_n_f32(0);
+        const auto sense = getSense(mSense);
 
-        OneTime trigSwitch { mTrigSwitch, false };
         bool isArmed = mIsArmed;
         int step = mStep;
 
@@ -48,42 +47,35 @@ namespace lojik {
           float32x4_t loadArm    = vld1q_f32(arm + i);
 
           int32_t iCount[4];
-          uint32_t isInHigh[4], isInvertHigh[4], isArmHigh[4];
+          uint32_t isInHigh[4], isArmHigh[4];
 
-          vst1q_s32(iCount,       vcvtq_s32_f32(loadCount));
-          vst1q_u32(isInHigh,     vcgtq_f32(loadIn,     sense));
-          vst1q_u32(isInvertHigh, vcgtq_f32(loadInvert, zero));
-          vst1q_u32(isArmHigh,    vcgtq_f32(loadArm,    zero));
+          vst1q_s32(iCount,    vcvtq_s32_f32(loadCount));
+          vst1q_u32(isArmHigh, vcgtq_f32(loadArm, vdupq_n_f32(0)));
+          vst1q_u32(isInHigh,  vcgtq_f32(loadIn, vdupq_n_f32(sense)));
 
+          int32_t _step[4];
           for (int j = 0; j < 4; j++) {
-            trigSwitch.mark(isInHigh[j]);
-            bool doStep = trigSwitch.read();
+            bool doStep = mLatch.readTrigger(isInHigh[j]);//trig[j];
+            bool doArm = isArmHigh[j];
 
-            if (isArmHigh[j]) {
-              isArmed = true;
-            }
-
-            if (doStep && isArmed) {
-              step = step + 1;
-            }
+            isArmed = isArmed || doArm;
+            step += doStep && isArmed;
 
             if (step > iCount[j]) {
               step = 0;
               isArmed = false;
             }
 
-            float value = 0.0f;
-            if (isInvertHigh[j]) {
-              value = step ? in[i + j] : 0.0f;
-            } else {
-              value = step ? 0.0f : in[i + j];
-            }
-
-            out[i + j] = value;
+            _step[j] = step;
           }
+
+          auto open = vcgtq_s32(vld1q_s32(_step), vdupq_n_s32(0));
+          auto inverted = vcgtq_f32(loadInvert, vdupq_n_f32(0));
+          auto select = vbslq_u32(inverted, open, vmvnq_u32(open));
+          auto o = vbslq_f32(select, vld1q_f32(in + i), vdupq_n_f32(0));
+          vst1q_f32(out + i, o);
         }
 
-        mTrigSwitch = trigSwitch;
         mIsArmed    = isArmed;
         mStep       = step;
       }
@@ -98,7 +90,7 @@ namespace lojik {
 #endif
 
     private:
-      OneTime mTrigSwitch;
+      Trigger mLatch;
       bool mIsArmed = false;
       int mStep = 0;
   };
