@@ -31,10 +31,8 @@ function Pulse:onLoadGraph(channelCount)
   connect(width, "Out", op, "Width")
   connect(gain,  "Out", op, "Gain")
 
-  local out = self:mult(op, gain)
-
   for i = 1, channelCount do
-    connect(out, "Out", self, "Out"..i)
+    connect(op, "Out", self, "Out"..i)
   end
 end
 
