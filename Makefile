@@ -1,6 +1,6 @@
 # top-level makefile
 
-PROJECTS = lojik sloop strike
+PROJECTS = lojik sloop strike polygon
 
 all: $(PROJECTS)
 
