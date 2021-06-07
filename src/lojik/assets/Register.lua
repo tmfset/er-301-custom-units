@@ -9,6 +9,7 @@ local Task = require "Unit.MenuControl.Task"
 local FlagSelect = require "Unit.MenuControl.FlagSelect"
 local OutputScope = require "Unit.ViewControl.OutputScope"
 local Common = require "lojik.Common"
+local RegisterView = require "lojik.RegisterView"
 
 local Register = Class {}
 Register:include(Unit)
@@ -213,9 +214,13 @@ function Register:onLoadViews()
       biasUnits     = app.unitNone,
       biasPrecision = 2,
       initialBias   = self.initialBias
+    },
+    display = RegisterView {
+      button = "display",
+      register = self.objects.register
     }
   }, {
-    expanded  = { "clock", "capture", "length", "stride", "drift" },
+    expanded  = { "display", "clock", "capture", "length", "stride", "drift" },
 
     clock     = { "clock",   "wave1", "shift", "reset" },
     capture   = { "capture", "wave1", "gain", "bias", "scatter" },

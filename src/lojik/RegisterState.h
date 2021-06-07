@@ -10,7 +10,7 @@ namespace lojik {
 
   class RegisterState {
     public:
-      int   max()       { return mData.size(); }
+      int   max() const { return mData.size(); }
       int   limit()     { return mLimit; }
       int   step()      { return mStep; }
       int   shift()     { return mShift; }
@@ -51,6 +51,8 @@ namespace lojik {
         if (mScatterAll)   { setAll(&RegisterState::scatter);   mScatterAll   = false; }
         if (mRandomizeAll) { setAll(&RegisterState::randomize); mRandomizeAll = false; }
       }
+
+      float getRaw(int i) const{ return mData[i]; }
 
     private:
       std::vector<float> mData;

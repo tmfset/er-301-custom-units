@@ -40,6 +40,10 @@ namespace lojik {
 
       od::Option mMode { "Mode", MODE_NORMAL };
       od::Option mSync { "Sync", 0b111 };
+
+      const RegisterState& state() {
+        return mState;
+      }
 #endif
 
       int   getMax()           { return mState.max(); }
