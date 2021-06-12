@@ -7,11 +7,14 @@ return {
     units   = {
       { title = "Arc (AD)", moduleName = "Arc" },
       { title = "Fin (Osc)", moduleName = "Fin" },
+      { title = "Formant (Osc)", moduleName = "Formant" },
+      { title = "Softy (Osc)", moduleName = "Softy" },
+
       { title = "Sieve (SVF)", moduleName = "Sieve" },
       { title = "Bique (BCF)", moduleName = "Bique" },
       { title = "Strike (LPG)", moduleName = "Strike" },
-      { title = "Tanh", moduleName = "Tanh" },
-      { title = "Formant", moduleName = "Formant" }
+
+      { title = "Tanh", moduleName = "Tanh" }
     }
   }
   

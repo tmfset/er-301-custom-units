@@ -73,6 +73,16 @@ function Formant:onLoadGraph(channelCount)
   end
 end
 
+function Formant:onShowMenu(objects)
+  return {
+    fixed = OptionControl {
+      description      = "Formant Duration",
+      option           = objects.op:getOption("Fixed"),
+      choices          = { "fixed", "free" }
+    }
+  }, { "fixed" }
+end
+
 function Formant:onLoadViews()
   return {
     tune = Pitch {

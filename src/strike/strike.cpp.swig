@@ -12,6 +12,7 @@
 #include <Strike.h>
 #include <Tanh.h>
 #include <Formant.h>
+#include <Softy.h>
 #include <MultiOptionView.h>
 
 #define SWIGLUA
@@ -25,4 +26,5 @@
 %include <Strike.h>
 %include <Tanh.h>
 %include <Formant.h>
+%include <Softy.h>
 %include <MultiOptionView.h>

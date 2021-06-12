@@ -85,7 +85,40 @@ namespace osc {
         _offset[i] = _o;
       }
 
-      p = p - vreinterpretq_f32_u32(vld1q_u32(_offset));
+      auto o = vreinterpretq_f32_u32(vld1q_u32(_offset));
+      p = p - (util::simd::floor(p) + o);
+      phase = vgetq_lane_f32(p, 3);
+      return p;
+    }
+
+    inline float32x4_t oscillatorSoftSync(
+      const float32x4_t delta,
+      const float32x4_t sync,
+      const float32x4_t width
+    ) {
+      auto p = vdupq_n_f32(phase) + delta * cScale;
+      auto one = vdupq_n_f32(1);
+
+      auto rising     = vcltq_f32(p, width);
+      auto distance   = vabdq_f32(p, width);
+      auto length     = vbslq_f32(rising, width, one - width);
+      auto proportion = vminq_f32(distance * util::simd::invert(length), one);
+
+      auto direction  = vbslq_f32(rising, vdupq_n_f32(1), vdupq_n_f32(-1));
+      auto syncDelta  = (distance + proportion * (one - length)) * direction;
+
+      uint32_t _sync[4], _syncDelta[4];
+      vst1q_u32(_sync, vcgtq_f32(sync, vdupq_n_f32(0)));
+      vst1q_u32(_syncDelta, vreinterpretq_u32_f32(syncDelta));
+
+      uint32_t _offset[4], _o = 0;
+      for (int i = 0; i < 4; i++) {
+        if (_sync[i]) { _o = _syncDelta[i]; }
+        _offset[i] = _o;
+      }
+
+      auto o = vreinterpretq_f32_u32(vld1q_u32(_offset));
+      p = vmaxq_f32(p + o, vdupq_n_f32(0));
       p = p - util::simd::floor(p);
       phase = vgetq_lane_f32(p, 3);
       return p;
@@ -217,17 +250,6 @@ namespace osc {
     ) {
       return vcvtq_n_f32_u32(vcltq_f32(phase, vdupq_n_f32(0.5)), 32);
     }
-
-  //   inline float32x4_t trig(
-  //     const float32x4_t phase,
-  //     const float32x4_t delta,
-  //   ) {
-  //     return vbslq_f32(
-  //       vcleq_f32(phase, vdupq_n_f32(globalConfig.samplePeriod)),
-  //       vdupq_n_f32(1),
-  //       vdupq_n_f32(0)
-  //     );
-  //   }
   }
 
   struct Fin {
@@ -261,20 +283,20 @@ namespace osc {
       const float32x4_t vpo,
       const float32x4_t formant,
       const float32x4_t barrel,
-      const float32x4_t sync
+      const float32x4_t sync,
+      const uint32x4_t fixed
     ) {
       auto sp = vdupq_n_f32(globalConfig.samplePeriod);
       auto one = vdupq_n_f32(1);
-      auto zero = vdupq_n_f32(0);
 
       auto freq = util::simd::vpo_scale(vpo, f0);
       auto pDelta = freq * sp;
-      auto pulse = shape::pulse(mOscPhase.oscillator(pDelta, sync), vdupq_n_f32(0.5));
+      auto pulse = mOscPhase.oscillator(pDelta, sync);
 
-      //auto formantScale = vbslq_f32(vcgtq_f32(formant, zero), vdupq_n_f32(4), vdupq_n_f32(0.25));
-      auto delta = util::simd::vpo_scale_no_clamp(formant, freq) * sp;
+      auto formantBase = vbslq_f32(fixed, freq, f0);
+      auto delta = util::simd::vpo_scale_no_clamp(formant, formantBase) * sp;
       auto phase = vdupq_n_f32(mEnvPhase) + delta * cScale;
-      auto width = vminq_f32(vmaxq_f32(barrel, sp), one - sp);
+      auto width = vminq_f32(one - sp, vmaxq_f32(barrel, sp));
 
       auto falling    = vcgtq_f32(phase, width);
       auto distance   = vabdq_f32(phase, width);
@@ -283,7 +305,7 @@ namespace osc {
       auto syncDelta  = distance + proportion * width;
 
       uint32_t _sync[4];
-      vst1q_u32(_sync, vcgtq_f32(pulse, zero));
+      vst1q_u32(_sync, vcltq_f32(pulse, vdupq_n_f32(0.5)));
 
       uint32_t _syncDelta[4], _falling[4];
       vst1q_u32(_syncDelta, vreinterpretq_u32_f32(syncDelta));
@@ -297,12 +319,36 @@ namespace osc {
       }
 
       auto offset = vreinterpretq_f32_u32(vld1q_u32(_offset));
-      phase = vminq_f32(phase - offset, one);
+      phase = vmaxq_f32(phase - offset, vdupq_n_f32(0));
       mEnvPhase = vgetq_lane_f32(phase, 3);
 
       falling    = vcgtq_f32(phase, width);
       distance   = vabdq_f32(phase, width);
       length     = vbslq_f32(falling, one - width, width);
+      return one - distance * util::simd::invert(length);
+    }
+  };
+
+  struct Softy {
+    Phase mPhase;
+
+    inline float32x4_t process(
+      const float32x4_t f0,
+      const float32x4_t vpo,
+      const float32x4_t _width,
+      const float32x4_t sync
+    ) {
+      auto sp = vdupq_n_f32(globalConfig.samplePeriod);
+      auto one = vdupq_n_f32(1);
+
+      auto width = vminq_f32(one - sp, vmaxq_f32(_width, sp));
+      auto freq = util::simd::vpo_scale(vpo, f0);
+      auto phase = mPhase.oscillatorSoftSync(freq * sp, sync, width);
+      
+
+      auto falling    = vcgtq_f32(phase, width);
+      auto distance   = vabdq_f32(phase, width);
+      auto length     = vbslq_f32(falling, one - width, width);
       return one - distance * util::simd::invert(length);
     }
   };
