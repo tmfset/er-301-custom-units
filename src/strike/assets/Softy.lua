@@ -13,7 +13,7 @@ Softy:include(Unit)
 
 function Softy:init(args)
   args.title = "Softy"
-  args.mnemonic = "tri"
+  args.mnemonic = "sft"
   Unit.init(self, args)
 end
 
