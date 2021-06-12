@@ -344,7 +344,6 @@ namespace osc {
       auto width = vminq_f32(one - sp, vmaxq_f32(_width, sp));
       auto freq = util::simd::vpo_scale(vpo, f0);
       auto phase = mPhase.oscillatorSoftSync(freq * sp, sync, width);
-      
 
       auto falling    = vcgtq_f32(phase, width);
       auto distance   = vabdq_f32(phase, width);
