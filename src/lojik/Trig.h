@@ -24,13 +24,33 @@ namespace lojik {
         const float *in  = mIn.buffer();
         float *out = mOut.buffer();
 
-        const auto sense = getSense(mSense);
+        const auto sense = vdupq_n_f32(getSense(mSense));
+
+        auto enable = mEnable;
+        auto trigger = mTrigger;
 
         for (int i = 0; i < FRAMELENGTH; i += 4) {
-          uint32_t trig[4];
-          mLatch.readTriggersU(trig, vcgtq_f32(vld1q_f32(in + i), vdupq_n_f32(sense)));
-          vst1q_f32(out + i, vcvtq_n_f32_u32(vld1q_u32(trig), 32));
+          auto _in = vld1q_f32(in + i);
+
+          uint32_t _high[4];
+          vst1q_u32(_high, vcgtq_f32(_in, sense));
+
+          uint32_t _trig[4];
+          for (int i = 0; i < 4; i++) {
+            auto high = _high[i];
+
+            trigger = high & enable;
+            enable = ~high;
+
+            _trig[i] = trigger;
+          }
+
+          auto _out = vcvtq_n_f32_u32(vld1q_u32(_trig), 32);
+          vst1q_f32(out + i, _out);
         }
+
+        mEnable = enable;
+        mTrigger = trigger;
       }
 
       od::Inlet  mIn    { "In" };
@@ -39,8 +59,7 @@ namespace lojik {
 #endif
 
     private:
-      float mCurrent = 0.0f;
-      bool mAllow = true;
-      Trigger mLatch;
+      uint32_t mEnable  = 0;
+      uint32_t mTrigger = 0;
   };
 }

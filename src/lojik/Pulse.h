@@ -5,6 +5,7 @@
 #include <od/objects/Object.h>
 #include <hal/simd.h>
 #include <math.h>
+#include <util.h>
 
 namespace lojik {
   class Pulse : public od::Object {
@@ -43,24 +44,27 @@ namespace lojik {
           float32x4_t loadWidth = vld1q_f32(width + i);
           float32x4_t loadGain  = vld1q_f32(gain + i);
 
-          uint32_t s[4];
-          float p[4], f[4], init = mPhase;
-          vst1q_u32(s, vcgtq_f32(loadSync, vdupq_n_f32(0.0f)));
-          for (int i = 0, x = 1; i < 4; i++, x++) {
-            if (s[i]) { init = 0; x = 0; }
-            p[i] = init;
-            f[i] = x;
-          }
-
           float32x4_t clampVpo = vmaxq_f32(negOne, vminq_f32(one, loadVpo));
           float32x4_t tune     = simd_exp(clampVpo * glog2);
           float32x4_t delta    = loadFreq * sp * tune;
-          auto phase = vld1q_f32(p) + vld1q_f32(f) * delta;
 
-          phase = phase - vcvtq_f32_s32(vcvtq_s32_f32(phase));
-          mPhase = vgetq_lane_f32(phase, 3);
+          auto p = vdupq_n_f32(mPhase) + delta * cScale;
 
-          auto final = vbslq_f32(vcltq_f32(phase, loadWidth), one, negOne);
+          uint32_t _sync[4], _syncDelta[4];
+          vst1q_u32(_sync, vcgtq_f32(loadSync, vdupq_n_f32(0)));
+          vst1q_u32(_syncDelta, vreinterpretq_u32_f32(p));
+
+          uint32_t _offset[4], _o = 0;
+          for (int i = 0; i < 4; i++) {
+            if (_sync[i]) { _o = _syncDelta[i]; }
+            _offset[i] = _o;
+          }
+
+          p = p - vreinterpretq_f32_u32(vld1q_u32(_offset));
+          p = p - floor(p);
+          mPhase = vgetq_lane_f32(p, 3);
+
+          auto final = vbslq_f32(vcltq_f32(p, loadWidth), negOne, one);
           vst1q_f32(out + i, final * loadGain);
         }
       }
@@ -73,6 +77,7 @@ namespace lojik {
       od::Outlet mOut   { "Out" };
 #endif
     private:
+      const float32x4_t cScale = makeq_f32(1, 2, 3, 4);
       float mPhase = 0.0f;
   };
 }

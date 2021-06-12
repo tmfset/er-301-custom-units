@@ -125,6 +125,17 @@ namespace util {
       return a * invert(b);
     }
 
+    inline float32x4_t atan(const float32x4_t in) {
+      auto one = vdupq_n_f32(1);
+      auto c1 = vdupq_n_f32(0.2447);
+      auto c2 = vdupq_n_f32(0.0663);
+
+      auto piOver4 = vdupq_n_f32(M_PI_4);
+      auto xabs = vabdq_f32(in, vdupq_n_f32(0));
+      return piOver4 * in - in * (xabs - one) * (c1 + c2 * xabs);
+      //return M_PI_4*x - x*(fabs(x) - 1)*(0.2447 + 0.0663*fabs(x));
+    }
+
     inline void sincos_f32(float32x4_t x, float32x4_t *ysin, float32x4_t *ycos) {
 #if false
       simd_sincos(x, ysin, ycos);
@@ -222,6 +233,14 @@ namespace util {
       return clamp_n(f0 * util::simd::exp_f32(vpo * vpoLogMax), 1, globalConfig.sampleRate / 4);
     }
 
+    inline float32x4_t vpo_scale_no_clamp(
+      const float32x4_t vpo,
+      const float32x4_t f0
+    ) {
+      const float32x4_t vpoLogMax = vdupq_n_f32(FULLSCALE_IN_VOLTS * logf(2.0f));
+      return f0 * util::simd::exp_f32(vpo * vpoLogMax);
+    }
+
     inline float32x4_t lerp(const float32x4_t from, const float32x4_t to, const float32x4_t by) {
       return vmlaq_f32(vmlsq_f32(from, from, by), to, by);
     }
@@ -264,12 +283,6 @@ namespace util {
     }
 
     inline float32x4_t makeq_f32(float a, float b, float c, float d) {
-      // float x[4];
-      // x[0] = a;
-      // x[1] = b;
-      // x[2] = c;
-      // x[3] = d;
-      // return vld1q_f32(x);
       float32x4_t x = vdupq_n_f32(0);
       x = vsetq_lane_f32(a, x, 0);
       x = vsetq_lane_f32(b, x, 1);
@@ -337,7 +350,7 @@ namespace util {
     inline void print_f32(const float32x4_t x) {
       static int count = 0;
       count++;
-      if (count > 500) return;
+      if (count > 2000) return;
       
       logRaw("%f %f %f %f\n",
         vgetq_lane_f32(x, 0),
@@ -360,21 +373,13 @@ namespace util {
   }
 
   struct Latch {
-    inline bool readTrigger(bool high) {
-      if (high) { mTrigger = mEnable; mEnable = false; }
-      else      { mTrigger = false;   mEnable = true; }
+    inline uint32_t read(const uint32_t high) {
+      mTrigger = high & mEnable;
+      mEnable = ~high;
       return mTrigger;
     }
 
-    inline void readTriggers(bool *out, const uint32x4_t high) {
-      uint32_t _h[4];
-      vst1q_u32(_h, high);
-      for (int i = 0; i < 4; i++) {
-        out[i] = readTrigger(_h[i]);
-      }
-    }
-
-    bool mEnable  = false;
-    bool mTrigger = false;
+    uint32_t mEnable  = 0;
+    uint32_t mTrigger = 0;
   };
 }

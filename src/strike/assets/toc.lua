@@ -10,7 +10,8 @@ return {
       { title = "Sieve (SVF)", moduleName = "Sieve" },
       { title = "Bique (BCF)", moduleName = "Bique" },
       { title = "Strike (LPG)", moduleName = "Strike" },
-      { title = "Tanh", moduleName = "Tanh" }
+      { title = "Tanh", moduleName = "Tanh" },
+      { title = "Formant", moduleName = "Formant" }
     }
   }
   

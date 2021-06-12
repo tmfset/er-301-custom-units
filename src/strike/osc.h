@@ -49,10 +49,20 @@ namespace osc {
       const uint32x4_t trig,
       const float32x4_t loop
     ) {
-      bool t[4];
-      trigger.readTriggers(t, trig);
+      auto p = vdupq_n_f32(phase) + delta * cScale;
+
+      uint32_t _sync[4], _syncDelta[4];
+      vst1q_u32(_sync, trig);
+      vst1q_u32(_syncDelta, vreinterpretq_u32_f32(p));
+
+      uint32_t _offset[4], _o = 0;
+      for (int i = 0; i < 4; i++) {
+        if (trigger.read(_sync[i])) { _o = _syncDelta[i]; }
+        _offset[i] = _o;
+      }
+
+      p = p - vreinterpretq_f32_u32(vld1q_u32(_offset));
       auto isLoop = util::simd::cgtqz_f32(loop);
-      auto p = accumulate(phase, delta, t);
       p = vmlsq_f32(p, isLoop, util::simd::floor(p));
       p = vminq_f32(p, vdupq_n_f32(1));
       phase = vgetq_lane_f32(p, 3);
@@ -63,28 +73,25 @@ namespace osc {
       const float32x4_t delta,
       const float32x4_t sync
     ) {
-      bool s[4];
-      util::simd::cgt_as_bool(s, sync, vdupq_n_f32(0));
-      auto p = accumulate(phase, delta, s);
+      auto p = vdupq_n_f32(phase) + delta * cScale;
+
+      uint32_t _sync[4], _syncDelta[4];
+      vst1q_u32(_sync, vcgtq_f32(sync, vdupq_n_f32(0)));
+      vst1q_u32(_syncDelta, vreinterpretq_u32_f32(p));
+
+      uint32_t _offset[4], _o = 0;
+      for (int i = 0; i < 4; i++) {
+        if (_sync[i]) { _o = _syncDelta[i]; }
+        _offset[i] = _o;
+      }
+
+      p = p - vreinterpretq_f32_u32(vld1q_u32(_offset));
       p = p - util::simd::floor(p);
       phase = vgetq_lane_f32(p, 3);
       return p;
     }
 
-    inline float32x4_t accumulate(
-      const float _from,
-      const float32x4_t delta,
-      const bool *_sync
-    ) const {
-      float _base[4], _scale[4], base = phase;
-      for (int i = 0, s = 1; i < 4; i++, s++) {
-        if (_sync[i]) { base = 0; s = 0; }
-        _base[i] = base;
-        _scale[i] = s;
-      }
-      return vmlaq_f32(vld1q_f32(_base), delta, vld1q_f32(_scale));
-    }
-
+    const float32x4_t cScale = util::simd::makeq_f32(1, 2, 3, 4);
     util::Latch trigger;
     float phase = 1.0f;
   };
@@ -178,14 +185,53 @@ namespace osc {
       auto bent = vbslq_f32(inverted, one - shaped, shaped);
       return util::simd::lerp(linear, bent, amount);
     }
+
+    inline float32x4_t triangle(
+      const float32x4_t phase,
+      const float32x4_t width
+    ) {
+      //auto sp    = vdupq_n_f32(globalConfig.samplePeriod);
+      auto one   = vdupq_n_f32(1);
+      //auto width = vminq_f32(one - sp, vmaxq_f32(_width, sp));
+
+      auto rising   = vcaleq_f32(phase, width);
+      auto distance = vabdq_f32(phase, width);
+      auto length   = vbslq_f32(rising, width, one - width);
+
+      return one - distance * util::simd::invert(length);
+    }
+
+    inline float32x4_t pulse(
+      const float32x4_t phase,
+      const float32x4_t width
+    ) {
+      return vbslq_f32(
+        vcleq_f32(phase, width),
+        vdupq_n_f32(1),
+        vdupq_n_f32(0)
+      );
+    }
+
+    inline float32x4_t pulseConst(
+      const float32x4_t phase
+    ) {
+      return vcvtq_n_f32_u32(vcltq_f32(phase, vdupq_n_f32(0.5)), 32);
+    }
+
+  //   inline float32x4_t trig(
+  //     const float32x4_t phase,
+  //     const float32x4_t delta,
+  //   ) {
+  //     return vbslq_f32(
+  //       vcleq_f32(phase, vdupq_n_f32(globalConfig.samplePeriod)),
+  //       vdupq_n_f32(1),
+  //       vdupq_n_f32(0)
+  //     );
+  //   }
   }
 
   struct Fin {
     Phase phase;
-    float32x4_t mEof, mEor;
-
-    inline float32x4_t eof() const { return mEof; }
-    inline float32x4_t eor() const { return mEor; }
 
     template <shape::FinShape FS>
     inline float32x4_t process(
@@ -193,13 +239,71 @@ namespace osc {
       const shape::Bend &bend,
       const float32x4_t sync
     ) {
+      float32x4_t eof, eor;
       return shape::fin<FS>(
         phase.oscillator(freq.delta(), sync),
         freq.width(),
         bend,
-        &mEof,
-        &mEor
+        &eof,
+        &eor
       );
+    }
+  };
+
+  struct Formant {
+    Phase mOscPhase;
+    float mEnvPhase = 1.0f;
+    util::Latch mSyncTrigger;
+    const float32x4_t cScale = util::simd::makeq_f32(1, 2, 3, 4);
+
+    inline float32x4_t process(
+      const float32x4_t f0,
+      const float32x4_t vpo,
+      const float32x4_t formant,
+      const float32x4_t barrel,
+      const float32x4_t sync
+    ) {
+      auto sp = vdupq_n_f32(globalConfig.samplePeriod);
+      auto one = vdupq_n_f32(1);
+      auto zero = vdupq_n_f32(0);
+
+      auto freq = util::simd::vpo_scale(vpo, f0);
+      auto pDelta = freq * sp;
+      auto pulse = shape::pulse(mOscPhase.oscillator(pDelta, sync), vdupq_n_f32(0.5));
+
+      //auto formantScale = vbslq_f32(vcgtq_f32(formant, zero), vdupq_n_f32(4), vdupq_n_f32(0.25));
+      auto delta = util::simd::vpo_scale_no_clamp(formant, freq) * sp;
+      auto phase = vdupq_n_f32(mEnvPhase) + delta * cScale;
+      auto width = vminq_f32(vmaxq_f32(barrel, sp), one - sp);
+
+      auto falling    = vcgtq_f32(phase, width);
+      auto distance   = vabdq_f32(phase, width);
+      auto length     = one - width;
+      auto proportion = vminq_f32(distance * util::simd::invert(length), one);
+      auto syncDelta  = distance + proportion * width;
+
+      uint32_t _sync[4];
+      vst1q_u32(_sync, vcgtq_f32(pulse, zero));
+
+      uint32_t _syncDelta[4], _falling[4];
+      vst1q_u32(_syncDelta, vreinterpretq_u32_f32(syncDelta));
+      vst1q_u32(_falling, falling);
+
+      uint32_t _offset[4], _o = 0;
+      for (int i = 0; i < 4; i++) {
+        auto doSync = _falling[i] & mSyncTrigger.read(_sync[i]);
+        if (doSync) { _o = _syncDelta[i]; }
+        _offset[i] = _o;
+      }
+
+      auto offset = vreinterpretq_f32_u32(vld1q_u32(_offset));
+      phase = vminq_f32(phase - offset, one);
+      mEnvPhase = vgetq_lane_f32(phase, 3);
+
+      falling    = vcgtq_f32(phase, width);
+      distance   = vabdq_f32(phase, width);
+      length     = vbslq_f32(falling, one - width, width);
+      return one - distance * util::simd::invert(length);
     }
   };
 

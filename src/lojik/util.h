@@ -15,30 +15,27 @@ namespace lojik {
     return (value > max) ? max : (value < min) ? min : value;
   }
 
+  inline float32x4_t makeq_f32(float a, float b, float c, float d) {
+    float32x4_t x = vdupq_n_f32(0);
+    x = vsetq_lane_f32(a, x, 0);
+    x = vsetq_lane_f32(b, x, 1);
+    x = vsetq_lane_f32(c, x, 2);
+    x = vsetq_lane_f32(d, x, 3);
+    return x;
+  }
+
+  inline float32x4_t floor(const float32x4_t x) {
+    return vcvtq_f32_s32(vcvtq_s32_f32(x));
+  }
+
   struct Trigger {
-    inline bool readTrigger(bool high) {
-      if (high) { mTrigger = mEnable; mEnable = false; }
-      else      { mTrigger = false;   mEnable = true; }
+    inline bool read(uint32_t high) {
+      mTrigger = high & mEnable;
+      mEnable = ~high;
       return mTrigger;
     }
 
-    inline void readTriggers(bool *out, const uint32x4_t high) {
-      uint32_t _h[4];
-      vst1q_u32(_h, high);
-      for (int i = 0; i < 4; i++) {
-        out[i] = readTrigger(_h[i]);
-      }
-    }
-
-    inline void readTriggersU(uint32_t *out, const uint32x4_t high) {
-      uint32_t _h[4];
-      vst1q_u32(_h, high);
-      for (int i = 0; i < 4; i++) {
-        out[i] = readTrigger(_h[i]);
-      }
-    }
-
-    bool mEnable  = false;
-    bool mTrigger = false;
+    uint32_t mEnable  = 0;
+    uint32_t mTrigger = 0;
   };
 }

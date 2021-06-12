@@ -35,10 +35,13 @@ namespace lojik {
         float *arm    = mArm.buffer();
         float *out    = mOut.buffer();
 
-        const auto sense = getSense(mSense);
+        const auto sense = vdupq_n_f32(getSense(mSense));
+        const auto zero = vdupq_n_f32(0);
 
-        bool isArmed = mIsArmed;
-        int step = mStep;
+        auto enable = mEnable;
+        auto trigger = mTrigger;
+        auto isArmed = mIsArmed;
+        auto step = mStep;
 
         for (int i = 0; i < FRAMELENGTH; i += 4) {
           float32x4_t loadIn     = vld1q_f32(in + i);
@@ -50,34 +53,37 @@ namespace lojik {
           uint32_t isInHigh[4], isArmHigh[4];
 
           vst1q_s32(iCount,    vcvtq_s32_f32(loadCount));
-          vst1q_u32(isArmHigh, vcgtq_f32(loadArm, vdupq_n_f32(0)));
-          vst1q_u32(isInHigh,  vcgtq_f32(loadIn, vdupq_n_f32(sense)));
+          vst1q_u32(isArmHigh, vcgtq_f32(loadArm, zero));
+          vst1q_u32(isInHigh,  vcgtq_f32(loadIn, sense));
 
           int32_t _step[4];
           for (int j = 0; j < 4; j++) {
-            bool doStep = mLatch.readTrigger(isInHigh[j]);//trig[j];
-            bool doArm = isArmHigh[j];
+            auto high = isInHigh[j];
+            trigger = high & enable;
+            enable = ~high;
 
-            isArmed = isArmed || doArm;
-            step += doStep && isArmed;
+            isArmed = isArmed | isArmHigh[j];
+            if (trigger & isArmed) { step += 1; }
 
             if (step > iCount[j]) {
               step = 0;
-              isArmed = false;
+              isArmed = 0;
             }
 
             _step[j] = step;
           }
 
           auto open = vcgtq_s32(vld1q_s32(_step), vdupq_n_s32(0));
-          auto inverted = vcgtq_f32(loadInvert, vdupq_n_f32(0));
+          auto inverted = vcgtq_f32(loadInvert, zero);
           auto select = vbslq_u32(inverted, open, vmvnq_u32(open));
-          auto o = vbslq_f32(select, vld1q_f32(in + i), vdupq_n_f32(0));
+          auto o = vbslq_f32(select, loadIn, zero);
           vst1q_f32(out + i, o);
         }
 
-        mIsArmed    = isArmed;
-        mStep       = step;
+        mEnable = enable;
+        mTrigger = trigger;
+        mIsArmed = isArmed;
+        mStep = step;
       }
 
       od::Inlet  mIn     { "In" };
@@ -90,8 +96,9 @@ namespace lojik {
 #endif
 
     private:
-      Trigger mLatch;
-      bool mIsArmed = false;
+      uint32_t mEnable  = 0;
+      uint32_t mTrigger = 0;
+      uint32_t mIsArmed = 0;
       int mStep = 0;
   };
 }
