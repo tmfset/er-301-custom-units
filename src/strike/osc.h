@@ -319,7 +319,7 @@ namespace osc {
       }
 
       auto offset = vreinterpretq_f32_u32(vld1q_u32(_offset));
-      phase = vmaxq_f32(phase - offset, vdupq_n_f32(0));
+      phase = vminq_f32(phase - offset, one);
       mEnvPhase = vgetq_lane_f32(phase, 3);
 
       falling    = vcgtq_f32(phase, width);
