@@ -44,6 +44,9 @@ namespace strike {
         }
         const auto _fixed = vcgtq_f32(vdupq_n_f32(fixed), vdupq_n_f32(0));
 
+        // Adjust the gain so that it looks approximately correct.
+        const auto adjust = vdupq_n_f32(1.24f);
+
         for (int i = 0; i < FRAMELENGTH; i += 4) {
           auto o = mOscillator.process(
             vld1q_f32(freq    + i),
@@ -57,7 +60,7 @@ namespace strike {
           auto g = vld1q_f32(gain + i);
           auto w = util::simd::atan(o + o - vdupq_n_f32(1));
 
-          vst1q_f32(out + i, w * g);
+          vst1q_f32(out + i, w * g * adjust);
         }
       }
 
