@@ -69,6 +69,96 @@ namespace osc {
       return p;
     }
 
+    inline float32x4_t envelopeSoftSync(
+      const float32x4_t delta,
+      const uint32x4_t trig,
+      const float32x4_t loop,
+      const float32x4_t width
+    ) {
+      auto p = vdupq_n_f32(phase) + delta * cScale;
+      auto one = vdupq_n_f32(1);
+
+      auto falling    = vcgtq_f32(p, width);
+      auto distance   = vabdq_f32(p, width);
+      auto length     = one - width;
+      auto proportion = vminq_f32(distance * util::simd::invert(length), one);
+      auto syncDelta  = distance + proportion * width;
+
+      uint32_t _sync[4];
+      vst1q_u32(_sync, trig);
+
+      uint32_t _syncDelta[4], _falling[4];
+      vst1q_u32(_syncDelta, vreinterpretq_u32_f32(syncDelta));
+      vst1q_u32(_falling, falling);
+
+      uint32_t _offset[4], _o = 0;
+      for (int i = 0; i < 4; i++) {
+        auto doSync = _falling[i] & trigger.read(_sync[i]);
+        if (doSync) { _o = _syncDelta[i]; }
+        _offset[i] = _o;
+      }
+
+      p = p - vreinterpretq_f32_u32(vld1q_u32(_offset));
+      auto isLoop = util::simd::cgtqz_f32(loop);
+      p = vmlsq_f32(p, isLoop, util::simd::floor(p));
+      p = vminq_f32(p, one);
+      phase = vgetq_lane_f32(p, 3);
+      return p;
+    }
+
+    inline float32x4_t envelopeSoftSyncBend(
+      const float32x4_t delta,
+      const uint32x4_t trig,
+      const float32x4_t loop,
+      const float32x4_t width,
+      const uint32x4_t inverted,
+      const float32x4_t bend
+    ) {
+      auto p = vdupq_n_f32(phase) + delta * cScale;
+      auto one = vdupq_n_f32(1);
+
+      auto falling    = vcgtq_f32(p, width);
+      auto distance   = vabdq_f32(p, width);
+      auto length     = one - width;
+      auto proportion = vminq_f32(distance * util::simd::invert(length), one);
+
+      auto bscale = util::simd::sqrt(bend);
+
+      auto aprop = vbslq_f32(inverted, one - proportion, proportion);
+      auto iprop = aprop;
+      iprop = iprop * iprop * iprop * iprop;
+      iprop = util::simd::lerp(aprop, iprop, bscale);
+      iprop = one - iprop;
+      auto bprop = iprop;
+      iprop = util::simd::sqrt2(iprop);
+      iprop = util::simd::lerp(bprop, iprop, bscale);
+      iprop = vbslq_f32(inverted, iprop, one - iprop);
+      iprop = util::simd::lerp(proportion, iprop, bscale);
+
+      auto syncDelta  = distance + iprop * width;
+
+      uint32_t _sync[4];
+      vst1q_u32(_sync, trig);
+
+      uint32_t _syncDelta[4], _falling[4];
+      vst1q_u32(_syncDelta, vreinterpretq_u32_f32(syncDelta));
+      vst1q_u32(_falling, falling);
+
+      uint32_t _offset[4], _o = 0;
+      for (int i = 0; i < 4; i++) {
+        auto doSync = _falling[i] & trigger.read(_sync[i]);
+        if (doSync) { _o = _syncDelta[i]; }
+        _offset[i] = _o;
+      }
+
+      p = p - vreinterpretq_f32_u32(vld1q_u32(_offset));
+      auto isLoop = util::simd::cgtqz_f32(loop);
+      p = vmlsq_f32(p, isLoop, util::simd::floor(p));
+      p = vminq_f32(p, one);
+      phase = vgetq_lane_f32(p, 3);
+      return p;
+    }
+
     inline float32x4_t oscillator(
       const float32x4_t delta,
       const float32x4_t sync
@@ -136,21 +226,27 @@ namespace osc {
     };
 
     struct Bend {
-      float32x4_t mUp, mDown;
+      float32x4_t mUp, mDown, mAmount;
+      uint32x4_t mInverted;
 
       inline Bend(const float32x4_t up, const float32x4_t down) {
         mUp = util::simd::clamp_unit(up);
         mDown = util::simd::clamp_unit(down);
+        mInverted = vdupq_n_u32(0);
       }
 
       inline Bend(const BendMode mode, const float32x4_t bend) {
         auto b = util::simd::clamp_unit(bend);
         mUp = b;
         mDown = mode == BEND_NORMAL ? b : vnegq_f32(b);
+        mAmount = vabdq_f32(bend, vdupq_n_f32(0));
+        mInverted = mode == BEND_NORMAL ? vdupq_n_u32(0) : vcgtq_f32(bend, vdupq_n_f32(0));
       }
 
       inline float32x4_t up()   const { return mUp; }
       inline float32x4_t down() const { return mDown; }
+      inline uint32x4_t inverted() const { return mInverted; }
+      inline float32x4_t amount() const { return mAmount; }
     };
 
     enum FinShape {
@@ -366,9 +462,18 @@ namespace osc {
       const uint32x4_t trig,
       const float32x4_t loop
     ) {
+      auto width = freq.width();
       return shape::fin<FS>(
-        phase.envelope(freq.delta(), trig, loop),
-        freq.width(),
+        phase.envelopeSoftSyncBend(freq.delta(), trig, loop, width, bend.inverted(), bend.amount()),
+        width,
+        bend,
+        &mEof,
+        &mEor
+      );
+
+      return shape::fin<FS>(
+        phase.envelopeSoftSync(freq.delta(), trig, loop, width),
+        width,
         bend,
         &mEof,
         &mEor

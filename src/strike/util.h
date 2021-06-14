@@ -76,6 +76,37 @@ namespace util {
       return inv;
     }
 
+    inline float32x4_t pow_f32(const float32x4_t x, const float32x4_t m) {
+      return exp_f32(m * simd_log(x));
+    }
+
+    inline float32x4_t sqrt(const float32x4_t x) {
+      float _x[4];
+      vst1q_f32(_x, x);
+      for (int i = 0; i < 4; i++) {
+        _x[i] = sqrtf(_x[i]);
+      }
+      return vld1q_f32(_x);
+    }
+
+    inline float32x4_t  cbrt(const float32x4_t x) {
+      float _x[4];
+      vst1q_f32(_x, x);
+      for (int i = 0; i < 4; i++) {
+        _x[i] = cbrtf(_x[i]);
+      }
+      return vld1q_f32(_x);
+    }
+
+    inline float32x4_t sqrt2(const float32x4_t x) {
+      float _x[4];
+      vst1q_f32(_x, x);
+      for (int i = 0; i < 4; i++) {
+        _x[i] = sqrtf(sqrtf(_x[i]));
+      }
+      return vld1q_f32(_x);
+    }
+
     inline float32x4_t lnot(const float32x4_t x) {
       return vdupq_n_f32(1) - x;
     }
