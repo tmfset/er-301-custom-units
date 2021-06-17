@@ -122,18 +122,13 @@ namespace osc {
       auto length     = one - width;
       auto proportion = vminq_f32(distance * util::simd::invert(length), one);
 
-      auto bscale = util::simd::sqrt(bend);
+      auto bendScale = one + bend * vdupq_n_f32(4);
 
-      auto aprop = vbslq_f32(inverted, one - proportion, proportion);
-      auto iprop = aprop;
-      iprop = iprop * iprop * iprop * iprop;
-      iprop = util::simd::lerp(aprop, iprop, bscale);
+      auto iprop = vbslq_f32(inverted, one - proportion, proportion);
+      iprop = util::simd::pow_f32(iprop, bendScale);
       iprop = one - iprop;
-      auto bprop = iprop;
-      iprop = util::simd::sqrt2(iprop);
-      iprop = util::simd::lerp(bprop, iprop, bscale);
+      iprop = util::simd::pow_f32(iprop, util::simd::invert(bendScale));
       iprop = vbslq_f32(inverted, iprop, one - iprop);
-      iprop = util::simd::lerp(proportion, iprop, bscale);
 
       auto syncDelta  = distance + iprop * width;
 
@@ -306,13 +301,14 @@ namespace osc {
           break;
 
         case FIN_SHAPE_POW4: {
-          auto x2 = x * x;
-          shaped = x2 * x2;
+          shaped = util::simd::pow_f32(x, one + amount * vdupq_n_f32(4));
+          //auto x2 = x * x;
+          //shaped = x2 * x2;
         } break;
       }
 
       auto bent = vbslq_f32(inverted, one - shaped, shaped);
-      return util::simd::lerp(linear, bent, amount);
+      return bent;//util::simd::lerp(linear, bent, amount);
     }
 
     inline float32x4_t triangle(

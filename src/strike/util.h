@@ -12,6 +12,93 @@
 
 namespace util {
   namespace simd {
+    #define c_inv_mant_mask ~0x7f800000u
+    #define c_cephes_SQRTHF 0.707106781186547524
+    #define c_cephes_log_p0 7.0376836292E-2
+    #define c_cephes_log_p1 -1.1514610310E-1
+    #define c_cephes_log_p2 1.1676998740E-1
+    #define c_cephes_log_p3 -1.2420140846E-1
+    #define c_cephes_log_p4 +1.4249322787E-1
+    #define c_cephes_log_p5 -1.6668057665E-1
+    #define c_cephes_log_p6 +2.0000714765E-1
+    #define c_cephes_log_p7 -2.4999993993E-1
+    #define c_cephes_log_p8 +3.3333331174E-1
+    #define c_cephes_log_q1 -2.12194440e-4
+    #define c_cephes_log_q2 0.693359375
+
+    /* natural logarithm computed for 4 simultaneous float
+    return NaN for x <= 0
+    */
+    inline float32x4_t log_f32(float32x4_t x) {
+      float32x4_t one = vdupq_n_f32(1);
+
+      x = vmaxq_f32(x, vdupq_n_f32(0)); /* force flush to zero on denormal values */
+      uint32x4_t invalid_mask = vcleq_f32(x, vdupq_n_f32(0));
+
+      int32x4_t ux = vreinterpretq_s32_f32(x);
+
+      int32x4_t emm0 = vshrq_n_s32(ux, 23);
+
+      /* keep only the fractional part */
+      ux = vandq_s32(ux, vdupq_n_s32(c_inv_mant_mask));
+      ux = vorrq_s32(ux, vreinterpretq_s32_f32(vdupq_n_f32(0.5f)));
+      x = vreinterpretq_f32_s32(ux);
+
+      emm0 = vsubq_s32(emm0, vdupq_n_s32(0x7f));
+      float32x4_t e = vcvtq_f32_s32(emm0);
+
+      e = vaddq_f32(e, one);
+
+      /* part2:
+      if( x < SQRTHF ) {
+      e -= 1;
+      x = x + x - 1.0;
+      } else { x = x - 1.0; }
+      */
+      uint32x4_t mask = vcltq_f32(x, vdupq_n_f32(c_cephes_SQRTHF));
+      float32x4_t tmp = vreinterpretq_f32_u32(vandq_u32(vreinterpretq_u32_f32(x), mask));
+      x = vsubq_f32(x, one);
+      e = vsubq_f32(e,
+                    vreinterpretq_f32_u32(vandq_u32(vreinterpretq_u32_f32(one), mask)));
+      x = vaddq_f32(x, tmp);
+
+      float32x4_t z = vmulq_f32(x, x);
+
+      float32x4_t y = vdupq_n_f32(c_cephes_log_p0);
+      y = vmulq_f32(y, x);
+      y = vaddq_f32(y, vdupq_n_f32(c_cephes_log_p1));
+      y = vmulq_f32(y, x);
+      y = vaddq_f32(y, vdupq_n_f32(c_cephes_log_p2));
+      y = vmulq_f32(y, x);
+      y = vaddq_f32(y, vdupq_n_f32(c_cephes_log_p3));
+      y = vmulq_f32(y, x);
+      y = vaddq_f32(y, vdupq_n_f32(c_cephes_log_p4));
+      y = vmulq_f32(y, x);
+      y = vaddq_f32(y, vdupq_n_f32(c_cephes_log_p5));
+      y = vmulq_f32(y, x);
+      y = vaddq_f32(y, vdupq_n_f32(c_cephes_log_p6));
+      y = vmulq_f32(y, x);
+      y = vaddq_f32(y, vdupq_n_f32(c_cephes_log_p7));
+      y = vmulq_f32(y, x);
+      y = vaddq_f32(y, vdupq_n_f32(c_cephes_log_p8));
+      y = vmulq_f32(y, x);
+
+      y = vmulq_f32(y, z);
+
+      tmp = vmulq_f32(e, vdupq_n_f32(c_cephes_log_q1));
+      y = vaddq_f32(y, tmp);
+
+      tmp = vmulq_f32(z, vdupq_n_f32(0.5f));
+      y = vsubq_f32(y, tmp);
+
+      tmp = vmulq_f32(e, vdupq_n_f32(c_cephes_log_q2));
+      x = vaddq_f32(x, y);
+      x = vaddq_f32(x, tmp);
+      x = vreinterpretq_f32_u32(
+          vorrq_u32(vreinterpretq_u32_f32(x), invalid_mask)); // negative arg will be NAN
+      return x;
+    }
+
     inline float32x4_t exp_f32(const float32x4_t _x) {
 #ifdef USE_SSE4
     return simd_exp(_x);
@@ -65,6 +152,12 @@ namespace util {
 #endif
     }
 
+    inline float32x4_t pow_f32(float32x4_t x, float32x4_t m) {
+      auto c = vcltq_f32(x, vdupq_n_f32(0.000001));
+      auto _x = vbslq_f32(c, vdupq_n_f32(0), log_f32(x));
+      return exp_f32(m * _x);
+    }
+
     inline float32x4_t invert(const float32x4_t x) {
       float32x4_t inv;
       // https://en.wikipedia.org/wiki/Division_algorithm#Newton.E2.80.93Raphson_division
@@ -76,10 +169,6 @@ namespace util {
       return inv;
     }
 
-    inline float32x4_t pow_f32(const float32x4_t x, const float32x4_t m) {
-      return exp_f32(m * simd_log(x));
-    }
-
     inline float32x4_t sqrt(const float32x4_t x) {
       float _x[4];
       vst1q_f32(_x, x);
@@ -89,7 +178,7 @@ namespace util {
       return vld1q_f32(_x);
     }
 
-    inline float32x4_t  cbrt(const float32x4_t x) {
+    inline float32x4_t cbrt(const float32x4_t x) {
       float _x[4];
       vst1q_f32(_x, x);
       for (int i = 0; i < 4; i++) {
@@ -381,7 +470,7 @@ namespace util {
     inline void print_f32(const float32x4_t x) {
       static int count = 0;
       count++;
-      if (count > 2000) return;
+      if (count > 4000) return;
       
       logRaw("%f %f %f %f\n",
         vgetq_lane_f32(x, 0),
