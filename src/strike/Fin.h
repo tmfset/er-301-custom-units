@@ -46,8 +46,8 @@ namespace strike {
           auto _bend  = vld1q_f32(bend  + i);
 
           auto f = osc::Frequency::vpoWidth(_vpo, _f0, _width);
-          auto b = osc::shape::Bend { bendMode, _bend };
-          auto o = mOscillator.process<osc::shape::FIN_SHAPE_POW3>(f, b, _sync);
+          auto b = osc::shape::Bend { bendMode, _bend, vdupq_n_f32(2) };
+          auto o = mOscillator.process(f, b, _sync);
 
           vst1q_f32(out + i, vmlaq_f32(vnegq_f32(_gain), _gain, o + o));
         }

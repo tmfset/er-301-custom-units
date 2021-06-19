@@ -5,6 +5,33 @@
 #include <util.h>
 
 namespace osc {
+  namespace shape {
+    enum BendMode {
+      BEND_NORMAL = 1,
+      BEND_INVERTED = 2
+    };
+
+    struct Bend {
+      float32x4_t mAmount, mDegree;
+      uint32x4_t mRiseConvex, mFallConvex;
+
+      inline Bend(const BendMode mode, const float32x4_t bend, const float32x4_t degree) {
+        auto zero = vdupq_n_f32(0);
+        auto b = util::simd::clamp_unit(bend);
+
+        mAmount = vabdq_f32(b, zero);
+        mDegree = degree;
+
+        mFallConvex = vcgeq_f32(b, zero);
+        mRiseConvex = mode == BEND_NORMAL ? mFallConvex : vmvnq_u32(mFallConvex);
+      }
+
+      inline uint32x4_t riseConvex() const { return mRiseConvex; }
+      inline uint32x4_t fallConvex() const { return mFallConvex; }
+      inline float32x4_t scale() const { return vdupq_n_f32(1) + mAmount * mDegree; }
+    };
+  }
+
   class Frequency {
     public:
       static inline Frequency riseFall(const float32x4_t _r, const float32x4_t _f) {
@@ -111,26 +138,45 @@ namespace osc {
       const uint32x4_t trig,
       const float32x4_t loop,
       const float32x4_t width,
-      const uint32x4_t inverted,
-      const float32x4_t bend
+      const shape::Bend& bend
     ) {
       auto p = vdupq_n_f32(phase) + delta * cScale;
       auto one = vdupq_n_f32(1);
+      auto zero = vdupq_n_f32(0);
 
-      auto falling    = vcgtq_f32(p, width);
+      auto falling    = vcgeq_f32(p, width);
       auto distance   = vabdq_f32(p, width);
       auto length     = one - width;
-      auto proportion = vminq_f32(distance * util::simd::invert(length), one);
+      auto x = distance * util::simd::invert(length);
 
-      auto bendScale = one + bend * vdupq_n_f32(4);
+      auto bendScale = bend.scale();
+      auto fallConvex = bend.fallConvex();
+      auto riseConvex = bend.riseConvex();
 
-      auto iprop = vbslq_f32(inverted, one - proportion, proportion);
-      iprop = util::simd::pow_f32(iprop, bendScale);
-      iprop = one - iprop;
-      iprop = util::simd::pow_f32(iprop, util::simd::invert(bendScale));
-      iprop = vbslq_f32(inverted, iprop, one - iprop);
+      // Convex Fall:
+      //   y = 1 - x^n
+      //
+      // Concave Fall:
+      //   y = (1 - x)^n
+      //
+      auto y = vbslq_f32(fallConvex, x, one - x);
+      y = util::simd::pow_unit_f32(y, bendScale);
+      y = vbslq_f32(fallConvex, one - y, y);
 
-      auto syncDelta  = distance + iprop * width;
+      // Convex Rise:
+      //   y = 1 - (1 - x)^n
+      //   x = 1 - (1 - y)^(1/n)
+      //
+      // Concave Rise:
+      //   y = x^n
+      //   x = y^(1/n)
+      //
+      x = vbslq_f32(riseConvex, one - y, y);
+      x = util::simd::pow_unit_f32(x, util::simd::invert(bendScale));
+      x = vbslq_f32(riseConvex, one - x, x);
+      x = one - x;  // Complement to get distance from center.
+
+      auto syncDelta  = distance + x * width;
 
       uint32_t _sync[4];
       vst1q_u32(_sync, trig);
@@ -146,7 +192,8 @@ namespace osc {
         _offset[i] = _o;
       }
 
-      p = p - vreinterpretq_f32_u32(vld1q_u32(_offset));
+      auto o = vreinterpretq_f32_u32(vld1q_u32(_offset));
+      p = p - o;
       auto isLoop = util::simd::cgtqz_f32(loop);
       p = vmlsq_f32(p, isLoop, util::simd::floor(p));
       p = vminq_f32(p, one);
@@ -215,43 +262,6 @@ namespace osc {
   };
 
   namespace shape {
-    enum BendMode {
-      BEND_NORMAL = 1,
-      BEND_INVERTED = 2
-    };
-
-    struct Bend {
-      float32x4_t mUp, mDown, mAmount;
-      uint32x4_t mInverted;
-
-      inline Bend(const float32x4_t up, const float32x4_t down) {
-        mUp = util::simd::clamp_unit(up);
-        mDown = util::simd::clamp_unit(down);
-        mInverted = vdupq_n_u32(0);
-      }
-
-      inline Bend(const BendMode mode, const float32x4_t bend) {
-        auto b = util::simd::clamp_unit(bend);
-        mUp = b;
-        mDown = mode == BEND_NORMAL ? b : vnegq_f32(b);
-        mAmount = vabdq_f32(bend, vdupq_n_f32(0));
-        mInverted = mode == BEND_NORMAL ? vdupq_n_u32(0) : vcgtq_f32(bend, vdupq_n_f32(0));
-      }
-
-      inline float32x4_t up()   const { return mUp; }
-      inline float32x4_t down() const { return mDown; }
-      inline uint32x4_t inverted() const { return mInverted; }
-      inline float32x4_t amount() const { return mAmount; }
-    };
-
-    enum FinShape {
-      FIN_SHAPE_EXP,
-      FIN_SHAPE_POW2,
-      FIN_SHAPE_POW3,
-      FIN_SHAPE_POW4
-    };
-
-    template <FinShape S>
     inline float32x4_t fin(
       const float32x4_t phase,
       const float32x4_t _width,
@@ -264,51 +274,34 @@ namespace osc {
       auto one   = vdupq_n_f32(1);
       auto width = vminq_f32(one - sp, vmaxq_f32(_width, sp));
 
-      auto rising  = vcaleq_f32(phase, width);
+      auto rising  = vcltq_f32(phase, width);
       auto falling = vmvnq_u32(rising);
 
       *eof = vcvtq_n_f32_u32(rising, 32);
       *eor = vcvtq_n_f32_u32(falling, 32);
 
-      auto select   = vbslq_f32(rising, bend.up(), bend.down());
-      auto inverted = vcgtq_f32(select, zero);
-      auto amount   = vabdq_f32(select, zero);
+      auto fallConvex = bend.fallConvex();
+      auto riseConvex = bend.riseConvex();
+
+      auto invertIn = vorrq_u32(
+        vandq_u32(rising, riseConvex),
+        vandq_u32(falling, vmvnq_u32(fallConvex))
+      );
+
+      auto invertOut = vorrq_u32(
+        vandq_u32(rising, riseConvex),
+        vandq_u32(falling, fallConvex)
+      );
 
       auto distance = vabdq_f32(phase, width);
       auto length   = vbslq_f32(rising, width, one - width);
-      auto linearc  = distance * util::simd::invert(length);
-      auto linear   = one - linearc;
 
-      auto x = vbslq_f32(inverted, linearc, linear);
-
-      // Any zero to one function will do.
-      float32x4_t shaped;
-      switch (S) {
-        case FIN_SHAPE_EXP: {
-          #define FIN_EXP_DEGREE 0.01
-          auto d  = vdupq_n_f32(FIN_EXP_DEGREE);
-          auto dl = vdupq_n_f32(logf(FIN_EXP_DEGREE));
-          auto xc = one - x;
-          shaped = vmlsq_f32(util::simd::exp_f32(dl * xc), d, xc);
-        } break;
-
-        case FIN_SHAPE_POW2:
-          shaped = x * x;
-          break;
-
-        case FIN_SHAPE_POW3:
-          shaped = x * x * x;
-          break;
-
-        case FIN_SHAPE_POW4: {
-          shaped = util::simd::pow_f32(x, one + amount * vdupq_n_f32(4));
-          //auto x2 = x * x;
-          //shaped = x2 * x2;
-        } break;
-      }
-
-      auto bent = vbslq_f32(inverted, one - shaped, shaped);
-      return bent;//util::simd::lerp(linear, bent, amount);
+      auto x = distance * util::simd::invert(length);
+      x = vbslq_f32(rising, one - x, x);
+      x = vbslq_f32(invertIn, one - x, x);
+      x = util::simd::pow_unit_f32(x, bend.scale());
+      x = vbslq_f32(invertOut, one - x, x);
+      return x;
     }
 
     inline float32x4_t triangle(
@@ -347,14 +340,13 @@ namespace osc {
   struct Fin {
     Phase phase;
 
-    template <shape::FinShape FS>
     inline float32x4_t process(
       const Frequency &freq,
       const shape::Bend &bend,
       const float32x4_t sync
     ) {
       float32x4_t eof, eor;
-      return shape::fin<FS>(
+      return shape::fin(
         phase.oscillator(freq.delta(), sync),
         freq.width(),
         bend,
@@ -451,7 +443,6 @@ namespace osc {
     inline float32x4_t eof() const { return mEof; }
     inline float32x4_t eor() const { return mEor; }
 
-    template <shape::FinShape FS>
     inline float32x4_t process(
       const Frequency& freq,
       const shape::Bend &bend,
@@ -459,16 +450,8 @@ namespace osc {
       const float32x4_t loop
     ) {
       auto width = freq.width();
-      return shape::fin<FS>(
-        phase.envelopeSoftSyncBend(freq.delta(), trig, loop, width, bend.inverted(), bend.amount()),
-        width,
-        bend,
-        &mEof,
-        &mEor
-      );
-
-      return shape::fin<FS>(
-        phase.envelopeSoftSync(freq.delta(), trig, loop, width),
+      return shape::fin(
+        phase.envelopeSoftSyncBend(freq.delta(), trig, loop, width, bend),
         width,
         bend,
         &mEof,

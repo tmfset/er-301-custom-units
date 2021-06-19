@@ -99,63 +99,95 @@ namespace util {
       return x;
     }
 
-    inline float32x4_t exp_f32(const float32x4_t _x) {
+    inline float32x4_t exp_f32(float32x4_t x) {
 #ifdef USE_SSE4
-    return simd_exp(_x);
+    return simd_exp(x);
 #else
-      auto x = _x;
-      x = vminq_f32(x, vdupq_n_f32(88.3762626647949f));
-      x = vmaxq_f32(x, vdupq_n_f32(-88.3762626647949f));
 
-      /* express exp(x) as exp(g + n*log(2)) */
-      auto fx = vmlaq_f32(vdupq_n_f32(0.5f), x, vdupq_n_f32(1.44269504088896341f));
+    #define c_exp_hi 88.3762626647949f
+    #define c_exp_lo -88.3762626647949f
 
-      /* perform a floorf */
-      auto tmp = vcvtq_f32_s32(vcvtq_s32_f32(fx));
+    #define c_cephes_LOG2EF 1.44269504088896341
+    #define c_cephes_exp_C1 0.693359375
+    #define c_cephes_exp_C2 -2.12194440e-4
 
-      /* if greater, substract 1 */
-      fx = tmp - vcvtq_n_f32_u32(vcgtq_f32(tmp, fx), 32);
+    #define c_cephes_exp_p0 1.9875691500E-4
+    #define c_cephes_exp_p1 1.3981999507E-3
+    #define c_cephes_exp_p2 8.3334519073E-3
+    #define c_cephes_exp_p3 4.1665795894E-2
+    #define c_cephes_exp_p4 1.6666665459E-1
+    #define c_cephes_exp_p5 5.0000001201E-1
 
-      x = vmlsq_f32(x, fx, vdupq_n_f32(0.69357156944f));
+    float32x4_t tmp, fx;
 
+    float32x4_t one = vdupq_n_f32(1);
+    x = vminq_f32(x, vdupq_n_f32(c_exp_hi));
+    x = vmaxq_f32(x, vdupq_n_f32(c_exp_lo));
 
-      static const float c[6] = {
-        5.0000001201E-1f,
-        1.6666665459E-1f,
-        4.1665795894E-2f,
-        8.3334519073E-3f,
-        1.3981999507E-3f,
-        1.9875691500E-4f
-      };
+    /* express exp(x) as exp(g + n*log(2)) */
+    fx = vmlaq_f32(vdupq_n_f32(0.5f), x, vdupq_n_f32(c_cephes_LOG2EF));
 
-      auto x2 = x * x;
-      auto x3 = x2 * x;
-      auto x4 = x2 * x2;
-      auto x5 = x2 * x3;
+    /* perform a floorf */
+    tmp = vcvtq_f32_s32(vcvtq_s32_f32(fx));
 
-      auto y = vld1q_dup_f32(c + 0);
-      y += vld1q_dup_f32(c + 1) * x;
-      y += vld1q_dup_f32(c + 2) * x2;
-      y += vld1q_dup_f32(c + 3) * x3;
-      y += vld1q_dup_f32(c + 4) * x4;
-      y += vld1q_dup_f32(c + 5) * x5;
+    /* if greater, substract 1 */
+    uint32x4_t mask = vcgtq_f32(tmp, fx);
+    mask = vandq_u32(mask, vreinterpretq_u32_f32(one));
 
-      y = vmlaq_f32(x, y, x2);
+    fx = vsubq_f32(tmp, vreinterpretq_f32_u32(mask));
 
-      /* build 2^n */
-      auto mm = vaddq_s32(vcvtq_s32_f32(fx), vdupq_n_s32(0x7f));
-      auto pow2n = vreinterpretq_f32_s32(vshlq_n_s32(mm, 23));
+    tmp = vmulq_f32(fx, vdupq_n_f32(c_cephes_exp_C1));
+    float32x4_t z = vmulq_f32(fx, vdupq_n_f32(c_cephes_exp_C2));
+    x = vsubq_f32(x, tmp);
+    x = vsubq_f32(x, z);
 
-      y = vmlaq_f32(pow2n, pow2n, y);
+    float32x4_t y = vdupq_n_f32(c_cephes_exp_p0);
+    float32x4_t c1 = vdupq_n_f32(c_cephes_exp_p1);
+    float32x4_t c2 = vdupq_n_f32(c_cephes_exp_p2);
+    float32x4_t c3 = vdupq_n_f32(c_cephes_exp_p3);
+    float32x4_t c4 = vdupq_n_f32(c_cephes_exp_p4);
+    float32x4_t c5 = vdupq_n_f32(c_cephes_exp_p5);
 
-      return y;
+    y = vmulq_f32(y, x);
+    z = vmulq_f32(x, x);
+    y = vaddq_f32(y, c1);
+    y = vmulq_f32(y, x);
+    y = vaddq_f32(y, c2);
+    y = vmulq_f32(y, x);
+    y = vaddq_f32(y, c3);
+    y = vmulq_f32(y, x);
+    y = vaddq_f32(y, c4);
+    y = vmulq_f32(y, x);
+    y = vaddq_f32(y, c5);
+
+    y = vmulq_f32(y, z); // here
+    y = vaddq_f32(y, x);
+    y = vaddq_f32(y, one);
+
+    /* build 2^n */
+    int32x4_t mm;
+    mm = vcvtq_s32_f32(fx);
+    mm = vaddq_s32(mm, vdupq_n_s32(0x7f));
+    mm = vshlq_n_s32(mm, 23);
+
+    float32x4_t pow2n = vreinterpretq_f32_s32(mm);
+
+    y = vmulq_f32(y, pow2n);
+
+    return y;
 #endif
     }
 
-    inline float32x4_t pow_f32(float32x4_t x, float32x4_t m) {
-      auto c = vcltq_f32(x, vdupq_n_f32(0.000001));
-      auto _x = vbslq_f32(c, vdupq_n_f32(0), log_f32(x));
-      return exp_f32(m * _x);
+    inline float32x4_t pow_unit_f32(float32x4_t x, float32x4_t m) {
+      auto zero = vdupq_n_f32(0);
+      auto one = vdupq_n_f32(1);
+      auto cz = vceqq_f32(x, zero);
+      auto p = exp_f32(m * log_f32(x));
+      return vbslq_f32(
+        vcleq_f32(x, zero),
+        zero,
+        vmaxq_f32(zero, vminq_f32(one, p))
+      );
     }
 
     inline float32x4_t invert(const float32x4_t x) {
@@ -467,7 +499,7 @@ namespace util {
       vst1q_f32(ptr + 12, vcombine_f32(vget_high_f32(ab.val[1]), vget_high_f32(cd.val[1])));
     }
 
-    inline void print_f32(const float32x4_t x) {
+    inline void print_f32(const float32x4_t x, bool newline = false) {
       static int count = 0;
       count++;
       if (count > 4000) return;
@@ -478,6 +510,14 @@ namespace util {
         vgetq_lane_f32(x, 2),
         vgetq_lane_f32(x, 3)
       );
+
+      if (newline) {
+        logRaw("\n");
+      }
+    }
+
+    inline void print_newline() {
+      logRaw("\n");
     }
 
     inline void print(const float32x2_t x) {
