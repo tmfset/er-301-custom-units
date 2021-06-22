@@ -56,7 +56,7 @@ namespace strike {
 
           auto f = osc::Frequency::riseFall( _rise, _fall);
           auto b = osc::shape::Bend { bendMode, _bend, vdupq_n_f32(3) };
-          vst1q_f32(out + i, mEnvelope.process(f, b, _in, _loop) * _height);
+          vst1q_f32(out + i, mEnvelope.process2(f, b, _in, _loop) * _height);
 
           vst1q_f32(eof + i, mEnvelope.eof());
           vst1q_f32(eor + i, mEnvelope.eor());

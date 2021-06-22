@@ -80,8 +80,8 @@ namespace strike {
             vld1q_f32(fall + i)
           );
 
-          const osc::shape::Bend b { bendMode, vld1q_f32(bend + i), vdupq_n_f32(4) };
-          auto e = mEnvelope.process(f, b,
+          const osc::shape::Bend b { bendMode, vld1q_f32(bend + i), vdupq_n_f32(3) };
+          auto e = mEnvelope.process2(f, b,
             vcgtq_f32(vld1q_f32(trig + i), vdupq_n_f32(0)),
             vld1q_f32(loop + i));
 

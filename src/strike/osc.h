@@ -140,18 +140,14 @@ namespace osc {
       const float32x4_t width,
       const shape::Bend& bend
     ) {
-      auto p = vdupq_n_f32(phase) + delta * cScale;
       auto one = vdupq_n_f32(1);
-      auto zero = vdupq_n_f32(0);
 
-      auto falling    = vcgeq_f32(p, width);
-      auto distance   = vabdq_f32(p, width);
-      auto length     = one - width;
-      auto x = distance * util::simd::invert(length);
-
+      auto p         = vdupq_n_f32(phase) + delta * cScale;
+      auto falling   = vcgeq_f32(p, width);
+      auto distance  = vabdq_f32(p, width);
+      auto length    = one - width;
+      auto x         = distance * util::simd::invert(length);
       auto bendScale = bend.scale();
-      auto fallConvex = bend.fallConvex();
-      auto riseConvex = bend.riseConvex();
 
       // Convex Fall:
       //   y = 1 - x^n
@@ -159,6 +155,7 @@ namespace osc {
       // Concave Fall:
       //   y = (1 - x)^n
       //
+      auto fallConvex = bend.fallConvex();
       auto y = vbslq_f32(fallConvex, x, one - x);
       y = util::simd::pow_unit_f32(y, bendScale);
       y = vbslq_f32(fallConvex, one - y, y);
@@ -171,12 +168,13 @@ namespace osc {
       //   y = x^n
       //   x = y^(1/n)
       //
+      auto riseConvex = bend.riseConvex();
       x = vbslq_f32(riseConvex, one - y, y);
       x = util::simd::pow_unit_f32(x, util::simd::invert(bendScale));
       x = vbslq_f32(riseConvex, one - x, x);
       x = one - x;  // Complement to get distance from center.
 
-      auto syncDelta  = distance + x * width;
+      auto syncDelta = distance + x * width;
 
       uint32_t _sync[4];
       vst1q_u32(_sync, trig);
@@ -270,7 +268,6 @@ namespace osc {
       float32x4_t *eor
     ) {
       auto sp    = vdupq_n_f32(globalConfig.samplePeriod);
-      auto zero  = vdupq_n_f32(0);
       auto one   = vdupq_n_f32(1);
       auto width = vminq_f32(one - sp, vmaxq_f32(_width, sp));
 
@@ -283,15 +280,8 @@ namespace osc {
       auto fallConvex = bend.fallConvex();
       auto riseConvex = bend.riseConvex();
 
-      auto invertIn = vorrq_u32(
-        vandq_u32(rising, riseConvex),
-        vandq_u32(falling, vmvnq_u32(fallConvex))
-      );
-
-      auto invertOut = vorrq_u32(
-        vandq_u32(rising, riseConvex),
-        vandq_u32(falling, fallConvex)
-      );
+      auto invertIn = vbslq_u32(rising, riseConvex, vmvnq_u32(fallConvex));
+      auto invertOut = vbslq_u32(rising, riseConvex, fallConvex);
 
       auto distance = vabdq_f32(phase, width);
       auto length   = vbslq_f32(rising, width, one - width);
@@ -437,26 +427,101 @@ namespace osc {
   };
 
   struct AD {
-    Phase phase;
+    //Phase phase;
     float32x4_t mEof, mEor;
 
     inline float32x4_t eof() const { return mEof; }
     inline float32x4_t eor() const { return mEor; }
 
-    inline float32x4_t process(
+    // inline float32x4_t process(
+    //   const Frequency& freq,
+    //   const shape::Bend &bend,
+    //   const uint32x4_t trig,
+    //   const float32x4_t loop
+    // ) {
+    //   auto width = freq.width();
+    //   return shape::fin(
+    //     phase.envelopeSoftSyncBend(freq.delta(), trig, loop, width, bend),
+    //     width,
+    //     bend,
+    //     &mEof,
+    //     &mEor
+    //   );
+    // }
+
+    float mPhase = 1.0f;
+    util::Latch mTrigger;
+    const float32x4_t cScale = util::simd::makeq_f32(1, 2, 3, 4);
+
+    inline float32x4_t process2(
       const Frequency& freq,
       const shape::Bend &bend,
       const uint32x4_t trig,
       const float32x4_t loop
     ) {
+      auto one = vdupq_n_f32(1);
+      auto zero = vdupq_n_f32(0);
+
+      auto delta = freq.delta();
       auto width = freq.width();
-      return shape::fin(
-        phase.envelopeSoftSyncBend(freq.delta(), trig, loop, width, bend),
-        width,
-        bend,
-        &mEof,
-        &mEor
-      );
+      auto phase  = vdupq_n_f32(mPhase) + delta * cScale;
+
+      auto rising   = vcltq_f32(phase, width);
+      auto distance = vabdq_f32(phase, width);
+      auto length   = vbslq_f32(rising, width, one - width);
+
+      auto convexRise = bend.riseConvex();
+      auto convexFall = bend.fallConvex();
+      auto scale = bend.scale();
+
+      auto inC  = vbslq_u32(rising, convexRise, vmvnq_u32(convexFall));
+      auto outC = vbslq_u32(rising, convexRise, convexFall);
+
+      auto y = distance * util::simd::invert(length);
+      y = vbslq_f32(rising, one - y, y);
+      y = vbslq_f32(inC, one - y, y);
+      y = util::simd::pow_unit_f32(y, scale);
+      y = vbslq_f32(outC, one - y, y);
+
+      inC  = vbslq_u32(rising, vmvnq_u32(convexFall), convexRise);
+      outC = vbslq_u32(rising, convexFall, convexRise);
+
+      auto x = vbslq_f32(outC, one - y, y);
+      auto x2 = x;
+      x = util::simd::pow_unit_f32(x, util::simd::invert(scale));
+      x = vbslq_f32(inC, one - x, x);
+      
+      x = one - x;
+
+      auto direction = vbslq_f32(rising, vdupq_n_f32(1), vdupq_n_f32(-1));
+      auto syncDelta = (distance + x * (one - length)) * direction;
+
+      uint32_t _sync[4], _syncDelta[4], _falling[4];
+      vst1q_u32(_sync, trig);
+      vst1q_u32(_syncDelta, vreinterpretq_u32_f32(syncDelta));
+      vst1q_u32(_falling, vmvnq_u32(rising));
+
+      uint32_t _offset[4], _o = 0;
+      for (int i = 0; i < 4; i++) {
+        auto doSync = _falling[i] & mTrigger.read(_sync[i]);
+        if (doSync) { _o = _syncDelta[i]; }
+        _offset[i] = _o;
+      }
+
+      auto o = vreinterpretq_f32_u32(vld1q_u32(_offset));
+      phase = vmaxq_f32(phase + o, vdupq_n_f32(0));
+
+      auto isLoop = util::simd::cgtqz_f32(loop);
+      phase = vmlsq_f32(phase, isLoop, util::simd::floor(phase));
+      phase = vminq_f32(phase, one);
+      mPhase = vgetq_lane_f32(phase, 3);
+
+      mEof = vcvtq_n_f32_u32(vcltq_f32(phase, width), 32);
+      mEor = vcvtq_n_f32_u32(vcgeq_f32(phase, width), 32);
+
+      auto out = y;//vbslq_f32(vcgtq_f32(o, zero), x2, y);
+
+      return out;
     }
   };
 }
