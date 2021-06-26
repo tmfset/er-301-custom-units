@@ -185,7 +185,6 @@ namespace util {
     inline float32x4_t pow_unit_f32(float32x4_t x, float32x4_t m) {
       auto zero = vdupq_n_f32(0);
       auto one = vdupq_n_f32(1);
-      auto cz = vceqq_f32(x, zero);
       auto p = exp_f32(m * log_f32(x));
       return vbslq_f32(
         vcleq_f32(x, zero),

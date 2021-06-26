@@ -4,10 +4,12 @@ local Class = require "Base.Class"
 local Encoder = require "Encoder"
 local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
+local Fader = require "Unit.ViewControl.Fader"
 local Gate = require "Unit.ViewControl.Gate"
 local OutputScope = require "Unit.ViewControl.OutputScope"
 local OptionControl = require "Unit.MenuControl.OptionControl"
 local Pitch = require "Unit.ViewControl.Pitch"
+local SidechainMeter = require "strike.SidechainMeter"
 
 local CPR = Class {}
 CPR:include(Unit)
@@ -36,13 +38,13 @@ function CPR.addGainBiasControlNoBranch(self, name)
 end
 
 function CPR.addGainBiasControl(self, name)
-  local gb = self:addGainBiasControlNoBranch(name);
+  local gb = self:addGainBiasControlNoBranch(name)
   self:addMonoBranch(name, gb, "In", gb, "Out")
   return gb;
 end
 
 function CPR.addConstantOffsetControl(self, name)
-  local co    = self:addObject(name, app.ConstantOffset());
+  local co    = self:addObject(name, app.ConstantOffset())
   local range = self:addObject(name.."Range", app.MinMax())
   connect(co, "Out", range, "In")
   self:addMonoBranch(name, co, "In", co, "Out")
@@ -56,90 +58,75 @@ function CPR.linMap(min, max, superCoarse, coarse, fine, superFine)
 end
 
 function CPR:onLoadGraph(channelCount)
-  local stereo = channelCount > 1
-
-  local sidechain = self:addGainBiasControl("sidechain")
-  local threshold = self:addGainBiasControl("threshold")
-  local ratio     = self:addGainBiasControlNoBranch("ratio")
-  local gain      = self:addGainBiasControl("gain")
-  local rise      = self:addGainBiasControlNoBranch("rise")
-  local fall      = self:addGainBiasControlNoBranch("fall")
-
-  local op = self:addObject("op", strike.CPR(stereo))
-  connect(threshold, "Out", op, "Threshold")
-  connect(ratio,     "Out", op, "Ratio")
-  connect(rise,      "Out", op, "Rise")
-  connect(fall,      "Out", op, "Fall")
-  connect(gain,      "Out", op, "Gain")
+  local op = self:addObject("op", strike.CPR())
 
   for i = 1, channelCount do
     connect(self, "In"..i, op, "In"..i)
     connect(op,   "Out"..i, self, "Out"..i)
   end
 
-  self:addMonoBranch("ratio", ratio, "In", self.objects.op, "Follow")
-  self:addMonoBranch("rise", rise, "In", self.objects.op, "EOF")
-  self:addMonoBranch("fall", fall, "In", self.objects.op, "EOR")
+  local monitor = self:addObject("monitor", app.Monitor());
+  connect(monitor, "Out", op, "Sidechain")
+  self:addMonoBranch("sidechain", monitor, "In", monitor, "Out")
+  -- self:addMonoBranch("ratio", ratio, "In", op, "Reduction")
+  -- self:addMonoBranch("rise", rise, "In", op, "EOF")
+  -- self:addMonoBranch("fall", fall, "In", op, "EOR")
+end
+
+function CPR.defaultDecibelMap()
+  local map = app.LinearDialMap(-60, 12)
+  map:setZero(0)
+  map:setSteps(6, 1, 0.1, 0.01);
+  return map
 end
 
 function CPR:onLoadViews()
   return {
-    rise = GainBias {
+    input = SidechainMeter {
+      button       = "input",
+      branch       = self.branches.sidechain,
+      compressor   = self.objects.op,
+      channelCount = self.channelCount,
+      map          = self.defaultDecibelMap(),
+      units        = app.unitDecibels,
+      scaling      = app.linearScaling
+    },
+    rise = Fader {
       button      = "rise",
-      branch      = self.branches.rise,
       description = "Rise Time",
-      gainbias    = self.objects.rise,
-      range       = self.objects.riseRange,
-      biasMap     = self.linMap(0, 10, 0.1, 0.01, 0.001, 0.001),
-      biasUnits   = app.unitSecs,
-      initialBias = 0.005
+      param       = self.objects.op:getParameter("Rise"),
+      map         = self.linMap(0, 10, 0.1, 0.01, 0.001, 0.001),
+      units       = app.unitSecs
     },
-    fall = GainBias {
+    fall = Fader {
       button      = "fall",
-      branch      = self.branches.fall,
       description = "Fall Time",
-      gainbias    = self.objects.fall,
-      range       = self.objects.fallRange,
-      biasMap     = self.linMap(0, 10, 0.1, 0.01, 0.001, 0.001),
-      biasUnits   = app.unitSecs,
-      initialBias = 0.500
+      param       = self.objects.op:getParameter("Fall"),
+      map         = self.linMap(0, 10, 0.1, 0.01, 0.001, 0.001),
+      units       = app.unitSecs
     },
-    threshold = GainBias {
-      button        = "threshold",
+    threshold = Fader {
+      button        = "thresh",
       description   = "Threshold",
-      branch        = self.branches.threshold,
-      gainbias      = self.objects.threshold,
-      range         = self.objects.thresholdRange,
-      biasMap       = Encoder.getMap("[0,1]"),
-      gainMap       = Encoder.getMap("[0,1]"),
-      biasPrecision = 3,
-      initialBias   = 0.5
+      param         = self.objects.op:getParameter("Threshold"),
+      map           = self.defaultDecibelMap(),
+      units         = app.unitDecibels
     },
-    ratio = GainBias {
-      button        = "ratio",
-      description   = "Ratio",
-      branch        = self.branches.ratio,
-      gainbias      = self.objects.ratio,
-      range         = self.objects.ratioRange,
-      biasMap       = Encoder.getMap("[0,10]"),
-      gainMap       = Encoder.getMap("[-10,10]"),
-      biasPrecision = 3,
-      initialBias   = 1
+    ratio = Fader {
+      button       = "ratio",
+      description  = "Ratio",
+      param        = self.objects.op:getParameter("Ratio"),
+      map          = Encoder.getMap("[0,10]")
     },
-    gain = GainBias {
-      button        = "gain",
-      description   = "Input Gain",
-      branch        = self.branches.gain,
-      gainbias      = self.objects.gain,
-      range         = self.objects.gainRange,
-      biasMap       = Encoder.getMap("[-10,10]"),
-      gainMap       = Encoder.getMap("[-10,10]"),
-      biasUnits     = app.unitNone,
-      biasPrecision = 2,
-      initialBias   = 1
+    output = Fader {
+      button        = "output",
+      description   = "Output Gain",
+      param         = self.objects.op:getParameter("Output Gain"),
+      map           = self.defaultDecibelMap(),
+      units         = app.unitDecibels
     }
   }, {
-    expanded  = { "threshold", "ratio", "rise", "fall", "gain" },
+    expanded  = { "input", "output", "threshold", "ratio", "rise", "fall" },
     collapsed = {}
   }
 end

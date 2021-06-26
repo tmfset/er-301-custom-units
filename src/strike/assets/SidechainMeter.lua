@@ -2,6 +2,7 @@ local app = app
 local Class = require "Base.Class"
 local Base = require "Unit.ViewControl.EncoderControl"
 local Encoder = require "Encoder"
+local ply = app.SECTION_PLY
 
 local SidechainMeter = Class {
   type = "Meter",
@@ -16,32 +17,34 @@ function SidechainMeter:init(args)
   local button = args.button or app.logError("%s.init: button is missing.", self)
   self:setInstanceName(button)
   local branch = args.branch or app.logError("%s.init: branch is missing.", self)
-  local faderParam = args.faderParam or
-                         app.logError("%s.init: faderParam is missing.", self)
-  -- optional arguments
-  self:setDefaults(args)
-  local map = args.map
-  local units = args.units
-  local scaling = args.scaling
+  local compressor = args.compressor or app.logError("%s.init: compressor is missing.", self)
+  local channelCount = args.channelCount or app.logError("%s.init: channelCount is missing.", self)
 
-  faderParam:enableSerialization()
+  local defaults = {
+    map = args.map or app.logError("%s.init: map is missing.", self),
+    units = args.units or app.logError("%s.init: units is missing.", self),
+    scaling = args.scaling or app.logError("%s.init: scaling is missing.", self)
+  }
+
+  self.defaults = defaults
 
   self.branch = branch
-  local graphic
-  local ply = app.SECTION_PLY
+  self.compressor = compressor
+  self.channelCount = channelCount
 
-  graphic = app.Fader(0, 0, ply, 64)
-  graphic:setParameter(faderParam)
-  graphic:setLabel(button)
-  graphic:setAttributes(units, map, scaling)
-  if units == app.unitDecibels then
-    graphic:setTextBelow(-59, "-inf dB")
-    graphic:setPrecision(1)
-  end
-  self.fader = graphic
-  self:setMainCursorController(graphic)
-  self:setControlGraphic(graphic)
-  self:addSpotDescriptor{
+  self.fader = (function ()
+    local fader = app.Fader(0, 0, ply, 64)
+    fader:setParameter(compressor:getParameter("Input Gain"))
+    fader:setLabel(button)
+    fader:setAttributes(defaults.units, defaults.map, defaults.scaling)
+    fader:setTextBelow(-59, "-inf dB")
+    fader:setPrecision(1)
+    return fader
+  end)()
+
+  self:setMainCursorController(self.fader)
+  self:setControlGraphic(self.fader)
+  self:addSpotDescriptor {
     center = 0.5 * ply
   }
 
@@ -54,19 +57,14 @@ function SidechainMeter:init(args)
   self.scope:setCornerRadius(3, 3, 3, 3)
   graphic:addChild(self.scope)
 
-  self.subButton1 = app.SubButton("empty", 1)
+  self.subButton1 = app.SubButton("sidechain", 1)
   graphic:addChild(self.subButton1)
 
-  self.subButton2 = app.TextPanel("Solo", 2, 0.25)
-  self.soloIndicator = app.BinaryIndicator(0, 24, ply, 32)
-  self.subButton2:setLeftBorder(0)
-  self.subButton2:addChild(self.soloIndicator)
-  graphic:addChild(self.subButton2)
-
-  self.subButton3 = app.TextPanel("Mute", 3, 0.25)
-  self.muteIndicator = app.BinaryIndicator(0, 24, ply, 32)
-  self.subButton3:addChild(self.muteIndicator)
-  graphic:addChild(self.subButton3)
+  self.enableButton = app.TextPanel("Enable", 2, 0.25)
+  self.enableIndicator = app.BinaryIndicator(0, 24, ply, 32)
+  self.enableButton:setLeftBorder(0)
+  self.enableButton:addChild(self.enableIndicator)
+  graphic:addChild(self.enableButton)
 
   branch:subscribe("contentChanged", self)
 end
@@ -76,19 +74,9 @@ function SidechainMeter:onRemove()
   Base.onRemove(self)
 end
 
-function SidechainMeter:setDefaults(args)
-  if args.map == nil then args.map = Encoder.getMap("volume") end
-  if args.units == nil then args.units = app.unitDecibels end
-  if args.scaling == nil then args.scaling = app.linearScaling end
-  self.defaults = args
-end
-
-function SidechainMeter:getDefaults()
-  return self.defaults
-end
-
 function SidechainMeter:getPinControl()
   local Fader = require "PinView.Fader"
+
   local control = Fader {
     delegate = self,
     name = self.fader:getLabel(),
@@ -98,9 +86,10 @@ function SidechainMeter:getPinControl()
     map = self.defaults.map,
     scaling = self.defaults.scaling,
     precision = 1,
-    leftOutlet = self.branch:getMonitoringOutput(1),
-    rightOutlet = self.branch:getMonitoringOutput(2)
+    leftOutlet = self:getLeftWatch(),
+    rightOutlet = self:getRightWatch()
   }
+
   return control
 end
 
@@ -118,12 +107,8 @@ function SidechainMeter:createPinMark()
   self.pinMark = graphic
 end
 
-function SidechainMeter:mute()
-  self:callUp("muteControl", self)
-end
-
-function SidechainMeter:solo()
-  self:callUp("soloControl", self)
+function SidechainMeter:isSidechainEnabled()
+  return self.compressor:isSidechainEnabled()
 end
 
 function SidechainMeter:isMuted()
@@ -134,83 +119,40 @@ function SidechainMeter:isSolo()
   return self.soloIndicator:value()
 end
 
-function SidechainMeter:onMuteStateChanged(muted, solo)
-  local branch = self.branch
-  if muted then
-    self.muteIndicator:on()
-    if solo == self then
-      self.soloIndicator:on()
-      self.fader:ungrayed()
-      branch:unmute()
-    else
-      self.soloIndicator:off()
-      self.fader:grayed()
-      branch:mute()
-    end
-  else
-    self.muteIndicator:off()
-    if solo == self then
-      self.soloIndicator:on()
-      self.fader:ungrayed()
-      branch:unmute()
-    elseif solo then
-      self.soloIndicator:off()
-      self.fader:grayed()
-      branch:mute()
-    else
-      self.soloIndicator:off()
-      self.fader:ungrayed()
-      branch:unmute()
-    end
+function SidechainMeter:getLeftWatch()
+  return self.compressor:getOutput("Left In Post Gain")
+end
+
+function SidechainMeter:getRightWatch()
+  if self.channelCount < 2  or self.compressor:isSidechainEnabled() then
+    return nil
   end
+
+  return self.compressor:getOutput("Right In Post Gain")
+end
+
+function SidechainMeter:updateViewState()
+  if self.compressor:isSidechainEnabled() then
+    self.enableIndicator:on()
+  else
+    self.enableIndicator:off()
+  end
+
+  self.fader:watchOutlets(self:getLeftWatch(), self:getRightWatch())
 end
 
 function SidechainMeter:onInsert()
-  local branch = self.branch
-  if branch then
-    if branch.channelCount < 2 then
-      local left = branch:getMonitoringOutput(1)
-      self.fader:watchOutlets(left, nil)
-    else
-      local left = branch:getMonitoringOutput(1)
-      local right = branch:getMonitoringOutput(2)
-      self.fader:watchOutlets(left, right)
-    end
-    self.subButton1:setText(branch:mnemonic())
-  end
+  self:updateViewState()
 end
 
 function SidechainMeter:contentChanged(chain)
   if chain == self.branch then
-    if chain.channelCount < 2 then
-      local left = chain:getMonitoringOutput(1)
-      self.fader:watchOutlets(left, nil)
-      self.scope:watchOutlet(left)
-    else
-      local left = chain:getMonitoringOutput(1)
-      local right = chain:getMonitoringOutput(2)
-      self.fader:watchOutlets(left, right)
-      local Channels = require "Channels"
-      if Channels.isRight() then
-        self.scope:watchOutlet(right)
-      else
-        self.scope:watchOutlet(left)
-      end
-    end
-    self.subButton1:setText(chain:mnemonic())
+    self.scope:watchOutlet(chain:getMonitoringOutput(1))
   end
 end
 
-------------------------------------------
-
 function SidechainMeter:selectReleased(i, shifted)
-  local branch = self.branch
-  if branch then
-    local Channels = require "Channels"
-    local side = Channels.getSide(i)
-    local outlet = branch:getMonitoringOutput(side)
-    if outlet then self.scope:watchOutlet(outlet) end
-  end
+  self:updateViewState()
   return true
 end
 
@@ -229,23 +171,16 @@ function SidechainMeter:onFocused()
 end
 
 function SidechainMeter:subReleased(i, shifted)
-  if shifted then
-    return false
-  else
-    if i == 1 then
-      local branch = self.branch
-      if branch then
-        self:unfocus()
-        branch:show()
-      end
-    elseif i == 2 then
-      -- solo
-      self:callUp("toggleSoloOnControl", self)
-    elseif i == 3 then
-      -- mute
-      self:callUp("toggleMuteOnControl", self)
-    end
+  if shifted then return false end
+
+  if i == 1 then
+    self:unfocus()
+    self.branch:show()
+  elseif i == 2 then
+    self.compressor:toggleSidechainEnabled()
+    self:updateViewState()
   end
+
   return true
 end
 

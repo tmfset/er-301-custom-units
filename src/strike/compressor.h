@@ -4,15 +4,14 @@
 
 namespace compressor {
   struct Slew {
-    inline float32x4_t process(
-      uint32x4_t rising,
-      float32x4_t rise,
-      float32x4_t fall
-    ) {
+    inline void setRiseFall(float32x4_t rise, float32x4_t fall) {
       auto sp = vdupq_n_f32(globalConfig.samplePeriod);
-      auto delta = vbslq_f32(rising, rise, vnegq_f32(fall));
-      delta = sp * util::simd::invert(delta);
+      mRiseDelta = sp * util::simd::invert(rise);
+      mFallDelta = vnegq_f32(sp * util::simd::invert(fall));
+    }
 
+    inline float32x4_t process(uint32x4_t rising) {
+      auto delta = vbslq_f32(rising, mRiseDelta, mFallDelta);
       float _out[4], _o = mValue;
       vst1q_f32(_out, delta);
       for (int i = 0; i < 4; i++) {
@@ -27,53 +26,46 @@ namespace compressor {
     }
 
     float mValue = 0;
+    float32x4_t mRiseDelta;
+    float32x4_t mFallDelta;
   };
 
   struct Compressor {
-    template <int CC>
-    inline float32x4_t excite(
-      float32x4_t *signals
-    ) {
-      auto zero = vdupq_n_f32(0);
-      auto output = vabdq_f32(signals[0], zero);
-      for (int i = 1; i < CC; i++) {
-        output = vmaxq_f32(
-          output,
-          vabdq_f32(signals[i], zero)
-        );
-      }
-      return output;
+
+    inline void setRiseFall(float32x4_t rise, float32x4_t fall) {
+      mSlew.setRiseFall(rise, fall);
     }
 
-    inline void process(
-      float32x4_t excite,
-      float32x4_t threshold,
-      float32x4_t ratio,
-      float32x4_t rise,
-      float32x4_t fall
-    ) {
-      auto zero = vdupq_n_f32(0);
-      auto one = vdupq_n_f32(1);
+    inline void setThresholdRatio(float32x4_t threshold, float32x4_t ratio, uint32x4_t enableMakeupGain) {
+      mThresholdDb = util::simd::toDecibels(threshold);
+      mRatioIMinusOne = util::simd::invert(ratio) - vdupq_n_f32(1);
 
+      auto over = vmaxq_f32(vdupq_n_f32(0) - mThresholdDb, vdupq_n_f32(0));
+      mMakeupGain = util::simd::invert(util::simd::fromDecibels(over * mRatioIMinusOne));
+      mMakeupGain = vbslq_f32(enableMakeupGain, mMakeupGain, vdupq_n_f32(1));
+    }
+
+    inline void excite(float32x4_t excite) {
       auto exciteDb = util::simd::toDecibels(excite);
-      auto thresholdDb = util::simd::toDecibels(threshold);
 
-      mActive = vcgtq_f32(exciteDb, thresholdDb);
-      auto over = vmaxq_f32(exciteDb - thresholdDb, zero);
-      mAmount = mSlew.process(mActive, rise, fall);
-      auto ratioI = util::simd::invert(ratio);
-      mReduction = util::simd::fromDecibels(over * mAmount * (ratioI - one));
+      mActive = vcgtq_f32(exciteDb, mThresholdDb);
+      mSlewAmount = mSlew.process(mActive);
+
+      auto over = vmaxq_f32(exciteDb - mThresholdDb, vdupq_n_f32(0));
+      mReductionAmount = util::simd::fromDecibels(over * mSlewAmount * mRatioIMinusOne);
     }
 
-    inline float32x4_t compress(
-      float32x4_t signal
-    ) {
-      return signal * mReduction;
+    inline float32x4_t compress(float32x4_t signal) {
+      return signal * mReductionAmount;
     }
 
-    uint32x4_t mActive;
-    float32x4_t mAmount;
-    float32x4_t mReduction;
+    uint32x4_t  mActive;
+    float32x4_t mThresholdDb;
+    float32x4_t mRatioIMinusOne;
+    float32x4_t mMakeupGain;
+    float32x4_t mSlewAmount;
+    float32x4_t mReductionAmount;
+
     Slew mSlew;
   };
 }
