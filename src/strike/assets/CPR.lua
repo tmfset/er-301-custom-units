@@ -11,6 +11,7 @@ local OptionControl = require "Unit.MenuControl.OptionControl"
 local Pitch = require "Unit.ViewControl.Pitch"
 local SidechainMeter = require "strike.SidechainMeter"
 local OutputMeter = require "strike.OutputMeter"
+local LoudnessScope = require "strike.LoudnessScope"
 
 local CPR = Class {}
 CPR:include(Unit)
@@ -93,6 +94,11 @@ function CPR:onLoadViews()
       units        = app.unitDecibels,
       scaling      = app.linearScaling
     },
+    scope = LoudnessScope {
+      width = app.SECTION_PLY * 2,
+      loudness = self.objects.op:getOutput("Loudness"),
+      reduction = self.objects.op:getOutput("Reduction")
+    },
     rise = Fader {
       button      = "rise",
       description = "Rise Time",
@@ -130,7 +136,7 @@ function CPR:onLoadViews()
       scaling      = app.linearScaling
     }
   }, {
-    expanded  = { "input", "output", "threshold", "ratio", "rise", "fall" },
+    expanded  = { "input", "scope", "output", "threshold", "ratio", "rise", "fall" },
     collapsed = {}
   }
 end

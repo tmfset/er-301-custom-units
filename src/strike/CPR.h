@@ -6,6 +6,7 @@
 #include <vector>
 #include <util.h>
 #include <compressor.h>
+#include <filter.h>
 
 namespace strike {
   class CPR : public od::Object {
@@ -19,6 +20,7 @@ namespace strike {
         addOutput(mOutLeft);
         addOutput(mOutRight);
         addOutput(mSlew);
+        addOutput(mLoudness);
         addOutput(mReduction);
         addOutput(mEOF);
         addOutput(mEOR);
@@ -49,6 +51,7 @@ namespace strike {
         float *outLeft      = mOutLeft.buffer();
         float *outRight     = mOutRight.buffer();
         float *slew         = mSlew.buffer();
+        float *loudness     = mLoudness.buffer();
         float *reduction    = mReduction.buffer();
         float *eof          = mEOF.buffer();
         float *eor          = mEOR.buffer();
@@ -79,10 +82,12 @@ namespace strike {
           vst1q_f32(inLeftPGain + i, _exciteLeft);
           vst1q_f32(inRightPGain + i, _exciteRight);
 
-          mCompressor.excite(_excite);
+          auto _exciteFiltered = mExciteFilter.process(_excite);
+          mCompressor.excite(_exciteFiltered);
           vst1q_f32(eof + i, vcvtq_n_f32_u32(mCompressor.mActive, 32));
           vst1q_f32(eor + i, vcvtq_n_f32_u32(vmvnq_u32(mCompressor.mActive), 32));
           vst1q_f32(slew + i, mCompressor.mSlewAmount);
+          vst1q_f32(loudness + i, mCompressor.mLoudness);
           vst1q_f32(reduction + i, mCompressor.mReductionAmount);
 
           auto _outputGain = outputGain * mCompressor.mMakeupGain;
@@ -101,6 +106,7 @@ namespace strike {
       od::Outlet mOutRight     { "Out2" };
       od::Outlet mSlew         { "Slew" };
       od::Outlet mReduction    { "Reduction" };
+      od::Outlet mLoudness     { "Loudness" };
       od::Outlet mEOF          { "EOF" };
       od::Outlet mEOR          { "EOR" };
 
@@ -140,6 +146,7 @@ namespace strike {
       }
 
     private:
+      filter::onepole::Filter mExciteFilter { 20.0f };
       compressor::Compressor mCompressor;
   };
 }

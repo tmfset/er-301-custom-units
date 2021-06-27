@@ -1,4 +1,5 @@
 local app = app
+local strike = require "strike.libstrike"
 local Class = require "Base.Class"
 local Base = require "Unit.ViewControl.EncoderControl"
 local Encoder = require "Encoder"
@@ -66,6 +67,15 @@ function OutputMeter:init(args)
   self.subGraphic = graphic
   self.subGraphic:addChild(app.SubButton("auto", 2))
   self.subGraphic:addChild(app.SubButton("gain", 3))
+
+  -- self.scope = (function ()
+  --   local scope = strike.LoudnessScope(col1 - 20, line4, 40, 45)
+  --   scope:setBorder(1)
+  --   scope:setCornerRadius(3, 3, 3, 3)
+  --   return scope
+  -- end)()
+  -- self.subGraphic:addChild(self.scope)
+  -- self.scope:watchOutlet(compressor:getOutput("Slew"))
 
   self.description = (function ()
     local desc = app.Label(description, 10)

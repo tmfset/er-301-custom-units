@@ -46,12 +46,12 @@ namespace compressor {
     }
 
     inline void excite(float32x4_t excite) {
-      auto exciteDb = util::simd::toDecibels(excite);
+      mLoudness = util::simd::toDecibels(excite);
 
-      mActive = vcgtq_f32(exciteDb, mThresholdDb);
+      mActive = vcgtq_f32(mLoudness, mThresholdDb);
       mSlewAmount = mSlew.process(mActive);
 
-      auto over = vmaxq_f32(exciteDb - mThresholdDb, vdupq_n_f32(0));
+      auto over = vmaxq_f32(mLoudness - mThresholdDb, vdupq_n_f32(0));
       mReductionAmount = util::simd::fromDecibels(over * mSlewAmount * mRatioIMinusOne);
     }
 
@@ -64,6 +64,7 @@ namespace compressor {
     float32x4_t mRatioIMinusOne;
     float32x4_t mMakeupGain;
     float32x4_t mSlewAmount;
+    float32x4_t mLoudness;
     float32x4_t mReductionAmount;
 
     Slew mSlew;
