@@ -104,7 +104,7 @@ namespace strike {
       od::Outlet mEOF          { "EOF" };
       od::Outlet mEOR          { "EOR" };
 
-      od::Parameter mThreshold  { "Threshold", 0.75 };
+      od::Parameter mThreshold  { "Threshold", 0.5 };
       od::Parameter mRatio      { "Ratio", 2 };
       od::Parameter mRise       { "Rise", 0.005 };
       od::Parameter mFall       { "Fall", 0.05 };
@@ -114,6 +114,18 @@ namespace strike {
       od::Option mAutoMakeupGain  { "Auto Makeup Gain", 1 };
       od::Option mEnableSidechain { "Enable Sidechain", 2 };
 #endif
+
+      bool isAutoMakeupEnabled() {
+        return mAutoMakeupGain.value() == 1;
+      }
+
+      void toggleAutoMakeup() {
+        if (isAutoMakeupEnabled()) {
+          mAutoMakeupGain.set(2);
+        } else {
+          mAutoMakeupGain.set(1);
+        }
+      }
 
       bool isSidechainEnabled() {
         return mEnableSidechain.value() == 1;

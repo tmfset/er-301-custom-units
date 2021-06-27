@@ -10,6 +10,7 @@ local OutputScope = require "Unit.ViewControl.OutputScope"
 local OptionControl = require "Unit.MenuControl.OptionControl"
 local Pitch = require "Unit.ViewControl.Pitch"
 local SidechainMeter = require "strike.SidechainMeter"
+local OutputMeter = require "strike.OutputMeter"
 
 local CPR = Class {}
 CPR:include(Unit)
@@ -84,6 +85,7 @@ function CPR:onLoadViews()
   return {
     input = SidechainMeter {
       button       = "input",
+      description  = "Input Gain",
       branch       = self.branches.sidechain,
       compressor   = self.objects.op,
       channelCount = self.channelCount,
@@ -118,12 +120,14 @@ function CPR:onLoadViews()
       param        = self.objects.op:getParameter("Ratio"),
       map          = Encoder.getMap("[0,10]")
     },
-    output = Fader {
-      button        = "output",
-      description   = "Output Gain",
-      param         = self.objects.op:getParameter("Output Gain"),
-      map           = self.defaultDecibelMap(),
-      units         = app.unitDecibels
+    output = OutputMeter {
+      button       = "output",
+      description  = "Output Gain",
+      compressor   = self.objects.op,
+      channelCount = self.channelCount,
+      map          = self.defaultDecibelMap(),
+      units        = app.unitDecibels,
+      scaling      = app.linearScaling
     }
   }, {
     expanded  = { "input", "output", "threshold", "ratio", "rise", "fall" },
