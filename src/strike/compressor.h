@@ -1,71 +1,107 @@
 #include <od/config.h>
 #include <hal/simd.h>
 #include <util.h>
+#include <filter.h>
 
 namespace compressor {
   struct Slew {
-    inline void setRiseFall(float32x4_t rise, float32x4_t fall) {
-      auto sp = vdupq_n_f32(globalConfig.samplePeriod);
-      mRiseDelta = sp * util::simd::invert(rise);
-      mFallDelta = vnegq_f32(sp * util::simd::invert(fall));
+    inline void setRiseFall(float rise, float fall) {
+      auto sp = globalConfig.samplePeriod;
+      rise = util::fmax(rise, sp);
+      fall = rise + util::fmax(fall, sp);
+
+      mRiseCoeff = exp(-sp / rise);
+      mFallCoeff = exp(-sp / fall);
     }
 
-    inline float32x4_t process(uint32x4_t rising) {
-      auto delta = vbslq_f32(rising, mRiseDelta, mFallDelta);
-      float _out[4], _o = mValue;
-      vst1q_f32(_out, delta);
+    inline float32x4_t process(float32x4_t to) {
+      float _target[4], _last = mValue;
+      vst1q_f32(_target, to);
+
+      uint32_t _rising[4];
+      auto rc = mRiseCoeff, rci = 1.0f - rc;
+      auto fc = mFallCoeff, fci = 1.0f - fc;
+
       for (int i = 0; i < 4; i++) {
-        _o += _out[i];
-        if (_o >= 1) _o = 1;
-        if (_o <= 0) _o = 0;
-        _out[i] = _o;
+        auto target = _target[i];
+
+        auto previous = _last;
+
+        if (target > _last) {
+          _last = rc * _last + rci * target;
+        } else {
+          _last = fc * _last + fci * target;
+        }
+
+        if (_last > previous) {
+          _rising[i] = 0xffffffff;
+        } else {
+          _rising[i] = 0;
+        }
+
+        _target[i] = _last;
       }
 
-      mValue = _o;
-      return vld1q_f32(_out);
+      mRising = vld1q_u32(_rising);
+
+      mValue = _last;
+      auto out = vld1q_f32(_target);
+      return out;
     }
 
+    uint32x4_t mRising = vdupq_n_u32(0);
     float mValue = 0;
-    float32x4_t mRiseDelta;
-    float32x4_t mFallDelta;
+    float mRiseCoeff = 0;
+    float mFallCoeff = 0;
   };
 
+  // For reference,
+  // https://www.eecs.qmul.ac.uk/~josh/documents/2012/GiannoulisMassbergReiss-dynamicrangecompression-JAES2012.pdf
   struct Compressor {
 
-    inline void setRiseFall(float32x4_t rise, float32x4_t fall) {
+    inline void setRiseFall(float rise, float fall) {
       mSlew.setRiseFall(rise, fall);
     }
 
-    inline void setThresholdRatio(float32x4_t threshold, float32x4_t ratio, uint32x4_t enableMakeupGain) {
-      mThresholdDb = util::simd::toDecibels(threshold);
-      mRatioIMinusOne = util::simd::invert(ratio) - vdupq_n_f32(1);
+    inline void setThresholdRatio(float threshold, float ratio, bool makeupEnabled) {
+      auto thresholdDb = util::toDecibels(threshold);
+      auto ratioI      = 1 / util::fmax(ratio, 1);
+      auto over        = -thresholdDb;
+      auto makeupDb    = util::fmax(over - over * ratioI, 0);
+      auto makeup      = util::fromDecibels(makeupDb);
 
-      auto over = vmaxq_f32(vdupq_n_f32(0) - mThresholdDb, vdupq_n_f32(0));
-      mMakeupGain = util::simd::invert(util::simd::fromDecibels(over * mRatioIMinusOne));
-      mMakeupGain = vbslq_f32(enableMakeupGain, mMakeupGain, vdupq_n_f32(1));
+      mMakeup      = makeupEnabled ? makeup : 1.0f;
+      mMakeupDb    = makeupDb;
+      mThresholdDb = thresholdDb;
+      mRatioI      = ratioI;
     }
 
     inline void excite(float32x4_t excite) {
-      mLoudness = util::simd::toDecibels(excite);
+      auto exciteDb    = util::simd::toDecibels(excite);
+      auto thresholdDb = vdupq_n_f32(mThresholdDb);
+      auto ratioI      = vdupq_n_f32(mRatioI);
+      auto over        = vmaxq_f32(exciteDb - thresholdDb, vdupq_n_f32(0));
+      auto slew        = mSlew.process(over - over * ratioI);
 
-      mActive = vcgtq_f32(mLoudness, mThresholdDb);
-      mSlewAmount = mSlew.process(mActive);
+      mActive    = mSlew.mRising;//vcgtq_f32(over, vdupq_n_f32(0));
+      mReduction = util::simd::fromDecibels(vnegq_f32(slew));
+    }
 
-      auto over = vmaxq_f32(mLoudness - mThresholdDb, vdupq_n_f32(0));
-      mReductionAmount = util::simd::fromDecibels(over * mSlewAmount * mRatioIMinusOne);
+    inline float32x4_t makeup(float32x4_t signal) {
+      return signal * mMakeup;
     }
 
     inline float32x4_t compress(float32x4_t signal) {
-      return signal * mReductionAmount;
+      return signal * mReduction;
     }
 
     uint32x4_t  mActive;
-    float32x4_t mThresholdDb;
-    float32x4_t mRatioIMinusOne;
-    float32x4_t mMakeupGain;
-    float32x4_t mSlewAmount;
-    float32x4_t mLoudness;
-    float32x4_t mReductionAmount;
+    float32x4_t mReduction;
+
+    float mThresholdDb;
+    float mRatioI;
+    float mMakeup;
+    float mMakeupDb;
 
     Slew mSlew;
   };

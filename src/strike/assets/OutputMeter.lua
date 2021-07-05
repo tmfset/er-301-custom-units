@@ -68,15 +68,6 @@ function OutputMeter:init(args)
   self.subGraphic:addChild(app.SubButton("auto", 2))
   self.subGraphic:addChild(app.SubButton("gain", 3))
 
-  -- self.scope = (function ()
-  --   local scope = strike.LoudnessScope(col1 - 20, line4, 40, 45)
-  --   scope:setBorder(1)
-  --   scope:setCornerRadius(3, 3, 3, 3)
-  --   return scope
-  -- end)()
-  -- self.subGraphic:addChild(self.scope)
-  -- self.scope:watchOutlet(compressor:getOutput("Slew"))
-
   self.description = (function ()
     local desc = app.Label(description, 10)
     desc:fitToText(3)
@@ -88,8 +79,23 @@ function OutputMeter:init(args)
   end)()
   self.subGraphic:addChild(self.description)
 
+  local readout = (function ()
+    local param = compressor:getParameter("Makeup")
+    local graphic = app.Readout(0, 0, ply, 10);
+    graphic:setParameter(param);
+    graphic:setPrecision(1)
+    graphic:setCenter(col1, center3 + 2)
+    return graphic
+  end)()
+  self.subGraphic:addChild(readout);
+
   local drawing = (function ()
     local instructions = app.DrawingInstructions()
+    instructions:hline(col1 + 12, col2 - 10, center3)
+    instructions:hline(col2 + 10, col3 - 10, center3)
+    instructions:triangle(col3 - 11, center3, 0, 3)
+
+    instructions:box(col1 - 12, center3 - 12, 24, 24);
 
     instructions:circle(col3, center3, 8)
     instructions:hline(col3 - 5, col3 + 5, center3)
@@ -98,13 +104,15 @@ function OutputMeter:init(args)
     instructions:vline(col3, center3 + 8, line1 - 2)
     instructions:triangle(col3, line1 - 2, 90, 3)
 
-    local drawing = app.Drawing(0, 0, 128, 64)
-    drawing:add(instructions)
-    return drawing
+    local d = app.Drawing(0, 0, 128, 64)
+    d:add(instructions)
+    return d
   end)()
   self.subGraphic:addChild(drawing)
 
   self.autoMakeupIndicator = (function ()
+    local option = compressor:getOption("Auto Makeup Gain")
+    option:enableSerialization()
     local ind = app.BinaryIndicator(0, 24, ply, 32)
     ind:setCenter(col2, center3)
     return ind
@@ -122,6 +130,11 @@ function OutputMeter:init(args)
     return readout
   end)()
   self.subGraphic:addChild(self.inputGain)
+end
+
+function OutputMeter:onCursorEnter()
+  self:updateViewState()
+  return Base.onCursorEnter(self)
 end
 
 function OutputMeter:getPinControl()

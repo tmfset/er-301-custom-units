@@ -8,6 +8,10 @@
 #include <compressor.h>
 #include <filter.h>
 
+#define BUILDOPT_VERBOSE
+#define BUILDOPT_DEBUG_LEVEL 10
+#include <hal/log.h>
+
 namespace strike {
   class CPR : public od::Object {
     public:
@@ -19,14 +23,14 @@ namespace strike {
         addOutput(mInRightPGain);
         addOutput(mOutLeft);
         addOutput(mOutRight);
-        addOutput(mSlew);
-        addOutput(mLoudness);
         addOutput(mReduction);
+        addOutput(mExcite);
         addOutput(mEOF);
         addOutput(mEOR);
 
         addParameter(mThreshold);
         addParameter(mRatio);
+        addParameter(mMakeup);
         addParameter(mRise);
         addParameter(mFall);
         addParameter(mInputGain);
@@ -50,48 +54,49 @@ namespace strike {
         float *inRightPGain = mInRightPGain.buffer();
         float *outLeft      = mOutLeft.buffer();
         float *outRight     = mOutRight.buffer();
-        float *slew         = mSlew.buffer();
-        float *loudness     = mLoudness.buffer();
-        float *reduction    = mReduction.buffer();
-        float *eof          = mEOF.buffer();
-        float *eor          = mEOR.buffer();
 
-        const auto threshold  = vdupq_n_f32(mThreshold.value());
-        const auto ratio      = vdupq_n_f32(mRatio.value());
-        const auto rise       = vdupq_n_f32(mRise.value());
-        const auto fall       = vdupq_n_f32(mFall.value());
+        float *reduction = mReduction.buffer();
+        float *excite    = mExcite.buffer();
+        float *eof       = mEOF.buffer();
+        float *eor       = mEOR.buffer();
+
+        const auto threshold  = mThreshold.value();
+        const auto ratio      = mRatio.value();
+        const auto rise       = mRise.value();
+        const auto fall       = mFall.value();
         const auto inputGain  = vdupq_n_f32(mInputGain.value());
         const auto outputGain = vdupq_n_f32(mOutputGain.value());
 
-        const auto autoMakeupGain  = vceqq_s32(vdupq_n_s32(mAutoMakeupGain.value()), vdupq_n_s32(1));
-        const auto enableSidechain = vceqq_s32(vdupq_n_s32(mEnableSidechain.value()), vdupq_n_s32(1));
+        const auto autoMakeupGain  = isAutoMakeupEnabled();
+        const auto enableSidechain = isSidechainEnabled() ? vdupq_n_u32(0xffffffff) : vdupq_n_u32(0);
 
         mCompressor.setRiseFall(rise, fall);
         mCompressor.setThresholdRatio(threshold, ratio, autoMakeupGain);
+        mMakeup.hardSet(mCompressor.mMakeupDb);
+
+        auto zero = vdupq_n_f32(0);
 
         for (int i = 0; i < FRAMELENGTH; i += 4) {
-          auto zero = vdupq_n_f32(0);
-
           auto _left      = vld1q_f32(inLeft + i) * inputGain;
           auto _right     = vld1q_f32(inRight + i) * inputGain;
           auto _sidechain = vld1q_f32(sidechain + i) * inputGain;
 
           auto _exciteLeft  = vbslq_f32(enableSidechain, _sidechain, _left);
           auto _exciteRight = vbslq_f32(enableSidechain, zero, _right);
-          auto _excite      = vmaxq_f32(vabdq_f32(_exciteLeft, zero), vabdq_f32(_exciteRight, zero));
           vst1q_f32(inLeftPGain + i, _exciteLeft);
           vst1q_f32(inRightPGain + i, _exciteRight);
 
-          auto _exciteFiltered = mExciteFilter.process(_excite);
-          mCompressor.excite(_exciteFiltered);
+          auto _exciteHigh   = vmaxq_f32(vmaxq_f32(_exciteLeft, _exciteRight), zero);
+          auto _exciteLow    = vminq_f32(vminq_f32(_exciteLeft, _exciteRight), zero);
+          auto _excite       = vmaxq_f32(_exciteHigh, vabsq_f32(_exciteLow));
+          vst1q_f32(excite + i, _exciteHigh + _exciteLow);
+
+          mCompressor.excite(_excite);
+          vst1q_f32(reduction + i, mCompressor.mReduction);
           vst1q_f32(eof + i, vcvtq_n_f32_u32(mCompressor.mActive, 32));
           vst1q_f32(eor + i, vcvtq_n_f32_u32(vmvnq_u32(mCompressor.mActive), 32));
-          vst1q_f32(slew + i, mCompressor.mSlewAmount);
-          vst1q_f32(loudness + i, mCompressor.mLoudness);
-          vst1q_f32(reduction + i, mCompressor.mReductionAmount);
 
-          auto _outputGain = outputGain * mCompressor.mMakeupGain;
-
+          auto _outputGain = mCompressor.makeup(outputGain);
           vst1q_f32(outLeft + i, mCompressor.compress(_left) * _outputGain);
           vst1q_f32(outRight + i, mCompressor.compress(_right) * _outputGain);
         }
@@ -104,20 +109,21 @@ namespace strike {
       od::Outlet mInRightPGain { "Right In Post Gain" };
       od::Outlet mOutLeft      { "Out1" };
       od::Outlet mOutRight     { "Out2" };
-      od::Outlet mSlew         { "Slew" };
-      od::Outlet mReduction    { "Reduction" };
-      od::Outlet mLoudness     { "Loudness" };
-      od::Outlet mEOF          { "EOF" };
-      od::Outlet mEOR          { "EOR" };
+
+      od::Outlet mReduction { "Reduction" };
+      od::Outlet mExcite    { "Excite" };
+      od::Outlet mEOF       { "EOF" };
+      od::Outlet mEOR       { "EOR" };
 
       od::Parameter mThreshold  { "Threshold", 0.5 };
       od::Parameter mRatio      { "Ratio", 2 };
-      od::Parameter mRise       { "Rise", 0.005 };
+      od::Parameter mMakeup     { "Makeup", 0 };
+      od::Parameter mRise       { "Rise", 0.001 };
       od::Parameter mFall       { "Fall", 0.05 };
       od::Parameter mInputGain  { "Input Gain", 1 };
       od::Parameter mOutputGain { "Output Gain", 1 };
 
-      od::Option mAutoMakeupGain  { "Auto Makeup Gain", 1 };
+      od::Option mAutoMakeupGain  { "Auto Makeup Gain", 2 };
       od::Option mEnableSidechain { "Enable Sidechain", 2 };
 #endif
 
@@ -146,7 +152,6 @@ namespace strike {
       }
 
     private:
-      filter::onepole::Filter mExciteFilter { 20.0f };
       compressor::Compressor mCompressor;
   };
 }

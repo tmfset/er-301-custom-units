@@ -104,6 +104,8 @@ function SidechainMeter:init(args)
   self.subGraphic:addChild(drawing)
 
   self.enableIndicator = (function ()
+    local option = compressor:getOption("Enable Sidechain")
+    option:enableSerialization()
     local ind = app.BinaryIndicator(0, 24, ply, 32)
     ind:setCenter(col2, center3);
     return ind
@@ -123,6 +125,11 @@ function SidechainMeter:init(args)
   self.subGraphic:addChild(self.inputGain)
 
   branch:subscribe("contentChanged", self)
+end
+
+function SidechainMeter:onCursorEnter()
+  self:updateViewState()
+  return Base.onCursorEnter(self)
 end
 
 function SidechainMeter:onRemove()

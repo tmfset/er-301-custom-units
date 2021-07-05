@@ -195,6 +195,7 @@ namespace util {
 
     inline float32x4_t toDecibels(float32x4_t x) {
       // 20 * ln(x) / ln(10)
+      x = vmaxq_f32(x, vdupq_n_f32(0.001));
       return vdupq_n_f32(20) * log_f32(x) * vdupq_n_f32(0.4342944819f);
     }
 
@@ -543,6 +544,25 @@ namespace util {
         vget_lane_f32(x, 1)
       );
     }
+  }
+
+  inline float fmax(float a, float b) {
+    return a > b ? a : b;
+  }
+
+  inline float fmin(float a, float b) {
+    return a < b ? a : b;
+  }
+
+  inline float toDecibels(float x) {
+    // 20 * ln(x) / ln(10)
+    x = fmax(x, 0.001);
+    return 20.0f * logf(x) * 0.4342944819f;
+  }
+
+  inline float fromDecibels(float x) {
+    // 10^(x/20)
+    return powf(10.0f, x * 0.05);
   }
 
   struct Latch {

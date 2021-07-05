@@ -15,7 +15,7 @@
 #include <Softy.h>
 #include <MultiOptionView.h>
 #include <CPR.h>
-#include <LoudnessScope.h>
+#include <CompressorScope.h>
 
 #define SWIGLUA
 
@@ -31,4 +31,4 @@
 %include <Softy.h>
 %include <MultiOptionView.h>
 %include <CPR.h>
-%include <LoudnessScope.h>
+%include <CompressorScope.h>

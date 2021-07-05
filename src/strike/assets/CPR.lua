@@ -11,7 +11,8 @@ local OptionControl = require "Unit.MenuControl.OptionControl"
 local Pitch = require "Unit.ViewControl.Pitch"
 local SidechainMeter = require "strike.SidechainMeter"
 local OutputMeter = require "strike.OutputMeter"
-local LoudnessScope = require "strike.LoudnessScope"
+local CompressorScope = require "strike.CompressorScope"
+local BranchControl = require "strike.BranchControl"
 
 local CPR = Class {}
 CPR:include(Unit)
@@ -53,6 +54,23 @@ function CPR.addConstantOffsetControl(self, name)
   return co;
 end
 
+function CPR.addParameterAdapterControl(self, name)
+  local pa = self:addObject(name, app.ParameterAdapter())
+  self:addMonoBranch(name, pa, "In", pa, "Out")
+  return pa
+end
+
+function CPR.addFreeBranch(self, name, obj, outlet)
+  local monitor = self:addObject(name.."Monitor", app.Monitor())
+  self:addMonoBranch(name, monitor, "In", obj, outlet)
+end
+
+function CPR.addMonitorBranch(self, name, obj, outlet)
+  local monitor = self:addObject(name.."Monitor", app.Monitor())
+  connect(monitor, "Out", obj, outlet)
+  self:addMonoBranch(name, monitor, "In", monitor, "Out")
+end
+
 function CPR.linMap(min, max, superCoarse, coarse, fine, superFine)
   local map = app.LinearDialMap(min, max)
   map:setSteps(superCoarse, coarse, fine, superFine)
@@ -62,17 +80,18 @@ end
 function CPR:onLoadGraph(channelCount)
   local op = self:addObject("op", strike.CPR())
 
+  local threshold = self:addParameterAdapterControl("threshold")
+  tie(op, "Threshold", threshold, "Out")
+
   for i = 1, channelCount do
     connect(self, "In"..i, op, "In"..i)
     connect(op,   "Out"..i, self, "Out"..i)
   end
 
-  local monitor = self:addObject("monitor", app.Monitor());
-  connect(monitor, "Out", op, "Sidechain")
-  self:addMonoBranch("sidechain", monitor, "In", monitor, "Out")
-  -- self:addMonoBranch("ratio", ratio, "In", op, "Reduction")
-  -- self:addMonoBranch("rise", rise, "In", op, "EOF")
-  -- self:addMonoBranch("fall", fall, "In", op, "EOR")
+  self:addMonitorBranch("sidechain", op, "Sidechain")
+  self:addFreeBranch("reduction", op, "Reduction")
+  self:addFreeBranch("eof", op, "EOF")
+  self:addFreeBranch("eor", op, "EOR")
 end
 
 function CPR.defaultDecibelMap()
@@ -94,37 +113,37 @@ function CPR:onLoadViews()
       units        = app.unitDecibels,
       scaling      = app.linearScaling
     },
-    scope = LoudnessScope {
-      width = app.SECTION_PLY * 2,
-      loudness = self.objects.op:getOutput("Loudness"),
-      reduction = self.objects.op:getOutput("Reduction")
+    scope = CompressorScope {
+      description  = "Compression",
+      width        = app.SECTION_PLY * 2,
+      compressor   = self.objects.op
     },
-    rise = Fader {
-      button      = "rise",
-      description = "Rise Time",
-      param       = self.objects.op:getParameter("Rise"),
-      map         = self.linMap(0, 10, 0.1, 0.01, 0.001, 0.001),
-      units       = app.unitSecs
-    },
-    fall = Fader {
-      button      = "fall",
-      description = "Fall Time",
-      param       = self.objects.op:getParameter("Fall"),
-      map         = self.linMap(0, 10, 0.1, 0.01, 0.001, 0.001),
-      units       = app.unitSecs
-    },
-    threshold = Fader {
+    threshold = GainBias {
       button        = "thresh",
       description   = "Threshold",
-      param         = self.objects.op:getParameter("Threshold"),
-      map           = self.defaultDecibelMap(),
-      units         = app.unitDecibels
+      branch        = self.branches.threshold,
+      gainbias      = self.objects.threshold,
+      range         = self.objects.threshold,
+      biasMap       = Encoder.getMap("[0,1]"),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = 0.5
     },
-    ratio = Fader {
-      button       = "ratio",
-      description  = "Ratio",
-      param        = self.objects.op:getParameter("Ratio"),
-      map          = Encoder.getMap("[0,10]")
+    sidechain = BranchControl {
+      name = "sidechain",
+      branch = self.branches.sidechain
+    },
+    eof = BranchControl {
+      name = "eof",
+      branch = self.branches.eof
+    },
+    eor = BranchControl {
+      name = "eor",
+      branch = self.branches.eor
+    },
+    reduction = BranchControl {
+      name = "reduction",
+      branch = self.branches.reduction
     },
     output = OutputMeter {
       button       = "output",
@@ -136,8 +155,9 @@ function CPR:onLoadViews()
       scaling      = app.linearScaling
     }
   }, {
-    expanded  = { "input", "scope", "output", "threshold", "ratio", "rise", "fall" },
-    collapsed = {}
+    scope = { "sidechain", "threshold", "reduction", "eof", "eor" },
+    expanded  = { "input", "threshold", "scope", "output" },
+    collapsed = { "scope" }
   }
 end
 
