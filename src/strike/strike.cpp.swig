@@ -14,6 +14,8 @@
 #include <Formant.h>
 #include <Softy.h>
 #include <MultiOptionView.h>
+#include <CPR.h>
+#include <CompressorScope.h>
 
 #define SWIGLUA
 
@@ -28,3 +30,5 @@
 %include <Formant.h>
 %include <Softy.h>
 %include <MultiOptionView.h>
+%include <CPR.h>
+%include <CompressorScope.h>

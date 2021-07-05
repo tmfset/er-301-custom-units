@@ -11,6 +11,30 @@ namespace filter {
     AUDIO = 2
   };
 
+  // For reference, https://www.earlevel.com/main/2012/12/15/a-one-pole-filter/
+  namespace onepole {
+    struct Filter {
+      inline Filter(float f0) {
+        mB1 = expf(-2.0f * M_PI * f0 * globalConfig.samplePeriod);
+        mA0 = 1.0f - mB1;
+      }
+
+      inline float32x4_t process(const float32x4_t input) {
+        float x[4];
+        vst1q_f32(x, input);
+        for (int i = 0; i < 4; i++) {
+          mZ1 = x[i] * mA0 + mZ1 * mB1;
+          x[i] = mZ1;
+        }
+        return vld1q_f32(x);
+      }
+
+      float mB1 = 0.0f;
+      float mA0 = 0.0f;
+      float mZ1 = 0.0f;
+    };
+  }
+
   namespace svf {
     class Coefficients {
       public:
