@@ -25,8 +25,7 @@ namespace strike {
         addOutput(mOutRight);
         addOutput(mReduction);
         addOutput(mExcite);
-        addOutput(mEOF);
-        addOutput(mEOR);
+        addOutput(mActive);
 
         addParameter(mThreshold);
         addParameter(mRatio);
@@ -57,8 +56,7 @@ namespace strike {
 
         float *reduction = mReduction.buffer();
         float *excite    = mExcite.buffer();
-        float *eof       = mEOF.buffer();
-        float *eor       = mEOR.buffer();
+        float *active    = mActive.buffer();
 
         const auto threshold  = mThreshold.value();
         const auto ratio      = mRatio.value();
@@ -93,8 +91,7 @@ namespace strike {
 
           mCompressor.excite(_excite);
           vst1q_f32(reduction + i, mCompressor.mReduction);
-          vst1q_f32(eof + i, vcvtq_n_f32_u32(mCompressor.mActive, 32));
-          vst1q_f32(eor + i, vcvtq_n_f32_u32(vmvnq_u32(mCompressor.mActive), 32));
+          vst1q_f32(active + i, vcvtq_n_f32_u32(mCompressor.mActive, 32));
 
           auto _outputGain = mCompressor.makeup(outputGain);
           vst1q_f32(outLeft + i, mCompressor.compress(_left) * _outputGain);
@@ -112,8 +109,7 @@ namespace strike {
 
       od::Outlet mReduction { "Reduction" };
       od::Outlet mExcite    { "Excite" };
-      od::Outlet mEOF       { "EOF" };
-      od::Outlet mEOR       { "EOR" };
+      od::Outlet mActive    { "Active" };
 
       od::Parameter mThreshold  { "Threshold", 0.5 };
       od::Parameter mRatio      { "Ratio", 2 };

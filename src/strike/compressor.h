@@ -83,7 +83,7 @@ namespace compressor {
       auto over        = vmaxq_f32(exciteDb - thresholdDb, vdupq_n_f32(0));
       auto slew        = mSlew.process(over - over * ratioI);
 
-      mActive    = mSlew.mRising;//vcgtq_f32(over, vdupq_n_f32(0));
+      mActive    = vcgtq_f32(slew, vdupq_n_f32(0.001));
       mReduction = util::simd::fromDecibels(vnegq_f32(slew));
     }
 

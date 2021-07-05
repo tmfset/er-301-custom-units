@@ -90,8 +90,7 @@ function CPR:onLoadGraph(channelCount)
 
   self:addMonitorBranch("sidechain", op, "Sidechain")
   self:addFreeBranch("reduction", op, "Reduction")
-  self:addFreeBranch("eof", op, "EOF")
-  self:addFreeBranch("eor", op, "EOR")
+  self:addFreeBranch("active", op, "Active")
 end
 
 function CPR.defaultDecibelMap()
@@ -133,13 +132,9 @@ function CPR:onLoadViews()
       name = "sidechain",
       branch = self.branches.sidechain
     },
-    eof = BranchControl {
-      name = "eof",
-      branch = self.branches.eof
-    },
-    eor = BranchControl {
-      name = "eor",
-      branch = self.branches.eor
+    active = BranchControl {
+      name = "active",
+      branch = self.branches.active
     },
     reduction = BranchControl {
       name = "reduction",
@@ -155,7 +150,7 @@ function CPR:onLoadViews()
       scaling      = app.linearScaling
     }
   }, {
-    scope = { "sidechain", "threshold", "reduction", "eof", "eor" },
+    scope = { "sidechain", "threshold", "reduction", "active" },
     expanded  = { "input", "threshold", "scope", "output" },
     collapsed = { "scope" }
   }
