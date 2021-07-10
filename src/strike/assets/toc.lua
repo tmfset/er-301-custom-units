@@ -13,9 +13,10 @@ return {
       { title = "Sieve (SVF)", moduleName = "Sieve" },
       { title = "Bique (BCF)", moduleName = "Bique" },
       { title = "Strike (LPG)", moduleName = "Strike" },
+      { title = "Lift (LPG)", moduleName = "Lift" },
 
       { title = "Tanh", moduleName = "Tanh" },
-      { title = "CPR", moduleName ="CPR" }
+      { title = "CPR", moduleName = "CPR" }
     }
   }
   

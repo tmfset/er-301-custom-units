@@ -1,3 +1,5 @@
+#pragma once
+
 #include <od/config.h>
 #include <hal/simd.h>
 #include <util.h>
@@ -8,48 +10,33 @@ namespace compressor {
     inline void setRiseFall(float rise, float fall) {
       auto sp = globalConfig.samplePeriod;
       rise = util::fmax(rise, sp);
-      fall = rise + util::fmax(fall, sp);
+      fall = util::fmax(fall, sp);
 
       mRiseCoeff = exp(-sp / rise);
       mFallCoeff = exp(-sp / fall);
     }
 
     inline float32x4_t process(float32x4_t to) {
-      float _target[4], _last = mValue;
-      vst1q_f32(_target, to);
+      float _last = mValue,
+            rc    = mRiseCoeff,
+            fc    = mFallCoeff;
 
-      uint32_t _rising[4];
-      auto rc = mRiseCoeff, rci = 1.0f - rc;
-      auto fc = mFallCoeff, fci = 1.0f - fc;
+      float _target[4];
+      vst1q_f32(_target, to);
 
       for (int i = 0; i < 4; i++) {
         auto target = _target[i];
 
-        auto previous = _last;
-
-        if (target > _last) {
-          _last = rc * _last + rci * target;
-        } else {
-          _last = fc * _last + fci * target;
-        }
-
-        if (_last > previous) {
-          _rising[i] = 0xffffffff;
-        } else {
-          _rising[i] = 0;
-        }
+        auto c = target > _last ? rc : fc;
+        _last = c * _last + (1.0f - c) * target;
 
         _target[i] = _last;
       }
 
-      mRising = vld1q_u32(_rising);
-
       mValue = _last;
-      auto out = vld1q_f32(_target);
-      return out;
+      return vld1q_f32(_target);
     }
 
-    uint32x4_t mRising = vdupq_n_u32(0);
     float mValue = 0;
     float mRiseCoeff = 0;
     float mFallCoeff = 0;
@@ -60,7 +47,7 @@ namespace compressor {
   struct Compressor {
 
     inline void setRiseFall(float rise, float fall) {
-      mSlew.setRiseFall(rise, fall);
+      mSlew.setRiseFall(rise, rise + fall);
     }
 
     inline void setThresholdRatio(float threshold, float ratio, bool makeupEnabled) {

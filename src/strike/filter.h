@@ -14,24 +14,26 @@ namespace filter {
   // For reference, https://www.earlevel.com/main/2012/12/15/a-one-pole-filter/
   namespace onepole {
     struct Filter {
-      inline Filter(float f0) {
-        mB1 = expf(-2.0f * M_PI * f0 * globalConfig.samplePeriod);
-        mA0 = 1.0f - mB1;
+      const float32x4_t npi2sp = vdupq_n_f32(-2.0f * M_PI * globalConfig.samplePeriod);
+
+      inline void setFrequency(float32x4_t f0) {
+        mCoeff = util::simd::exp_f32(f0 * npi2sp);
       }
 
       inline float32x4_t process(const float32x4_t input) {
-        float x[4];
+        float x[4], cf[4];
         vst1q_f32(x, input);
+        vst1q_f32(cf, mCoeff);
         for (int i = 0; i < 4; i++) {
-          mZ1 = x[i] * mA0 + mZ1 * mB1;
+          auto c = cf[i];
+          mZ1 = x[i] * (1.0f - c) + mZ1 * c;
           x[i] = mZ1;
         }
         return vld1q_f32(x);
       }
 
-      float mB1 = 0.0f;
-      float mA0 = 0.0f;
       float mZ1 = 0.0f;
+      float32x4_t mCoeff;
     };
   }
 

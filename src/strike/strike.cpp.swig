@@ -16,6 +16,7 @@
 #include <MultiOptionView.h>
 #include <CPR.h>
 #include <CompressorScope.h>
+#include <Lift.h>
 
 #define SWIGLUA
 
@@ -32,3 +33,4 @@
 %include <MultiOptionView.h>
 %include <CPR.h>
 %include <CompressorScope.h>
+%include <Lift.h>
