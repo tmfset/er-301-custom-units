@@ -59,6 +59,12 @@ function Common.intMap(min, max)
     return map
 end
 
+function Common.linMap(min, max, superCoarse, coarse, fine, superFine)
+  local map = app.LinearDialMap(min, max)
+  map:setSteps(superCoarse, coarse, fine, superFine)
+  return map
+end
+
 function Common.gateView(self, name, description)
   return Gate {
     button      = name,

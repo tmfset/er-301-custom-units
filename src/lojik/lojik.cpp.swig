@@ -14,6 +14,7 @@
 #include <Wait.h>
 #include <Latch.h>
 #include <DLatch.h>
+#include <TLatch.h>
 #include <Register.h>
 #include <Euclid.h>
 #include <EuclidCircle.h>
@@ -32,6 +33,7 @@
 %include <Wait.h>
 %include <Latch.h>
 %include <DLatch.h>
+%include <TLatch.h>
 %include <Register.h>
 %include <Euclid.h>
 %include <EuclidCircle.h>

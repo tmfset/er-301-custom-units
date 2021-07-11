@@ -3,6 +3,17 @@
 #include <vector>
 
 namespace lojik {
+  inline float32x4_t invert(const float32x4_t x) {
+    float32x4_t inv;
+    // https://en.wikipedia.org/wiki/Division_algorithm#Newton.E2.80.93Raphson_division
+    inv = vrecpeq_f32(x);
+    // iterate 3 times for 24 bits of precision
+    inv *= vrecpsq_f32(x, inv);
+    inv *= vrecpsq_f32(x, inv);
+    inv *= vrecpsq_f32(x, inv);
+    return inv;
+  }
+
   inline int mod(int a, int n) {
     return ((a % n) + n) % n;
   }

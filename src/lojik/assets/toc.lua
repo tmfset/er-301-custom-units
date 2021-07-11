@@ -32,6 +32,11 @@ return {
       keywords = "latch"
     },
     {
+      title = "TLatch",
+      moduleName = "TLatch",
+      keywords = "latch"
+    },
+    {
       title = "Pick",
       moduleName = "Pick",
       keywords = "pick"
