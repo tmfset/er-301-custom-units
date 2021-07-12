@@ -396,7 +396,7 @@ namespace util {
       const float32x4_t f0
     ) {
       const float32x4_t vpoLogMax = vdupq_n_f32(FULLSCALE_IN_VOLTS * logf(2.0f));
-      return clamp_n(f0 * util::simd::exp_f32(vpo * vpoLogMax), 1, globalConfig.sampleRate / 4);
+      return clamp_n(f0 * util::simd::exp_f32(vpo * vpoLogMax), 0.001, globalConfig.sampleRate / 4);
     }
 
     inline float32x4_t vpo_scale_no_clamp(
