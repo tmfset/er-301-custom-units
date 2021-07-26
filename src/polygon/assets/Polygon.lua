@@ -42,21 +42,36 @@ function Polygon.addConstantOffsetControl(self, name)
   return co;
 end
 
-function Polygon:onLoadGraph(channelCount)
-  local gate   = self:addComparatorControl("gate", app.COMPARATOR_GATE)
-  local vpo    = self:addConstantOffsetControl("vpo")
-  local detune = self:addConstantOffsetControl("detune")
-  local f0     = self:addGainBiasControl("f0")
-  local rise   = self:addGainBiasControl("rise")
-  local fall   = self:addGainBiasControl("fall")
+function Polygon.addParameterAdapterControl(self, name)
+  local pa = self:addObject(name, app.ParameterAdapter())
+  self:addMonoBranch(name, pa, "In", pa, "Out")
+  return pa
+end
 
-  local op = self:addObject("op", polygon.Polygon())
-  connect(gate,   "Out", op, "Gate")
-  connect(vpo,    "Out", op, "V/Oct")
-  connect(detune, "Out", op, "Detune")
-  connect(f0,     "Out", op, "Fundamental")
-  connect(rise,   "Out", op, "Rise")
-  connect(fall,   "Out", op, "Fall")
+function Polygon:onLoadGraph(channelCount)
+  local gate      = self:addComparatorControl("gate", app.COMPARATOR_GATE)
+  local vpo       = self:addConstantOffsetControl("vpo")
+  local f0        = self:addGainBiasControl("f0")
+  local gain      = self:addGainBiasControl("gain")
+  local shape     = self:addGainBiasControl("shape")
+  local subLevel  = self:addGainBiasControl("subLevel")
+  local subDivide = self:addGainBiasControl("subDivide")
+  local height    = self:addParameterAdapterControl("height")
+  local rise      = self:addParameterAdapterControl("rise")
+  local fall      = self:addParameterAdapterControl("fall")
+
+  local op = self:addObject("op", polygon.Polygon(4))
+  connect(gate,      "Out", op, "Gate")
+  connect(vpo,       "Out", op, "V/Oct")
+  connect(f0,        "Out", op, "Fundamental")
+  connect(gain,      "Out", op, "Gain")
+  connect(shape,     "Out", op, "Shape")
+  connect(subLevel,  "Out", op, "Sub Level")
+  connect(subDivide, "Out", op, "Sub Divide")
+
+  tie(op, "Rise",   rise,   "Out")
+  tie(op, "Fall",   fall,   "Out")
+  tie(op, "Height", height, "Out")
 
   for i = 1, channelCount do
     connect(op, "Out", self, "Out"..i)
@@ -84,13 +99,6 @@ function Polygon:onLoadViews()
       offset      = self.objects.vpo,
       range       = self.objects.vpoRange
     },
-    detune = Pitch {
-      button      = "detune",
-      branch      = self.branches.detune,
-      description = "Detune",
-      offset      = self.objects.detune,
-      range       = self.objects.detuneRange
-    },
     f0 = GainBias {
       button      = "f0",
       description = "Frequency",
@@ -99,7 +107,19 @@ function Polygon:onLoadViews()
       range       = self.objects.f0Range,
       biasMap     = Encoder.getMap("oscFreq"),
       biasUnits   = app.unitHertz,
-      initialBias = 27.5,
+      initialBias = 110,
+      gainMap     = Encoder.getMap("freqGain"),
+      scaling     = app.octaveScaling
+    },
+    height = GainBias {
+      button      = "height",
+      description = "Height",
+      branch      = self.branches.height,
+      gainbias    = self.objects.height,
+      range       = self.objects.height,
+      biasMap     = Encoder.getMap("oscFreq"),
+      biasUnits   = app.unitHertz,
+      initialBias = 440,
       gainMap     = Encoder.getMap("freqGain"),
       scaling     = app.octaveScaling
     },
@@ -108,23 +128,67 @@ function Polygon:onLoadViews()
       branch      = self.branches.rise,
       description = "Rise Time",
       gainbias    = self.objects.rise,
-      range       = self.objects.riseRange,
+      range       = self.objects.rise,
       biasMap     = self.linMap(0, 10, 0.1, 0.01, 0.001, 0.001),
       biasUnits   = app.unitSecs,
-      initialBias = 0.005
+      initialBias = 0.001
     },
     fall = GainBias {
       button      = "fall",
       branch      = self.branches.fall,
       description = "Fall Time",
       gainbias    = self.objects.fall,
-      range       = self.objects.fallRange,
+      range       = self.objects.fall,
       biasMap     = self.linMap(0, 10, 0.1, 0.01, 0.001, 0.001),
       biasUnits   = app.unitSecs,
-      initialBias = 0.500
+      initialBias = 0.200
+    },
+    shape   = GainBias {
+      button        = "shape",
+      description   = "Shape",
+      branch        = self.branches.shape,
+      gainbias      = self.objects.shape,
+      range         = self.objects.shapeRange,
+      biasMap       = Encoder.getMap("[-1,1]"),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = 0.5
+    },
+    subLevel   = GainBias {
+      button        = "subLvl",
+      description   = "Sub Level",
+      branch        = self.branches.subLevel,
+      gainbias      = self.objects.subLevel,
+      range         = self.objects.subLevelRange,
+      biasMap       = Encoder.getMap("[-1,1]"),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = 0.5
+    },
+    subDivide   = GainBias {
+      button        = "subDiv",
+      description   = "Sub Level",
+      branch        = self.branches.subDivide,
+      gainbias      = self.objects.subDivide,
+      range         = self.objects.subDivideRange,
+      biasMap       = Encoder.getMap("[0,10]"),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = 2
+    },
+    gain   = GainBias {
+      button        = "gain",
+      description   = "Gain",
+      branch        = self.branches.gain,
+      gainbias      = self.objects.gain,
+      range         = self.objects.gainRange,
+      biasMap       = Encoder.getMap("[-1,1]"),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = 0.5
     }
   }, {
-    expanded  = { "gate", "vpo", "detune", "f0", "rise", "fall" },
+    expanded  = { "gate", "vpo", "f0", "height", "rise", "fall", "shape", "subLevel", "subDivide", "gain" },
     collapsed = { }
   }
 end
