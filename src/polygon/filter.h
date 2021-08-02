@@ -13,6 +13,25 @@ namespace filter {
 
   // For reference, https://www.earlevel.com/main/2012/12/15/a-one-pole-filter/
   namespace onepole {
+    namespace four {
+      struct Filter {
+        const float32x4_t npi2sp = vdupq_n_f32(-2.0f * M_PI * globalConfig.samplePeriod);
+
+        inline void setFrequency(float32x4_t f0) {
+          mCoeff = util::simd::exp_f32(f0 * npi2sp);
+        }
+
+        inline float32x4_t process(const float32x4_t input) {
+          auto one = vdupq_n_f32(1.0f);
+          mZ1 = input * (one - mCoeff) + mZ1 * mCoeff;
+          return mZ1;
+        }
+
+        float32x4_t mZ1 = vdupq_n_f32(0);
+        float32x4_t mCoeff;
+      };
+    }
+
     struct Filter {
       const float32x4_t npi2sp = vdupq_n_f32(-2.0f * M_PI * globalConfig.samplePeriod);
 
@@ -38,6 +57,75 @@ namespace filter {
   }
 
   namespace svf {
+    namespace four {
+      struct Coefficients {
+        inline void configure(const float32x4_t f0) {
+          auto freq = vmaxq_f32(f0, vdupq_n_f32(1));
+          mK = util::simd::invert(vdupq_n_f32(0.70710678118f));
+
+          auto g = util::simd::tan(freq * vdupq_n_f32(M_PI * globalConfig.samplePeriod));
+          mA1 = util::simd::invert(vmlaq_f32(vdupq_n_f32(1.0f), g, g + mK));
+          mA2 = g * mA1;
+          mA3 = g * mA2;
+        }
+
+        float32x4_t mA1;
+        float32x4_t mA2;
+        float32x4_t mA3;
+        float32x4_t mK;
+      };
+
+      struct Lowpass {
+        inline void configure(const float32x4_t f0) {
+          mCf.configure(f0);
+        }
+
+        inline float32x4_t process(
+          const float32x4_t x
+        ) {
+          auto v3 = x - mIc2;
+          auto v1 = mCf.mA1 * mIc1 + mCf.mA2 * v3;
+          auto v2 = mIc2 + mCf.mA2 * mIc1 + mCf.mA3 * v3;
+
+          auto two = vdupq_n_f32(2);
+          mIc1 = two * v1 - mIc1;
+          mIc2 = two * v2 - mIc2;
+
+          return v2;
+        }
+
+        Coefficients mCf;
+        float32x4_t mIc1 = vdupq_n_f32(0);
+        float32x4_t mIc2 = vdupq_n_f32(0);
+      };
+
+      struct Filter {
+        inline void process(
+          const Coefficients &cf,
+          const float32x4_t x
+        ) {
+          auto v3 = x - mIc2;
+          auto v1 = cf.mA1 * mIc1 + cf.mA2 * v3;
+          auto v2 = mIc2 + cf.mA2 * mIc1 + cf.mA3 * v3;
+
+          auto two = vdupq_n_f32(2);
+          mIc1 = two * v1 - mIc1;
+          mIc2 = two * v2 - mIc1;
+
+          mLp = v2;
+          mBp = v1;
+          mHp = x - cf.mK * mBp - mLp;
+        }
+
+        float32x4_t mLp;
+        float32x4_t mBp;
+        float32x4_t mHp;
+
+        float32x4_t mIc1 = vdupq_n_f32(0);
+        float32x4_t mIc2 = vdupq_n_f32(0);
+      };
+    }
+
     class Coefficients {
       public:
         inline void update(
@@ -189,6 +277,22 @@ namespace filter {
       BANDPASS = 2,
       HIGHPASS = 3
     };
+
+    namespace four {
+      struct Coefficients {
+        inline void process() {
+
+        }
+
+        float32x4_t mA0I;
+        float32x4_t mA1;
+        float32x4_t mA2;
+
+        float32x4_t mB0;
+        float32x4_t mB1;
+        float32x4_t mB2;
+      };
+    }
 
     // https://webaudio.github.io/Audio-EQ-Cookbook/audio-eq-cookbook.html
     // https://arachnoid.com/BiQuadDesigner/index.html

@@ -6,6 +6,7 @@ local Unit = require "Unit"
 local Gate = require "Unit.ViewControl.Gate"
 local GainBias = require "Unit.ViewControl.GainBias"
 local Pitch = require "Unit.ViewControl.Pitch"
+local OutputMeter = require "polygon.OutputMeter"
 
 local Polygon = Class {}
 Polygon:include(Unit)
@@ -52,7 +53,6 @@ function Polygon:onLoadGraph(channelCount)
   local gate      = self:addComparatorControl("gate", app.COMPARATOR_GATE)
   local vpo       = self:addConstantOffsetControl("vpo")
   local f0        = self:addGainBiasControl("f0")
-  local gain      = self:addGainBiasControl("gain")
   local shape     = self:addGainBiasControl("shape")
   local subLevel  = self:addGainBiasControl("subLevel")
   local subDivide = self:addGainBiasControl("subDivide")
@@ -60,11 +60,10 @@ function Polygon:onLoadGraph(channelCount)
   local rise      = self:addParameterAdapterControl("rise")
   local fall      = self:addParameterAdapterControl("fall")
 
-  local op = self:addObject("op", polygon.Polygon(4))
+  local op = self:addObject("op", polygon.Polygon())
   connect(gate,      "Out", op, "Gate")
   connect(vpo,       "Out", op, "V/Oct")
   connect(f0,        "Out", op, "Fundamental")
-  connect(gain,      "Out", op, "Gain")
   connect(shape,     "Out", op, "Shape")
   connect(subLevel,  "Out", op, "Sub Level")
   connect(subDivide, "Out", op, "Sub Divide")
@@ -74,13 +73,20 @@ function Polygon:onLoadGraph(channelCount)
   tie(op, "Height", height, "Out")
 
   for i = 1, channelCount do
-    connect(op, "Out", self, "Out"..i)
+    connect(op, "Out"..i, self, "Out"..i)
   end
 end
 
 function Polygon.linMap(min, max, superCoarse, coarse, fine, superFine)
   local map = app.LinearDialMap(min, max)
   map:setSteps(superCoarse, coarse, fine, superFine)
+  return map
+end
+
+function Polygon.defaultDecibelMap()
+  local map = app.LinearDialMap(-60, 12)
+  map:setZero(0)
+  map:setSteps(6, 1, 0.1, 0.01);
   return map
 end
 
@@ -160,7 +166,7 @@ function Polygon:onLoadViews()
       branch        = self.branches.subLevel,
       gainbias      = self.objects.subLevel,
       range         = self.objects.subLevelRange,
-      biasMap       = Encoder.getMap("[-1,1]"),
+      biasMap       = Encoder.getMap("[0,1]"),
       biasUnits     = app.unitNone,
       biasPrecision = 2,
       initialBias   = 0.5
@@ -176,19 +182,17 @@ function Polygon:onLoadViews()
       biasPrecision = 2,
       initialBias   = 2
     },
-    gain   = GainBias {
-      button        = "gain",
-      description   = "Gain",
-      branch        = self.branches.gain,
-      gainbias      = self.objects.gain,
-      range         = self.objects.gainRange,
-      biasMap       = Encoder.getMap("[-1,1]"),
-      biasUnits     = app.unitNone,
-      biasPrecision = 2,
-      initialBias   = 0.5
+    output = OutputMeter {
+      button       = "output",
+      description  = "Output Gain",
+      polygon      = self.objects.op,
+      channelCount = self.channelCount,
+      map          = self.defaultDecibelMap(),
+      units        = app.unitDecibels,
+      scaling      = app.linearScaling
     }
   }, {
-    expanded  = { "gate", "vpo", "f0", "height", "rise", "fall", "shape", "subLevel", "subDivide", "gain" },
+    expanded  = { "gate", "vpo", "f0", "height", "rise", "fall", "shape", "subLevel", "subDivide", "output" },
     collapsed = { }
   }
 end

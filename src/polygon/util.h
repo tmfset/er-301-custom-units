@@ -11,6 +11,77 @@
 #include <hal/log.h>
 
 namespace util {
+  namespace four {
+    struct TrackAndHold {
+      TrackAndHold(float initial) {
+        mValue = vdupq_n_f32(initial);
+      }
+
+      inline void set(const float32x4_t signal) {
+        mValue = signal;
+      }
+
+      inline void track(const uint32x4_t gate, const float32x4_t signal) {
+        mValue = vbslq_f32(gate, signal, mValue);
+      }
+
+      inline void track(const uint32x4_t gate, const TrackAndHold &other) {
+        track(gate, other.value());
+      }
+
+      inline void modulate(const float32x4_t signal) {
+        mValue += signal;
+      }
+
+      inline float32x4_t value() const { return mValue; }
+
+      float32x4_t mValue;
+    };
+
+    struct Latch {
+      inline uint32x4_t read(
+        const uint32x4_t set,
+        const uint32x4_t reset
+      ) {
+        mState = vandq_u32(mState, vmvnq_u32(reset));
+        mState = vorrq_u32(mState, set);
+        return mState;
+      }
+
+      uint32x4_t mState = vdupq_n_u32(0);
+    };
+
+    struct Trigger {
+      inline uint32x4_t read(const uint32x4_t high) {
+        mTrigger = vandq_u32(high, mEnable);
+        mEnable = vmvnq_u32(high);
+        return mTrigger;
+      }
+
+      uint32x4_t mEnable = vdupq_n_u32(0);
+      uint32x4_t mTrigger = vdupq_n_u32(0);
+    };
+
+    struct Vpo {
+      inline void track(const uint32x4_t gate, const Vpo &other) {
+        mScale.track(gate, other.mScale);
+      }
+
+      inline float32x4_t delta(const float32x4_t f0) {
+        return f0 * mScale.value();
+      }
+
+      inline void configure(const float32x4_t vpo) {
+        const auto sp = vdupq_n_f32(globalConfig.samplePeriod);
+        const float32x4_t vpoLogMax = vdupq_n_f32(FULLSCALE_IN_VOLTS * logf(2.0f));
+        mScale.set(util::simd::exp_f32(vpo * vpoLogMax) * sp);
+      }
+
+      TrackAndHold mScale { 1 };
+    };
+  }
+
+
   namespace simd {
     #define c_inv_mant_mask ~0x7f800000u
     #define c_cephes_SQRTHF 0.707106781186547524
@@ -396,6 +467,12 @@ namespace util {
       return sin * invert(cos);
     }
 
+    inline float32x4_t vpo_scalar(const float32x4_t vpo) {
+      const auto sp = vdupq_n_f32(globalConfig.samplePeriod);
+      const float32x4_t vpoLogMax = vdupq_n_f32(FULLSCALE_IN_VOLTS * logf(2.0f));
+      return util::simd::exp_f32(vpo * vpoLogMax) * sp;
+    }
+
     inline float32x4_t vpo_scale(
       const float32x4_t vpo,
       const float32x4_t f0
@@ -518,6 +595,23 @@ namespace util {
       vst1q_f32(ptr + 12, vcombine_f32(vget_high_f32(ab.val[1]), vget_high_f32(cd.val[1])));
     }
 
+    inline void print_u32(const uint32x4_t x, bool newline = false) {
+            static int count = 0;
+      count++;
+      if (count > 4000) return;
+      
+      logRaw("%08x %08x %08x %08x\n",
+        vgetq_lane_u32(x, 0),
+        vgetq_lane_u32(x, 1),
+        vgetq_lane_u32(x, 2),
+        vgetq_lane_u32(x, 3)
+      );
+
+      if (newline) {
+        logRaw("\n");
+      }
+    }
+
     inline void print_f32(const float32x4_t x, bool newline = false) {
       static int count = 0;
       count++;
@@ -580,7 +674,11 @@ namespace util {
     return powf(10.0f, x * 0.05);
   }
 
-  struct Latch {
+  inline int clamp(int value, int min, int max) {
+    return value < min ? min : value > max ? max : value;
+  }
+
+  struct Trigger {
     inline uint32_t read(const uint32_t high) {
       mTrigger = high & mEnable;
       mEnable = ~high;
@@ -589,5 +687,18 @@ namespace util {
 
     uint32_t mEnable  = 0;
     uint32_t mTrigger = 0;
+  };
+
+  struct Latch {
+    inline uint32_t read(
+      const uint32_t set,
+      const uint32_t reset
+    ) {
+      mState = mState & ~reset;
+      mState = mState | set;
+      return mState;
+    }
+
+    uint32_t mState = 0;
   };
 }

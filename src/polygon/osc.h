@@ -47,6 +47,25 @@ namespace osc {
       float32x4_t mDelta, mWidth;
   };
 
+  namespace four {
+    struct Phase {
+      inline float32x4_t process(
+        const float32x4_t delta,
+        const uint32x4_t sync
+      ) {
+        auto zero = vdupq_n_f32(0);
+
+        auto p = vbslq_f32(sync, zero, mPhase + delta);
+        mPhase = p - util::simd::floor(p);
+
+        return mPhase;
+      }
+
+      float32x4_t mPhase = vdupq_n_f32(0);
+    };
+
+  }
+
   struct SubPhase {
     inline void process(
       const float32x4_t delta,
@@ -246,7 +265,7 @@ namespace osc {
     }
 
     const float32x4_t cScale = util::simd::makeq_f32(1, 2, 3, 4);
-    util::Latch trigger;
+    util::Trigger trigger;
     float phase = 1.0f;
   };
 
@@ -366,36 +385,22 @@ namespace osc {
       );
     }
 
-    // triangle -> saw -> pulse
-    struct TSP {
-      inline TSP(const float32x4_t shape) {
-        auto zero = vdupq_n_f32(0);
-        auto half = vdupq_n_f32(0.5);
-        auto one  = vdupq_n_f32(1);
+    inline float32x4_t triangleToPulse(
+      const float32x4_t phase,
+      const float32x4_t shape
+    ) {
+      auto zero = vdupq_n_f32(0);
+      auto half = vdupq_n_f32(0.5);
+      auto one  = vdupq_n_f32(1);
 
-        mTriToSaw = vcltq_f32(shape, zero);
-        mDegree = vabsq_f32(shape);
-        mTriangleWidth = vbslq_f32(mTriToSaw, one - mDegree * half, one);
-      }
+      auto low    = vcltq_f32(shape, zero);
+      auto amount = vabsq_f32(shape);
+      auto width  = vbslq_f32(low, one - amount * half, one);
 
-      inline float32x4_t process(const float32x4_t phase) const {
-        auto zero = vdupq_n_f32(0);
-        auto half = vdupq_n_f32(0.5);
-        auto one  = vdupq_n_f32(1);
-
-        auto tri = triangle(phase, mTriangleWidth);
-        auto pls = pulse(phase, half);
-        return vbslq_f32(
-          mTriToSaw,
-          tri,
-          tri * (one - mDegree) + pls * mDegree
-        );
-      }
-
-      uint32x4_t mTriToSaw;
-      float32x4_t mTriangleWidth;
-      float32x4_t mDegree;
-    };
+      auto tri = triangle(phase);
+      auto pls = pulse(phase, half);
+      return vbslq_f32(low, tri, tri * (one - amount) + pls * amount);
+    }
 
     inline float32x4_t pulseConst(
       const float32x4_t phase
@@ -427,7 +432,7 @@ namespace osc {
   struct Formant {
     Phase mOscPhase;
     float mEnvPhase = 1.0f;
-    util::Latch mSyncTrigger;
+    util::Trigger mSyncTrigger;
     const float32x4_t cScale = util::simd::makeq_f32(1, 2, 3, 4);
 
     inline float32x4_t process(
