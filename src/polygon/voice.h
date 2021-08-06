@@ -60,6 +60,65 @@ namespace voice {
   };
 
   namespace four {
+    struct Control {
+      inline void track(
+        const uint32x4_t gate,
+        const float32x4_t global,
+        const float32x4_t direct,
+        const float32x4_t envAmount
+      ) {
+        mGlobal    = vbslq_f32(gate, global, mGlobal);
+        mDirect    = vbslq_f32(gate, direct, mDirect);
+        mEnvAmount = vbslq_f32(gate, envAmount, mEnvAmount);
+      }
+
+      inline void configure(
+        const float32x4_t global,
+        const float32x4_t direct,
+        const float32x4_t envAmount,
+        const float32x4_t mod
+      ) {
+        mGlobal    = global;
+        mDirect    = direct;
+        mEnvAmount = envAmount;
+        mMod       = mod;
+      }
+
+      inline void envelope(const float32x4_t env) {
+
+      }
+
+      inline void modulate(const float32x4_t mod) {
+
+      }
+
+      float32x4_t mGlobal    = vdupq_n_f32(0);
+      float32x4_t mDirect    = vdupq_n_f32(0);
+      float32x4_t mEnvAmount = vdupq_n_f32(0);
+      float32x4_t mMod       = vdupq_n_f32(0);
+    };
+
+    struct Parameter {
+      inline float32x4_t value() {
+        return mValue;
+      }
+
+      inline float32x4_t value(const float32x4_t env) {
+        return mValue + env * mEnvAmount;
+      }
+
+      float32x4_t mValue = vdupq_n_f32(0);
+      float32x4_t mEnvAmount = vdupq_n_f32(0);
+    };
+
+    struct ParameterEnv {
+      inline float32x4_t value(const float32x4_t env) {
+        return mValue + env * mEnvAmount;
+      }
+      float32x4_t mValue = vdupq_n_f32(0);
+      float32x4_t mEnvAmount = vdupq_n_f32(0);
+    };
+
     struct Globals {
       inline void track(const uint32x4_t gate, const Parameters& other) {
         mEnvCoeff.track(gate, other.mEnvCoeff);
