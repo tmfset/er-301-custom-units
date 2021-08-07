@@ -8,46 +8,16 @@ local Gate = require "Unit.ViewControl.Gate"
 local OutputScope = require "Unit.ViewControl.OutputScope"
 local OptionControl = require "Unit.MenuControl.OptionControl"
 local Pitch = require "Unit.ViewControl.Pitch"
+local Common = require "strike.Common"
 
 local Formant = Class {}
 Formant:include(Unit)
+Formant:include(Common)
 
 function Formant:init(args)
   args.title = "Formant"
   args.mnemonic = "fmt"
   Unit.init(self, args)
-end
-
-function Formant.addComparatorControl(self, name, mode, default)
-  local gate = self:addObject(name, app.Comparator())
-  gate:setMode(mode)
-  self:addMonoBranch(name, gate, "In", gate, "Out")
-  if default then
-    gate:setOptionValue("State", default)
-  end
-  return gate
-end
-
-function Formant.addGainBiasControl(self, name)
-  local gb    = self:addObject(name, app.GainBias());
-  local range = self:addObject(name.."Range", app.MinMax())
-  connect(gb, "Out", range, "In")
-  self:addMonoBranch(name, gb, "In", gb, "Out")
-  return gb;
-end
-
-function Formant.addConstantOffsetControl(self, name)
-  local co    = self:addObject(name, app.ConstantOffset());
-  local range = self:addObject(name.."Range", app.MinMax())
-  connect(co, "Out", range, "In")
-  self:addMonoBranch(name, co, "In", co, "Out")
-  return co;
-end
-
-function Formant.linMap(min, max, superCoarse, coarse, fine, superFine)
-  local map = app.LinearDialMap(min, max)
-  map:setSteps(superCoarse, coarse, fine, superFine)
-  return map
 end
 
 function Formant:onLoadGraph(channelCount)

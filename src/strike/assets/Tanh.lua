@@ -3,22 +3,16 @@ local strike = require "strike.libstrike"
 local Class = require "Base.Class"
 local GainBias = require "Unit.ViewControl.GainBias"
 local Unit = require "Unit"
+local Common = require "strike.Common"
 
 local Tanh = Class {}
 Tanh:include(Unit)
+Tanh:include(Common)
 
 function Tanh:init(args)
   args.title = "Tanh"
   args.mnemonic = "tanh"
   Unit.init(self, args)
-end
-
-function Tanh.addGainBiasControl(self, name)
-  local gb    = self:addObject(name, app.GainBias());
-  local range = self:addObject(name.."Range", app.MinMax())
-  connect(gb, "Out", range, "In")
-  self:addMonoBranch(name, gb, "In", gb, "Out")
-  return gb;
 end
 
 function Tanh:onLoadGraph(channelCount)
@@ -30,12 +24,6 @@ function Tanh:onLoadGraph(channelCount)
     connect(gain, "Out", op, "Gain")
     connect(op, "Out", self, "Out"..i)
   end
-end
-
-function Tanh.linMap(min, max, superCoarse, coarse, fine, superFine)
-  local map = app.LinearDialMap(min, max)
-  map:setSteps(superCoarse, coarse, fine, superFine)
-  return map
 end
 
 function Tanh:onLoadViews()

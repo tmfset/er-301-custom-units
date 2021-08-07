@@ -8,51 +8,16 @@ local Gate = require "Unit.ViewControl.Gate"
 local OutputScope = require "Unit.ViewControl.OutputScope"
 local OptionControl = require "Unit.MenuControl.OptionControl"
 local Pitch = require "Unit.ViewControl.Pitch"
+local Common = require "strike.Common"
 
 local Arc = Class {}
 Arc:include(Unit)
+Arc:include(Common)
 
 function Arc:init(args)
   args.title = "Arc"
   args.mnemonic = "ad"
   Unit.init(self, args)
-end
-
-function Arc.addComparatorControl(self, name, mode, default)
-  local gate = self:addObject(name, app.Comparator())
-  gate:setMode(mode)
-  self:addMonoBranch(name, gate, "In", gate, "Out")
-  if default then
-    gate:setOptionValue("State", default)
-  end
-  return gate
-end
-
-function Arc.addGainBiasControlNoBranch(self, name)
-  local gb    = self:addObject(name, app.GainBias());
-  local range = self:addObject(name.."Range", app.MinMax())
-  connect(gb, "Out", range, "In")
-  return gb;
-end
-
-function Arc.addGainBiasControl(self, name)
-  local gb = self:addGainBiasControlNoBranch(name);
-  self:addMonoBranch(name, gb, "In", gb, "Out")
-  return gb;
-end
-
-function Arc.addConstantOffsetControl(self, name)
-  local co    = self:addObject(name, app.ConstantOffset());
-  local range = self:addObject(name.."Range", app.MinMax())
-  connect(co, "Out", range, "In")
-  self:addMonoBranch(name, co, "In", co, "Out")
-  return co;
-end
-
-function Arc.linMap(min, max, superCoarse, coarse, fine, superFine)
-  local map = app.LinearDialMap(min, max)
-  map:setSteps(superCoarse, coarse, fine, superFine)
-  return map
 end
 
 function Arc:onShowMenu(objects, branches)
@@ -73,8 +38,8 @@ end
 function Arc:onLoadGraph(channelCount)
   local stereo = channelCount > 1
 
-  local rise     = self:addGainBiasControlNoBranch("rise")
-  local fall     = self:addGainBiasControlNoBranch("fall")
+  local rise     = self:addGainBiasControl("rise")
+  local fall     = self:addGainBiasControl("fall")
   local bend     = self:addGainBiasControl("bend")
   local loop     = self:addComparatorControl("loop", app.COMPARATOR_TOGGLE)
   local height   = self:addGainBiasControl("height")
@@ -95,12 +60,14 @@ function Arc:onLoadGraph(channelCount)
     connect(op,     "Out", self, "Out"..i)
   end
 
-  self:addMonoBranch("rise", rise, "In", self.objects.op1, "EOF")
-  self:addMonoBranch("fall", fall, "In", self.objects.op1, "EOR")
+  self:addFreeBranch("eof", self.objects.op1, "EOF")
+  self:addFreeBranch("eor", self.objects.op1, "EOR")
 end
 
 function Arc:onLoadViews()
   return {
+    eof = self:branchControlView("eof"),
+    eor = self:branchControlView("eor"),
     rise = GainBias {
       button      = "rise",
       branch      = self.branches.rise,
@@ -151,6 +118,7 @@ function Arc:onLoadViews()
       initialBias   = 1
     }
   }, {
+    scope     = { "eof", "eor", "loop", "rise", "fall", "bend", "height" },
     expanded  = { "loop", "rise", "fall", "bend", "height" },
     collapsed = {}
   }

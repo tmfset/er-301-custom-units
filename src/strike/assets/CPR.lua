@@ -12,69 +12,16 @@ local Pitch = require "Unit.ViewControl.Pitch"
 local SidechainMeter = require "strike.SidechainMeter"
 local OutputMeter = require "strike.OutputMeter"
 local CompressorScope = require "strike.CompressorScope"
-local BranchControl = require "strike.BranchControl"
+local Common = require "strike.Common"
 
 local CPR = Class {}
 CPR:include(Unit)
+CPR:include(Common)
 
 function CPR:init(args)
   args.title = "CPR"
   args.mnemonic = "cpr"
   Unit.init(self, args)
-end
-
-function CPR.addComparatorControl(self, name, mode, default)
-  local gate = self:addObject(name, app.Comparator())
-  gate:setMode(mode)
-  self:addMonoBranch(name, gate, "In", gate, "Out")
-  if default then
-    gate:setOptionValue("State", default)
-  end
-  return gate
-end
-
-function CPR.addGainBiasControlNoBranch(self, name)
-  local gb    = self:addObject(name, app.GainBias());
-  local range = self:addObject(name.."Range", app.MinMax())
-  connect(gb, "Out", range, "In")
-  return gb;
-end
-
-function CPR.addGainBiasControl(self, name)
-  local gb = self:addGainBiasControlNoBranch(name)
-  self:addMonoBranch(name, gb, "In", gb, "Out")
-  return gb;
-end
-
-function CPR.addConstantOffsetControl(self, name)
-  local co    = self:addObject(name, app.ConstantOffset())
-  local range = self:addObject(name.."Range", app.MinMax())
-  connect(co, "Out", range, "In")
-  self:addMonoBranch(name, co, "In", co, "Out")
-  return co;
-end
-
-function CPR.addParameterAdapterControl(self, name)
-  local pa = self:addObject(name, app.ParameterAdapter())
-  self:addMonoBranch(name, pa, "In", pa, "Out")
-  return pa
-end
-
-function CPR.addFreeBranch(self, name, obj, outlet)
-  local monitor = self:addObject(name.."Monitor", app.Monitor())
-  self:addMonoBranch(name, monitor, "In", obj, outlet)
-end
-
-function CPR.addMonitorBranch(self, name, obj, outlet)
-  local monitor = self:addObject(name.."Monitor", app.Monitor())
-  connect(monitor, "Out", obj, outlet)
-  self:addMonoBranch(name, monitor, "In", monitor, "Out")
-end
-
-function CPR.linMap(min, max, superCoarse, coarse, fine, superFine)
-  local map = app.LinearDialMap(min, max)
-  map:setSteps(superCoarse, coarse, fine, superFine)
-  return map
 end
 
 function CPR:onLoadGraph(channelCount)
@@ -91,13 +38,6 @@ function CPR:onLoadGraph(channelCount)
   self:addMonitorBranch("sidechain", op, "Sidechain")
   self:addFreeBranch("reduction", op, "Reduction")
   self:addFreeBranch("active", op, "Active")
-end
-
-function CPR.defaultDecibelMap()
-  local map = app.LinearDialMap(-60, 12)
-  map:setZero(0)
-  map:setSteps(6, 1, 0.1, 0.01);
-  return map
 end
 
 function CPR:onLoadViews()
@@ -128,18 +68,9 @@ function CPR:onLoadViews()
       biasPrecision = 2,
       initialBias   = 0.5
     },
-    sidechain = BranchControl {
-      name = "sidechain",
-      branch = self.branches.sidechain
-    },
-    active = BranchControl {
-      name = "active",
-      branch = self.branches.active
-    },
-    reduction = BranchControl {
-      name = "reduction",
-      branch = self.branches.reduction
-    },
+    sidechain = self:branchControlView("sidechain"),
+    active    = self:branchControlView("active"),
+    reduction = self:branchControlView("reduction"),
     output = OutputMeter {
       button       = "output",
       description  = "Output Gain",

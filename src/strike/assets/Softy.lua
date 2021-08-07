@@ -7,40 +7,16 @@ local GainBias = require "Unit.ViewControl.GainBias"
 local Gate = require "Unit.ViewControl.Gate"
 local Pitch = require "Unit.ViewControl.Pitch"
 local GainBias = require "Unit.ViewControl.GainBias"
+local Common = require "strike.Common"
 
 local Softy = Class {}
 Softy:include(Unit)
+Softy:include(Common)
 
 function Softy:init(args)
   args.title = "Softy"
   args.mnemonic = "sft"
   Unit.init(self, args)
-end
-
-function Softy.addComparatorControl(self, name, mode, default)
-  local gate = self:addObject(name, app.Comparator())
-  gate:setMode(mode)
-  self:addMonoBranch(name, gate, "In", gate, "Out")
-  if default then
-    gate:setOptionValue("State", default)
-  end
-  return gate
-end
-
-function Softy.addGainBiasControl(self, name)
-  local gb    = self:addObject(name, app.GainBias());
-  local range = self:addObject(name.."Range", app.MinMax())
-  connect(gb, "Out", range, "In")
-  self:addMonoBranch(name, gb, "In", gb, "Out")
-  return gb;
-end
-
-function Softy.addConstantOffsetControl(self, name)
-  local co    = self:addObject(name, app.ConstantOffset());
-  local range = self:addObject(name.."Range", app.MinMax())
-  connect(co, "Out", range, "In")
-  self:addMonoBranch(name, co, "In", co, "Out")
-  return co;
 end
 
 function Softy:onLoadGraph(channelCount)

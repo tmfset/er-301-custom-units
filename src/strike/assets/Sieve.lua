@@ -6,36 +6,16 @@ local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
 local Pitch = require "Unit.ViewControl.Pitch"
 local MOptionControl = require "Unit.MenuControl.OptionControl"
+local Common = require "strike.Common"
 
 local Sieve = Class {}
 Sieve:include(Unit)
+Sieve:include(Common)
 
 function Sieve:init(args)
   args.title = "Sieve"
   args.mnemonic = "svf"
   Unit.init(self, args)
-end
-
-function Sieve.addGainBiasControl(self, name)
-  local gb    = self:addObject(name, app.GainBias());
-  local range = self:addObject(name.."Range", app.MinMax())
-  connect(gb, "Out", range, "In")
-  self:addMonoBranch(name, gb, "In", gb, "Out")
-  return gb;
-end
-
-function Sieve.addConstantOffsetControl(self, name)
-  local co    = self:addObject(name, app.ConstantOffset());
-  local range = self:addObject(name.."Range", app.MinMax())
-  connect(co, "Out", range, "In")
-  self:addMonoBranch(name, co, "In", co, "Out")
-  return co;
-end
-
-function Sieve.linMap(min, max, superCoarse, coarse, fine, superFine)
-  local map = app.LinearDialMap(min, max)
-  map:setSteps(superCoarse, coarse, fine, superFine)
-  return map
 end
 
 function Sieve:onLoadGraph(channelCount)

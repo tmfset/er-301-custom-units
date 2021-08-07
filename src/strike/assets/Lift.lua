@@ -8,57 +8,17 @@ local Gate = require "Unit.ViewControl.Gate"
 local OutputScope = require "Unit.ViewControl.OutputScope"
 local OptionControl = require "Unit.MenuControl.OptionControl"
 local Pitch = require "Unit.ViewControl.Pitch"
+local BranchControl = require "strike.BranchControl"
+local Common = require "strike.Common"
 
 local Lift = Class {}
 Lift:include(Unit)
+Lift:include(Common)
 
 function Lift:init(args)
   args.title = "Lift"
   args.mnemonic = "lpg"
   Unit.init(self, args)
-end
-
-function Lift.addComparatorControl(self, name, mode, default)
-  local gate = self:addObject(name, app.Comparator())
-  gate:setMode(mode)
-  self:addMonoBranch(name, gate, "In", gate, "Out")
-  if default then
-    gate:setOptionValue("State", default)
-  end
-  return gate
-end
-
-function Lift.addGainBiasControlNoBranch(self, name)
-  local gb    = self:addObject(name, app.GainBias());
-  local range = self:addObject(name.."Range", app.MinMax())
-  connect(gb, "Out", range, "In")
-  return gb;
-end
-
-function Lift.addGainBiasControl(self, name)
-  local gb = self:addGainBiasControlNoBranch(name);
-  self:addMonoBranch(name, gb, "In", gb, "Out")
-  return gb;
-end
-
-function Lift.addConstantOffsetControl(self, name)
-  local co    = self:addObject(name, app.ConstantOffset());
-  local range = self:addObject(name.."Range", app.MinMax())
-  connect(co, "Out", range, "In")
-  self:addMonoBranch(name, co, "In", co, "Out")
-  return co;
-end
-
-function Lift.addParameterAdapterControl(self, name)
-  local pa = self:addObject(name, app.ParameterAdapter())
-  self:addMonoBranch(name, pa, "In", pa, "Out")
-  return pa
-end
-
-function Lift.linMap(min, max, superCoarse, coarse, fine, superFine)
-  local map = app.LinearDialMap(min, max)
-  map:setSteps(superCoarse, coarse, fine, superFine)
-  return map
 end
 
 function Lift:onLoadGraph(channelCount)
@@ -80,11 +40,12 @@ function Lift:onLoadGraph(channelCount)
     connect(op, "Out"..i, self, "Out"..i)
   end
 
-  self:addMonoBranch("height", height, "In", self.objects.op, "Env")
+  self:addFreeBranch("env", self.objects.op, "Env")
 end
 
 function Lift:onLoadViews()
   return {
+    env = self:branchControlView("env"),
     gate = Gate {
       button      = "gate",
       description = "Gate",
@@ -124,6 +85,7 @@ function Lift:onLoadViews()
       initialBias = 0.200
     }
   }, {
+    scope     = { "env", "gate", "height", "rise", "fall" },
     expanded  = { "gate", "height", "rise", "fall" },
     collapsed = {}
   }

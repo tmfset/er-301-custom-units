@@ -7,10 +7,11 @@ local GainBias = require "Unit.ViewControl.GainBias"
 local Gate = require "Unit.ViewControl.Gate"
 local OutputScope = require "Unit.ViewControl.OutputScope"
 local OptionControl = require "Unit.MenuControl.OptionControl"
-local Pitch = require "Unit.ViewControl.Pitch"
+local Common = require "strike.Common"
 
 local Strike = Class {}
 Strike:include(Unit)
+Strike:include(Common)
 
 function Strike:init(args)
   args.title = "Strike"
@@ -18,52 +19,15 @@ function Strike:init(args)
   Unit.init(self, args)
 end
 
-function Strike.addComparatorControl(self, name, mode, default)
-  local gate = self:addObject(name, app.Comparator())
-  gate:setMode(mode)
-  self:addMonoBranch(name, gate, "In", gate, "Out")
-  if default then
-    gate:setOptionValue("State", default)
-  end
-  return gate
-end
-
-function Strike.addGainBiasControlNoBranch(self, name)
-  local gb    = self:addObject(name, app.GainBias());
-  local range = self:addObject(name.."Range", app.MinMax())
-  connect(gb, "Out", range, "In")
-  return gb;
-end
-
-function Strike.addGainBiasControl(self, name)
-  local gb = self:addGainBiasControlNoBranch(name);
-  self:addMonoBranch(name, gb, "In", gb, "Out")
-  return gb;
-end
-
-function Strike.addConstantOffsetControl(self, name)
-  local co    = self:addObject(name, app.ConstantOffset());
-  local range = self:addObject(name.."Range", app.MinMax())
-  connect(co, "Out", range, "In")
-  self:addMonoBranch(name, co, "In", co, "Out")
-  return co;
-end
-
-function Strike.linMap(min, max, superCoarse, coarse, fine, superFine)
-  local map = app.LinearDialMap(min, max)
-  map:setSteps(superCoarse, coarse, fine, superFine)
-  return map
-end
-
 function Strike:onLoadGraph(channelCount)
   local stereo = channelCount > 1
 
   local trig   = self:addComparatorControl("trig", app.COMPARATOR_TRIGGER_ON_RISE)
   local loop   = self:addComparatorControl("loop", app.COMPARATOR_TOGGLE)
-  local rise   = self:addGainBiasControlNoBranch("rise")
-  local fall   = self:addGainBiasControlNoBranch("fall")
+  local rise   = self:addGainBiasControl("rise")
+  local fall   = self:addGainBiasControl("fall")
   local bend   = self:addGainBiasControl("bend")
-  local height = self:addGainBiasControlNoBranch("height")
+  local height = self:addGainBiasControl("height")
 
   local op = self:addObject("op", strike.Strike(stereo))
   connect(trig,   "Out", op, "Trig")
@@ -78,9 +42,9 @@ function Strike:onLoadGraph(channelCount)
     connect(op, "Out"..i, self, "Out"..i)
   end
 
-  self:addMonoBranch("rise",   rise,   "In", self.objects.op, "EOF")
-  self:addMonoBranch("fall",   fall,   "In", self.objects.op, "EOR")
-  self:addMonoBranch("height", height, "In", self.objects.op, "Env")
+  self:addFreeBranch("eof", self.objects.op, "EOF")
+  self:addFreeBranch("eor", self.objects.op, "EOR")
+  self:addFreeBranch("env", self.objects.op, "Env")
 end
 
 function Strike:onShowMenu(objects, branches)
@@ -95,6 +59,9 @@ end
 
 function Strike:onLoadViews()
   return {
+    eof = self:branchControlView("eof"),
+    eor = self:branchControlView("eor"),
+    env = self:branchControlView("env"),
     trig = Gate {
       button      = "trig",
       description = "Trigger",
@@ -151,6 +118,7 @@ function Strike:onLoadViews()
       initialBias   = 1
     }
   }, {
+    scope = { "eof", "eor", "env", "trig", "loop", "rise", "fall", "bend", "height" },
     expanded  = { "trig", "loop", "rise", "fall", "bend", "height" },
     collapsed = {}
   }
