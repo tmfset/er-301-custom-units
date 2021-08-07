@@ -11,77 +11,6 @@
 #include <hal/log.h>
 
 namespace util {
-  namespace four {
-    struct TrackAndHold {
-      TrackAndHold(float initial) {
-        mValue = vdupq_n_f32(initial);
-      }
-
-      inline void set(const float32x4_t signal) {
-        mValue = signal;
-      }
-
-      inline void track(const uint32x4_t gate, const float32x4_t signal) {
-        mValue = vbslq_f32(gate, signal, mValue);
-      }
-
-      inline void track(const uint32x4_t gate, const TrackAndHold &other) {
-        track(gate, other.value());
-      }
-
-      inline void modulate(const float32x4_t signal) {
-        mValue += signal;
-      }
-
-      inline float32x4_t value() const { return mValue; }
-
-      float32x4_t mValue;
-    };
-
-    struct Latch {
-      inline uint32x4_t read(
-        const uint32x4_t set,
-        const uint32x4_t reset
-      ) {
-        mState = vandq_u32(mState, vmvnq_u32(reset));
-        mState = vorrq_u32(mState, set);
-        return mState;
-      }
-
-      uint32x4_t mState = vdupq_n_u32(0);
-    };
-
-    struct Trigger {
-      inline uint32x4_t read(const uint32x4_t high) {
-        mTrigger = vandq_u32(high, mEnable);
-        mEnable = vmvnq_u32(high);
-        return mTrigger;
-      }
-
-      uint32x4_t mEnable = vdupq_n_u32(0);
-      uint32x4_t mTrigger = vdupq_n_u32(0);
-    };
-
-    struct Vpo {
-      inline void track(const uint32x4_t gate, const Vpo &other) {
-        mScale.track(gate, other.mScale);
-      }
-
-      inline float32x4_t delta(const float32x4_t f0) {
-        return f0 * mScale.value();
-      }
-
-      inline void configure(const float32x4_t vpo) {
-        const auto sp = vdupq_n_f32(globalConfig.samplePeriod);
-        const float32x4_t vpoLogMax = vdupq_n_f32(FULLSCALE_IN_VOLTS * logf(2.0f));
-        mScale.set(util::simd::exp_f32(vpo * vpoLogMax) * sp);
-      }
-
-      TrackAndHold mScale { 1 };
-    };
-  }
-
-
   namespace simd {
     #define c_inv_mant_mask ~0x7f800000u
     #define c_cephes_SQRTHF 0.707106781186547524
@@ -701,4 +630,74 @@ namespace util {
 
     uint32_t mState = 0;
   };
+
+  namespace four {
+    struct TrackAndHold {
+      TrackAndHold(float initial) {
+        mValue = vdupq_n_f32(initial);
+      }
+
+      inline void set(const float32x4_t signal) {
+        mValue = signal;
+      }
+
+      inline void track(const uint32x4_t gate, const float32x4_t signal) {
+        mValue = vbslq_f32(gate, signal, mValue);
+      }
+
+      inline void track(const uint32x4_t gate, const TrackAndHold &other) {
+        track(gate, other.value());
+      }
+
+      inline void modulate(const float32x4_t signal) {
+        mValue += signal;
+      }
+
+      inline float32x4_t value() const { return mValue; }
+
+      float32x4_t mValue;
+    };
+
+    struct Latch {
+      inline uint32x4_t read(
+        const uint32x4_t set,
+        const uint32x4_t reset
+      ) {
+        mState = vandq_u32(mState, vmvnq_u32(reset));
+        mState = vorrq_u32(mState, set);
+        return mState;
+      }
+
+      uint32x4_t mState = vdupq_n_u32(0);
+    };
+
+    struct Trigger {
+      inline uint32x4_t read(const uint32x4_t high) {
+        mTrigger = vandq_u32(high, mEnable);
+        mEnable = vmvnq_u32(high);
+        return mTrigger;
+      }
+
+      uint32x4_t mEnable = vdupq_n_u32(0);
+      uint32x4_t mTrigger = vdupq_n_u32(0);
+    };
+
+    struct Vpo {
+      inline void track(const uint32x4_t gate, const Vpo &other) {
+        mScale.track(gate, other.mScale);
+      }
+
+      inline float32x4_t delta(const float32x4_t f0) {
+        return f0 * mScale.value();
+      }
+
+      inline void configure(const float32x4_t vpo) {
+        const auto sp = vdupq_n_f32(globalConfig.samplePeriod);
+        const float32x4_t vpoLogMax = vdupq_n_f32(FULLSCALE_IN_VOLTS * logf(2.0f));
+        mScale.set(simd::exp_f32(vpo * vpoLogMax) * sp);
+      }
+
+      TrackAndHold mScale { 1 };
+    };
+  }
 }

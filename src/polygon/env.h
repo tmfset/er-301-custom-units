@@ -3,7 +3,7 @@
 #include <od/config.h>
 #include <hal/simd.h>
 #include <hal/neon.h>
-#include <util.h>
+#include "util.h"
 
 namespace env {
   namespace four {
@@ -22,7 +22,7 @@ namespace env {
         mFallCoeff.track(gate, other.mFallCoeff);
       }
 
-      inline float32x4_t pick(const uint32x4_t rise) {
+      inline float32x4_t pick(const uint32x4_t rise) const {
         return vbslq_f32(rise, mRiseCoeff.value(), mFallCoeff.value());
       }
 
@@ -57,7 +57,7 @@ namespace env {
         return mValue;
       }
 
-      util::FourLatch mLatch;
+      util::four::Latch mLatch;
       float32x4_t mValue = vdupq_n_f32(0);
     };
   }

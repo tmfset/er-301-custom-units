@@ -50,27 +50,42 @@ function Polygon.addParameterAdapterControl(self, name)
 end
 
 function Polygon:onLoadGraph(channelCount)
-  local gate      = self:addComparatorControl("gate", app.COMPARATOR_GATE)
-  local vpo       = self:addConstantOffsetControl("vpo")
-  local f0        = self:addGainBiasControl("f0")
-  local shape     = self:addGainBiasControl("shape")
-  local subLevel  = self:addGainBiasControl("subLevel")
-  local subDivide = self:addGainBiasControl("subDivide")
-  local height    = self:addParameterAdapterControl("height")
+  local gateRR      = self:addComparatorControl("gateRR", app.COMPARATOR_GATE)
+  local vpoRR       = self:addParameterAdapterControl("vpoRR")
+  local detuneRR    = self:addParameterAdapterControl("detuneRR")
+  local cutoffRR    = self:addParameterAdapterControl("cutoffRR")
+  local shapeRR     = self:addParameterAdapterControl("shapeRR")
+  local levelRR     = self:addParameterAdapterControl("levelRR")
+  local panRR       = self:addParameterAdapterControl("panRR")
+
+  local pitchF0     = self:addGainBiasControl("pitchF0")
+  local filterF0    = self:addGainBiasControl("filterF0")
+
   local rise      = self:addParameterAdapterControl("rise")
   local fall      = self:addParameterAdapterControl("fall")
+  local cutoffEnv = self:addParameterAdapterControl("cutoffEnv")
+  local shapeEnv  = self:addParameterAdapterControl("shapeEnv")
+  local levelEnv  = self:addParameterAdapterControl("levelEnv")
+  local panEnv    = self:addParameterAdapterControl("panEnv")
 
   local op = self:addObject("op", polygon.Polygon())
-  connect(gate,      "Out", op, "Gate")
-  connect(vpo,       "Out", op, "V/Oct")
-  connect(f0,        "Out", op, "Fundamental")
-  connect(shape,     "Out", op, "Shape")
-  connect(subLevel,  "Out", op, "Sub Level")
-  connect(subDivide, "Out", op, "Sub Divide")
+  connect(gateRR,   "Out", op, "Gate RR")
+  connect(pitchF0,  "Out", op, "Pitch Fundamental")
+  connect(filterF0, "Out", op, "Filter Fundamental")
 
-  tie(op, "Rise",   rise,   "Out")
-  tie(op, "Fall",   fall,   "Out")
-  tie(op, "Height", height, "Out")
+  tie(op, "V/Oct RR",  vpoRR,    "Out")
+  tie(op, "Detune RR", detuneRR, "Out")
+  tie(op, "Cutoff RR", cutoffRR, "Out")
+  tie(op, "Shape RR",  shapeRR,  "Out")
+  tie(op, "Level RR",  levelRR,  "Out")
+  tie(op, "Pan RR",    panRR,    "Out")
+
+  tie(op, "Rise",       rise,      "Out")
+  tie(op, "Fall",       fall,      "Out")
+  tie(op, "Cutoff Env", cutoffEnv, "Out")
+  tie(op, "Shape Env",  shapeEnv,  "Out")
+  tie(op, "Level Env",  levelEnv,  "Out")
+  tie(op, "Pan Env",    panEnv,    "Out")
 
   for i = 1, channelCount do
     connect(op, "Out"..i, self, "Out"..i)
@@ -95,34 +110,41 @@ function Polygon:onLoadViews()
     gate = Gate {
       button      = "gate",
       description = "Gate",
-      branch      = self.branches.gate,
-      comparator  = self.objects.gate
+      branch      = self.branches.gateRR,
+      comparator  = self.objects.gateRR
     },
     vpo = Pitch {
       button      = "V/oct",
-      branch      = self.branches.vpo,
+      branch      = self.branches.vpoRR,
       description = "V/oct",
-      offset      = self.objects.vpo,
-      range       = self.objects.vpoRange
+      offset      = self.objects.vpoRR,
+      range       = self.objects.vpoRR
     },
-    f0 = GainBias {
-      button      = "f0",
-      description = "Frequency",
-      branch      = self.branches.f0,
-      gainbias    = self.objects.f0,
-      range       = self.objects.f0Range,
+    detune = Pitch {
+      button      = "V/oct",
+      branch      = self.branches.detuneRR,
+      description = "V/oct",
+      offset      = self.objects.detuneRR,
+      range       = self.objects.detuneRR
+    },
+    pf0 = GainBias {
+      button      = "pf0",
+      description = "Pitch Fundamental",
+      branch      = self.branches.pitchF0,
+      gainbias    = self.objects.pitchF0,
+      range       = self.objects.pitchF0,
       biasMap     = Encoder.getMap("oscFreq"),
       biasUnits   = app.unitHertz,
       initialBias = 110,
       gainMap     = Encoder.getMap("freqGain"),
       scaling     = app.octaveScaling
     },
-    height = GainBias {
-      button      = "height",
-      description = "Height",
-      branch      = self.branches.height,
-      gainbias    = self.objects.height,
-      range       = self.objects.height,
+    ff0 = GainBias {
+      button      = "ff0",
+      description = "Filter Fundamental",
+      branch      = self.branches.filterF0,
+      gainbias    = self.objects.filterF0,
+      range       = self.objects.filterF0,
       biasMap     = Encoder.getMap("oscFreq"),
       biasUnits   = app.unitHertz,
       initialBias = 440,
@@ -152,35 +174,24 @@ function Polygon:onLoadViews()
     shape   = GainBias {
       button        = "shape",
       description   = "Shape",
-      branch        = self.branches.shape,
-      gainbias      = self.objects.shape,
-      range         = self.objects.shapeRange,
+      branch        = self.branches.shapeRR,
+      gainbias      = self.objects.shapeRR,
+      range         = self.objects.shapeRR,
       biasMap       = Encoder.getMap("[-1,1]"),
       biasUnits     = app.unitNone,
       biasPrecision = 2,
       initialBias   = 0.5
     },
-    subLevel   = GainBias {
+    level   = GainBias {
       button        = "subLvl",
       description   = "Sub Level",
-      branch        = self.branches.subLevel,
-      gainbias      = self.objects.subLevel,
-      range         = self.objects.subLevelRange,
+      branch        = self.branches.levelRR,
+      gainbias      = self.objects.levelRR,
+      range         = self.objects.levelRR,
       biasMap       = Encoder.getMap("[0,1]"),
       biasUnits     = app.unitNone,
       biasPrecision = 2,
       initialBias   = 0.5
-    },
-    subDivide   = GainBias {
-      button        = "subDiv",
-      description   = "Sub Level",
-      branch        = self.branches.subDivide,
-      gainbias      = self.objects.subDivide,
-      range         = self.objects.subDivideRange,
-      biasMap       = Encoder.getMap("[0,10]"),
-      biasUnits     = app.unitNone,
-      biasPrecision = 2,
-      initialBias   = 2
     },
     output = OutputMeter {
       button       = "output",
@@ -192,7 +203,7 @@ function Polygon:onLoadViews()
       scaling      = app.linearScaling
     }
   }, {
-    expanded  = { "gate", "vpo", "f0", "height", "rise", "fall", "shape", "subLevel", "subDivide", "output" },
+    expanded  = { "gate", "vpo", "detune", "pf0", "ff0", "rise", "fall", "shape", "level", "output" },
     collapsed = { }
   }
 end

@@ -4,7 +4,7 @@
 #include <filter.h>
 #include <env.h>
 #include <vector>
-#include <util.h>
+#include "util.h"
 #include <hal/simd.h>
 #include <hal/neon.h>
 
@@ -14,20 +14,23 @@ namespace voice {
       mTotal = util::clamp(total, 1, 8);
     }
 
-    inline void process(const uint32_t gate) {
+    inline void process(const uint32_t gate, const int count) {
       uint32_t active[8];
-      vst1q_u32(active + 0, vdupq_n_f32(0));
-      vst1q_u32(active + 4, vdupq_n_f32(0));
+      vst1q_u32(active + 0, vdupq_n_u32(0));
+      vst1q_u32(active + 4, vdupq_n_u32(0));
 
       auto next = ~gate;
       if (mTrigger.read(next)) mCurrent = (mCurrent + 1) % mTotal;
 
-      active[mCurrent] = 0xffffffff;
+      for (int i = 0; i < count; i++) {
+        active[(mCurrent + i) % mTotal] = 0xffffffff;
+      }
+
       mActive = vld2q_u32(active);
     }
 
-    inline uint32x4_t one() { return vandq_u32(mActive.val[0], mGate); }
-    inline uint32x4_t two() { return vandq_u32(mActive.val[1], mGate); }
+    inline uint32x4_t roundAD() { return vandq_u32(mActive.val[0], mGate); }
+    inline uint32x4_t roundEH() { return vandq_u32(mActive.val[1], mGate); }
 
     uint32x4_t mGate;
     uint32x4x2_t mActive;
@@ -60,172 +63,97 @@ namespace voice {
   };
 
   namespace four {
-    struct Control {
-      inline void track(
-        const uint32x4_t gate,
-        const float32x4_t global,
-        const float32x4_t direct,
-        const float32x4_t envAmount
-      ) {
-        mGlobal    = vbslq_f32(gate, global, mGlobal);
-        mDirect    = vbslq_f32(gate, direct, mDirect);
-        mEnvAmount = vbslq_f32(gate, envAmount, mEnvAmount);
+    struct Parameters {
+      inline void add(const Parameters& other) {
+        mVpo    = mVpo + other.mVpo;
+        mDetune = mDetune + other.mDetune;
+        mCutoff = mCutoff + other.mCutoff;
+        mShape  = mShape + other.mShape;
+        mLevel  = mLevel + other.mLevel;
+        mPan    = mPan + other.mLevel;
+
+        mRise      = mRise + other.mRise;
+        mFall      = mFall + other.mFall;
+        mCutoffEnv = mCutoffEnv + other.mCutoffEnv;
+        mShapeEnv  = mShapeEnv + other.mShapeEnv;
+        mLevelEnv  = mLevelEnv + other.mLevelEnv;
+        mPanEnv    = mPanEnv + other.mPanEnv;
       }
 
-      inline void configure(
-        const float32x4_t global,
-        const float32x4_t direct,
-        const float32x4_t envAmount,
-        const float32x4_t mod
-      ) {
-        mGlobal    = global;
-        mDirect    = direct;
-        mEnvAmount = envAmount;
-        mMod       = mod;
-      }
+      float32x4_t mVpo;
+      float32x4_t mDetune;
+      float32x4_t mCutoff;
+      float32x4_t mShape;
+      float32x4_t mLevel;
+      float32x4_t mPan;
 
-      inline void envelope(const float32x4_t env) {
-
-      }
-
-      inline void modulate(const float32x4_t mod) {
-
-      }
-
-      float32x4_t mGlobal    = vdupq_n_f32(0);
-      float32x4_t mDirect    = vdupq_n_f32(0);
-      float32x4_t mEnvAmount = vdupq_n_f32(0);
-      float32x4_t mMod       = vdupq_n_f32(0);
+      float32x4_t mRise;
+      float32x4_t mFall;
+      float32x4_t mCutoffEnv;
+      float32x4_t mShapeEnv;
+      float32x4_t mLevelEnv;
+      float32x4_t mPanEnv;
     };
 
-    struct Parameter {
-      inline float32x4_t value() {
-        return mValue;
+    struct Configuration {
+      inline void configure(const Parameters& params) {
+        mVpo.configure(params.mVpo);
+        mDetune.configure(params.mVpo + params.mDetune);
+        mCutoff.configure(params.mCutoff);
+        mShape.set(params.mShape);
+        mLevel.set(params.mLevel);
+        mPan.set(params.mPan);
+
+        mEnvCoeff.configure(params.mRise, params.mFall);
+        mCutoffEnv.set(params.mCutoffEnv);
+        mShapeEnv.set(params.mShapeEnv);
+        mLevelEnv.set(params.mLevelEnv);
+        mPanEnv.set(params.mPanEnv);
       }
 
-      inline float32x4_t value(const float32x4_t env) {
-        return mValue + env * mEnvAmount;
-      }
-
-      float32x4_t mValue = vdupq_n_f32(0);
-      float32x4_t mEnvAmount = vdupq_n_f32(0);
-    };
-
-    struct ParameterEnv {
-      inline float32x4_t value(const float32x4_t env) {
-        return mValue + env * mEnvAmount;
-      }
-      float32x4_t mValue = vdupq_n_f32(0);
-      float32x4_t mEnvAmount = vdupq_n_f32(0);
-    };
-
-    struct Globals {
-      inline void track(const uint32x4_t gate, const Parameters& other) {
-        mEnvCoeff.track(gate, other.mEnvCoeff);
-        mVpoP.track(gate, other.mVpoP);
-        mVpoS.track(gate, other.mVpoS);
-        mPan.track(gate, other.mPan);
+      inline void track(const uint32x4_t gate, const Configuration& other) {
+        mVpo.track(gate, other.mVpo);
+        mDetune.track(gate, other.mDetune);
         mCutoff.track(gate, other.mCutoff);
         mShape.track(gate, other.mShape);
         mLevel.track(gate, other.mLevel);
-        mEnvShape.track(gate, other.mEnvShape);
-        mEnvPan.track(gate, other.mEnvPan);
+        mPan.track(gate, other.mPan);
+
+        mEnvCoeff.track(gate, other.mEnvCoeff);
+        mCutoffEnv.track(gate, other.mCutoffEnv);
+        mShapeEnv.track(gate, other.mShapeEnv);
+        mLevelEnv.track(gate, other.mLevelEnv);
+        mPanEnv.track(gate, other.mPanEnv);
       }
 
-      inline void configure(
-        const float32x4_t vpo,
-        const float32x4_t detune,
-        const float32x4_t level,
-        const float32x4_t shape,
-        const float32x4_t pan,
-        const float32x4_t cutoff,
-        const float32x4_t rise,
-        const float32x4_t fall
-      ) {
-        mEnvCoeff.configure(rise, fall);
-        mVpoP.configure(vpo);
-        mVpoS.configure(vpo + detune);
-        mPan.set(pan);
-        mCutoff.set(cutoff);
-        mShape.set(shape);
-        mLevel.set(level);
+      util::four::Vpo mVpo;
+      util::four::Vpo mDetune;
+      util::four::Vpo mCutoff;
+      util::four::TrackAndHold mShape { 0 };
+      util::four::TrackAndHold mLevel { 0 };
+      util::four::TrackAndHold mPan { 0 };
+
+      env::four::Coefficients mEnvCoeff;
+      util::four::TrackAndHold mCutoffEnv { 0 };
+      util::four::TrackAndHold mShapeEnv { 0 };
+      util::four::TrackAndHold mLevelEnv { 0 };
+      util::four::TrackAndHold mPanEnv { 0 };
+
+      inline float32x4_t cutoff(const float32x4_t env, const float32x4_t f0) {
+        return mCutoff.delta(f0) * env;
       }
 
-      env::four::Coefficients  mEnvCoeff;
-      util::four::Vpo          mVpoP;
-      util::four::Vpo          mVpoS;
-      util::four::TrackAndHold mPan      { 0 };
-      util::four::TrackAndHold mCutoff   { 0 };
-      util::four::TrackAndHold mShape    { 0 };
-      util::four::TrackAndHold mLevel    { 0 };
-    };
-
-    struct Offsets {
-
-      
-    };
-
-    struct Modulations {
-      inline void configure(
-        const float32x4_t f0,
-        const float32x4_t cutoff,
-        const float32x4_t envCutoff,
-        const float32x4_t pan,
-        const float32x4_t envPan,
-        const float32x4_t shape,
-        const float32x4_t envShape,
-        const float32x4_t level,
-        const float32x4_t envLevel,
-      ) {
-        mF0        = f0;
-        mCutoff    = cutoff;
-        mEnvCutoff = envCutoff;
-        mPan       = pan;
-        mEnvPan    = envPan;
-        mShape     = shape;
-        mEnvShape  = envShape;
-        mLevel     = level;
-        mEnvLevel  = envLevel;
+      inline float32x4_t shape(const float32x4_t env) {
+        return mShape.value() + mShapeEnv.value() * env;
       }
 
-      inline float32x4_t pan(const Parameters &params, const float32x4_t env) {
-        return modulate(params.mPan, mPan, env, mEnvPan);
+      inline float32x4_t level(const float32x4_t env) {
+        return mLevel.value() + mLevelEnv.value() * env;
       }
 
-      inline float32x4_t shape(const Parameters &params, const float32x4_t env) {
-        return modulate(params.mShape, mShape, env, mEnvShape);
+      inline float32x4_t pan(const float32x4_t env) {
+        return mPan.value() + mPanEnv.value() * env;
       }
-
-      inline float32x4_t level(const Parameters &params, const float32x4_t env) {
-        return modulate(params.mLevel, mLevel, env, mEnvLevel);
-      }
-
-      inline float32x4_t cutoff(const Parameters &params, const float32x4_t env) {
-        return modulate(params.mCutoff, mCutoff, env, mEnvCutoff);
-      }
-
-      inline float32x4_t modulate(
-        const float32x4_t base,
-        const float32x4_t wobble,
-        const float32x4_t env,
-        const float32x4_t amount
-      ) {
-        return base + wobble + env * amount;
-      }
-
-      float32x4_t mF0 = vdupq_n_f32(0);
-
-      float32x4_t mCutoff = vdupq_n_f32(0);
-      float32x4_t mEnvCutoff = vdupq_n_f32(0);
-
-      float32x4_t mPan = vdupq_n_f32(0);
-      float32x4_t mEnvPan = vdupq_n_f32(0);
-
-      float32x4_t mShape = vdupq_n_f32(0);
-      float32x4_t mEnvShape = vdupq_n_f32(0);
-
-      float32x4_t mLevel = vdupq_n_f32(0);
-      float32x4_t mEnvLevel = vdupq_n_f32(0);
     };
 
     struct Pan {
@@ -247,9 +175,8 @@ namespace voice {
 
     struct Oscillator {
       inline float32x4_t process(
-        const float32x4_t f0,
-        const util::four::Vpo &vpoP,
-        const util::four::Vpo &vpoS,
+        const float32x4_t delta1,
+        const float32x4_t delta2,
         const float32x4_t shape,
         const float32x4_t level
       ) {
@@ -257,11 +184,11 @@ namespace voice {
         auto one   = vdupq_n_f32(1);
         auto two   = vdupq_n_f32(2);
 
-        auto primary = mPrimary.process(vpoP.delta(f0), uzero);
+        auto primary = mPhase1.process(delta1, uzero);
         primary      = osc::shape::triangleToPulse(primary, shape);
         primary      = primary * two - one;
 
-        auto secondary = mSecondary.process(vpoS.delta(f0), uzero);
+        auto secondary = mPhase2.process(delta2, uzero);
         secondary      = osc::shape::triangleToPulse(secondary, shape);
         secondary      = secondary * two - one;
 
@@ -269,37 +196,35 @@ namespace voice {
         return (primary + secondary * level) * mixScale;
       }
 
-      osc::four::Phase mPrimary;
-      osc::four::Phase mSecondary;
+      osc::four::Phase mPhase1;
+      osc::four::Phase mPhase2;
     };
 
     struct Voice {
-      inline void track(
-        const uint32x4_t gate,
-        const Parameters &params
-      ) {
-        mParams.track(gate, params);
+      inline void track(const uint32x4_t gate, const Configuration &config) {
+        mConfig.track(gate, config);
       }
 
       inline void process(
         const uint32x4_t gate,
-        const Modulations &mod
+        const float32x4_t pitchF0,
+        const float32x4_t filterF0
       ) {
-        auto env    = mEnvelope.process(gate, mParams.mEnvCoeff);
-        auto pan    = mod.pan(mParams, env);
-        auto shape  = mod.shape(mParams, env);
-        auto level  = mod.level(mParams, env);
-        auto cutoff = mod.cutoff(mParams, env);
+        auto env    = mEnvelope.process(gate, mConfig.mEnvCoeff);
+
+        auto cutoff = mConfig.cutoff(env, filterF0);
+        auto shape  = mConfig.shape(env);
+        auto level  = mConfig.level(env);
+        auto pan    = mConfig.pan(env);
 
         mPan.configure(pan);
         mFilter.configure(cutoff);
 
         auto mix = mOscillator.process(
-          mod.mF0,
-          mParams.mVpoP,
-          mParams.mVpoS,
+          mConfig.mVpo.delta(pitchF0),
+          mConfig.mDetune.delta(pitchF0),
           shape,
-          level,
+          level
         );
 
         mSignal = mFilter.process(mix * env);
@@ -314,47 +239,65 @@ namespace voice {
       Oscillator mOscillator;
       env::four::SlewEnvelope mEnvelope;
       filter::svf::four::Lowpass mFilter;
-
-      Parameters mParams;
+      Configuration mConfig;
     };
   }
 
   struct EightVoice {
     inline void configure(
-      const float32x4_t vpo,
-      const float32x4_t detune,
-      const float32x4_t level,
-      const float32x4_t shape,
-      const float32x4_t pan,
-      const float32x4_t cutoff,
-      const float32x4_t rise,
-      const float32x4_t fall
+      four::Parameters& paramsRR,
+      four::Parameters& paramsAD,
+      four::Parameters& paramsEH
     ) {
-      mParams.configure(
-        vpo,
-        detune,
-        level,
-        shape,
-        pan,
-        cutoff,
-        rise,
-        fall
-      );
-    }
-
-    inline void modulate() {
-
+      paramsAD.add(paramsRR);
+      paramsEH.add(paramsRR);
+      mConfigAD.configure(paramsAD);
+      mConfigEH.configure(paramsEH);
     }
 
     inline void process(
-
+      const uint32_t gateRR,
+      const uint32x4_t directGateAD,
+      const uint32x4_t directGateEH,
+      const float32x4_t pitchF0,
+      const float32x4_t filterF0
     ) {
+      mRound.process(gateRR, 1);
+      auto gateAD = mRound.roundAD() | directGateAD;
+      auto gateEH = mRound.roundEH() | directGateEH;
 
+      mVoiceAD.track(gateAD, mConfigAD);
+      mVoiceEH.track(gateEH, mConfigEH);
+
+      mVoiceAD.process(gateAD, pitchF0, filterF0);
+      mVoiceEH.process(gateEH, pitchF0, filterF0);
     }
 
-    four::Parameters mParams;
+    inline float mono() {
+      auto monoAD = mVoiceAD.mono();
+      auto monoEH = mVoiceEH.mono();
+      auto mix = util::simd::sumq_f32(monoAD + monoEH);
+      return mix;
+    }
+
+    inline float left() {
+      auto leftAD = mVoiceAD.left();
+      auto leftEH = mVoiceEH.left();
+      auto mix = util::simd::sumq_f32(leftAD + leftEH);
+      return mix;
+    }
+
+    inline float right() {
+      auto rightAD = mVoiceAD.right();
+      auto rightEH = mVoiceEH.right();
+      auto mix = util::simd::sumq_f32(rightAD + rightEH);
+      return mix;
+    }
+
+    four::Configuration mConfigAD;
+    four::Configuration mConfigEH;
     EightRound mRound;
-    four::Voice mOne;
-    four::Voice mTwo;
+    four::Voice mVoiceAD;
+    four::Voice mVoiceEH;
   };
 }

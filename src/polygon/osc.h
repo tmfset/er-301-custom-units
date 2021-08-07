@@ -397,7 +397,7 @@ namespace osc {
       auto amount = vabsq_f32(shape);
       auto width  = vbslq_f32(low, one - amount * half, one);
 
-      auto tri = triangle(phase);
+      auto tri = triangle(phase, width);
       auto pls = pulse(phase, half);
       return vbslq_f32(low, tri, tri * (one - amount) + pls * amount);
     }
