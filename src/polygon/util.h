@@ -633,7 +633,7 @@ namespace util {
 
   namespace four {
     struct TrackAndHold {
-      TrackAndHold(float initial) {
+      inline TrackAndHold(float initial) {
         mValue = vdupq_n_f32(initial);
       }
 

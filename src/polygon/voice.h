@@ -1,5 +1,6 @@
 #pragma once
 
+#include <od/config.h>
 #include <osc.h>
 #include <filter.h>
 #include <env.h>
@@ -14,8 +15,8 @@ namespace voice {
       mTotal = util::clamp(total, 1, 8);
     }
 
-    inline void process(const uint32_t gate, const int count) {
-      mGate = vdupq_n_u32(gate);
+    inline uint32x4x2_t process(const uint32_t gate, const int count) {
+      auto _gate = vdupq_n_u32(gate);
 
       uint32_t active[8];
       vst1q_u32(active + 0, vdupq_n_u32(0));
@@ -34,14 +35,17 @@ namespace voice {
 
       mCurrent = current;
 
-      mActive = vld2q_u32(active);
+      auto _active = vld2q_u32(active);
+      _active.val[0] = _active.val[0] * _gate;
+      _active.val[1] = _active.val[1] * _gate;
+      return _active;
     }
 
-    inline uint32x4_t roundAD() { return mActive.val[0] & mGate; }
-    inline uint32x4_t roundEH() { return mActive.val[1] & mGate; }
+    //inline uint32x4_t roundAD() { return mActive.val[0] & mGate; }
+    //inline uint32x4_t roundEH() { return mActive.val[1] & mGate; }
 
-    uint32x4_t mGate;
-    uint32x4x2_t mActive;
+    //uint32x4_t mGate;
+    //uint32x4x2_t mActive;
 
     int mCurrent = 0;
     int mTotal = 8;
@@ -82,6 +86,7 @@ namespace voice {
     struct SharedConfig {
       inline void configure(const SharedParams& params) {
         mEnvCoeff.configure(params.mRise, params.mFall);
+        mAgcCoeff.configure(vdupq_n_f32(globalConfig.samplePeriod), params.mFall + params.mRise);
         mShapeEnv.set(params.mShapeEnv);
         mLevelEnv.set(params.mLevelEnv);
         mPanEnv.set(params.mPanEnv);
@@ -95,6 +100,7 @@ namespace voice {
       }
 
       env::four::Coefficients mEnvCoeff;
+      env::four::Coefficients mAgcCoeff;
       util::four::TrackAndHold mShapeEnv { 0 };
       util::four::TrackAndHold mLevelEnv { 0 };
       util::four::TrackAndHold mPanEnv { 0 };
@@ -214,13 +220,12 @@ namespace voice {
         mShared.track(gate, shared);
       }
 
-      inline void process(
+      inline float32x2_t process(
         const uint32x4_t gate,
         const float32x4_t pitchF0,
         const float32x4_t filterF0
       ) {
         auto env    = mEnvelope.process(gate, mShared.mEnvCoeff);
-        mEnv = env;
 
         auto cutoff = mConfig.cutoff(env, filterF0);
         auto shape  = mConfig.shape(mShared, env);
@@ -244,12 +249,7 @@ namespace voice {
       inline float32x4_t left() const { return mPan.left(mSignal); }
       inline float32x4_t right() const { return mPan.right(mSignal); }
 
-      inline float32x4_t monoLevel() const { return mEnv; }
-      inline float32x4_t leftLevel() const { return mPan.left(mEnv); }
-      inline float32x4_t rightLevel() const { return mPan.right(mEnv); }
-
       float32x4_t mSignal;
-      float32x4_t mEnv;
 
       Pan mPan;
       Oscillator mOscillator;
@@ -281,35 +281,15 @@ namespace voice {
       const float32x4_t pitchF0,
       const float32x4_t filterF0
     ) {
-      mRound.process(gateRR, 1);
-      auto gateAD = mRound.roundAD() | directGateAD;
-      auto gateEH = mRound.roundEH() | directGateEH;
+      auto gate = mRound.process(gateRR, 1);
+      auto gateAD = gate.val[0];//mRound.roundAD() | directGateAD;
+      auto gateEH = gate.val[1];//mRound.roundEH() | directGateEH;
 
       mVoiceAD.track(gateAD, mConfigAD, mShared);
       mVoiceEH.track(gateEH, mConfigEH, mShared);
 
       mVoiceAD.process(gateAD, pitchF0, filterF0);
       mVoiceEH.process(gateEH, pitchF0, filterF0);
-
-      mAgcLeft = agcLeft();
-      mAgcRight = agcRight();
-      mAgc = (mAgcLeft + mAgcRight) * 0.5f;
-    }
-
-    inline float agcLeft() const {
-      auto envAD = mVoiceAD.leftLevel();
-      auto envEH = mVoiceEH.leftLevel();
-      auto env = util::simd::sumq_f32(envAD + envEH);
-      env = util::fmax(env, 1.0f);
-      return 1.0f / env;
-    }
-
-    inline float agcRight() const {
-      auto envAD = mVoiceAD.rightLevel();
-      auto envEH = mVoiceEH.rightLevel();
-      auto env = util::simd::sumq_f32(envAD + envEH);
-      env = util::fmax(env, 1.0f);
-      return 1.0f / env;
     }
 
     inline float mono() const {
@@ -319,30 +299,40 @@ namespace voice {
       return mix;
     }
 
-    inline float left(float gain, bool agcEnabled) const {
-      auto leftAD = mVoiceAD.left();
-      auto leftEH = mVoiceEH.left();
-      auto mix = util::simd::sumq_f32(leftAD + leftEH);
-      auto agc = agcEnabled ? mAgcLeft * gain : gain;
-      return mix * agc;
+    inline float32x2_t stereo() const {
+      return util::simd::make_f32(
+        util::simd::sumq_f32(mVoiceAD.left() + mVoiceEH.left()),
+        util::simd::sumq_f32(mVoiceAD.right() + mVoiceEH.right())
+      );
     }
 
-    inline float right(float gain, bool agcEnabled) const {
-      auto rightAD = mVoiceAD.right();
-      auto rightEH = mVoiceEH.right();
-      auto mix = util::simd::sumq_f32(rightAD + rightEH);
-      auto agc = agcEnabled ? mAgcRight * gain : gain;
-      return mix * agc;
+    inline float32x2_t stereoAgc(float32x4_t gain, uint32x4_t agcEnabled) {
+      auto signal = stereo();
+
+      auto input = vcombine_f32(signal, signal);
+      auto agc = mAgcFollower.process(input, mShared.mAgcCoeff);
+      agc = vmaxq_f32(agc, vdupq_n_f32(1));
+      agc = util::simd::invert(agc);
+      mAppliedAgc = agc;
+
+      auto appliedGain = vbslq_f32(agcEnabled, agc * gain, gain);
+      return vmul_f32(vget_low_f32(appliedGain), signal);
     }
 
-    float mAgcLeft = 0;
-    float mAgcRight = 0;
-    float mAgc = 0;
+    inline float agcDb() {
+      auto agcLeft = vgetq_lane_f32(mAppliedAgc, 0);
+      auto agcRight = vgetq_lane_f32(mAppliedAgc, 1);
+      auto avg = (agcLeft + agcRight) * 0.5f;
+      return util::toDecibels(avg);
+    }
+
+    float32x4_t mAppliedAgc;
     four::SharedConfig mShared;
     four::VoiceConfig mConfigAD;
     four::VoiceConfig mConfigEH;
     EightRound mRound;
     four::Voice mVoiceAD;
     four::Voice mVoiceEH;
+    env::four::EnvFollower mAgcFollower;
   };
 }

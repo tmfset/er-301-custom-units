@@ -43,21 +43,37 @@ namespace env {
         const uint32x4_t gate,
         const Coefficients& cf
       ) {
-        auto zero = vdupq_n_f32(0.0f);
         auto one  = vdupq_n_f32(1.0f);
 
         auto reset  = vcgtq_f32(mValue, vdupq_n_f32(0.999));
         auto high   = mLatch.read(gate, reset);
 
         auto coeff  = cf.pick(high);
-        auto target = vbslq_f32(high, one, zero);
+        auto target = vcvtq_n_f32_u32(high, 32);
 
-        // mVAlue = target + mCf.pick(high) * (mValue - target);
         mValue = coeff * mValue + (one - coeff) * target;
         return mValue;
       }
 
       util::four::Latch mLatch;
+      float32x4_t mValue = vdupq_n_f32(0);
+    };
+
+    struct EnvFollower {
+      inline float32x4_t process(
+        const float32x4_t input,
+        const Coefficients& cf
+      ) {
+        auto zero = vdupq_n_f32(0.0f);
+        auto one  = vdupq_n_f32(1.0f);
+
+        auto excite = vabsq_f32(input);
+        auto high = vcgtq_f32(excite, mValue);
+        auto coeff = cf.pick(high);
+        mValue = coeff * mValue + (one - coeff) * excite;
+        return mValue;
+      }
+
       float32x4_t mValue = vdupq_n_f32(0);
     };
   }

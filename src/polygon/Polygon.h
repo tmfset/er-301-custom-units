@@ -58,8 +58,8 @@ namespace polygon {
 
         auto outLeft    = mOutLeft.buffer();
         auto outRight   = mOutRight.buffer();
-        auto gain       = mGain.value();
-        auto agcEnabled = isAgcEnabled();
+        auto gain       = vdupq_n_f32(mGain.value());
+        auto agcEnabled = isAgcEnabled() ? vdupq_n_u32(0xffffffff) : vdupq_n_u32(0);
 
         auto pitchF0  = mPitchF0.buffer();
         auto filterF0 = mFilterF0.buffer();
@@ -108,7 +108,6 @@ namespace polygon {
         mVoices.configure(sharedParams, paramsRR, paramsAD, paramsEH);
 
         auto zero = vdupq_n_f32(0);
-        mAgc.hardSet(util::toDecibels(mVoices.mAgc));
 
         for (int i = 0; i < FRAMELENGTH; i++) {
           auto _gateRR = gateRR[i] > 0.0f ? 0xffffffff : 0;
@@ -126,9 +125,13 @@ namespace polygon {
             _filterF0
           );
 
-          outLeft[i] = mVoices.left(gain, agcEnabled);
-          outRight[i] = mVoices.right(gain, agcEnabled);
+          auto signal = mVoices.stereoAgc(gain, agcEnabled);
+
+          outLeft[i] = vget_lane_f32(signal, 0);
+          outRight[i] = vget_lane_f32(signal, 1);
         }
+
+        mAgc.hardSet(mVoices.agcDb());
       }
 
       struct Voice {

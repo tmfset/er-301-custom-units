@@ -399,7 +399,11 @@ namespace osc {
 
       auto tri = triangle(phase, width);
       auto pls = pulse(phase, half);
-      return vbslq_f32(low, tri, tri * (one - amount) + pls * amount);
+      //return vbslq_f32(low, tri, tri * (one - amount) + pls * amount);
+      // tri - amount * tri + pls * amount
+      // tri + pls * amount - amount * tri
+      // tri + (pls - tri) * amount
+      return vbslq_f32(low, tri, tri + (pls - tri) * amount);
     }
 
     inline float32x4_t pulseConst(
