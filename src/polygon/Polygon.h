@@ -34,7 +34,6 @@ namespace polygon {
 
         addParameter(mRise);
         addParameter(mFall);
-        addParameter(mCutoffEnv);
         addParameter(mShapeEnv);
         addParameter(mLevelEnv);
         addParameter(mPanEnv);
@@ -67,7 +66,6 @@ namespace polygon {
 
         auto rise      = mRise.value();
         auto fall      = mFall.value();
-        auto cutoffEnv = mCutoffEnv.value();
         auto shapeEnv  = mShapeEnv.value();
         auto levelEnv  = mLevelEnv.value();
         auto panEnv    = mPanEnv.value();
@@ -81,7 +79,6 @@ namespace polygon {
           vdupq_n_f32(mVoiceRR.mPan.value()),
           vdupq_n_f32(rise),
           vdupq_n_f32(fall),
-          vdupq_n_f32(cutoffEnv),
           vdupq_n_f32(shapeEnv),
           vdupq_n_f32(levelEnv),
           vdupq_n_f32(panEnv)
@@ -98,7 +95,6 @@ namespace polygon {
           vdupq_n_f32(0),
           vdupq_n_f32(0),
           vdupq_n_f32(0),
-          vdupq_n_f32(0),
           vdupq_n_f32(0)
         };
 
@@ -109,7 +105,6 @@ namespace polygon {
           shape(mVoiceE, mVoiceF, mVoiceG, mVoiceH),
           level(mVoiceE, mVoiceF, mVoiceG, mVoiceH),
           pan(mVoiceE, mVoiceF, mVoiceG, mVoiceH),
-          vdupq_n_f32(0),
           vdupq_n_f32(0),
           vdupq_n_f32(0),
           vdupq_n_f32(0),
@@ -222,7 +217,6 @@ namespace polygon {
 
       od::Parameter mRise      { "Rise" };
       od::Parameter mFall      { "Fall" };
-      od::Parameter mCutoffEnv { "Cutoff Env" };
       od::Parameter mShapeEnv  { "Shape Env" };
       od::Parameter mLevelEnv  { "Level Env" };
       od::Parameter mPanEnv    { "Pan Env" };

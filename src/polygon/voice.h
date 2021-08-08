@@ -78,7 +78,6 @@ namespace voice {
 
         mRise      = mRise + other.mRise;
         mFall      = mFall + other.mFall;
-        mCutoffEnv = mCutoffEnv + other.mCutoffEnv;
         mShapeEnv  = mShapeEnv + other.mShapeEnv;
         mLevelEnv  = mLevelEnv + other.mLevelEnv;
         mPanEnv    = mPanEnv + other.mPanEnv;
@@ -93,7 +92,6 @@ namespace voice {
 
       float32x4_t mRise;
       float32x4_t mFall;
-      float32x4_t mCutoffEnv;
       float32x4_t mShapeEnv;
       float32x4_t mLevelEnv;
       float32x4_t mPanEnv;
@@ -109,7 +107,6 @@ namespace voice {
         mPan.set(params.mPan);
 
         mEnvCoeff.configure(params.mRise, params.mFall);
-        mCutoffEnv.set(params.mCutoffEnv);
         mShapeEnv.set(params.mShapeEnv);
         mLevelEnv.set(params.mLevelEnv);
         mPanEnv.set(params.mPanEnv);
@@ -124,7 +121,6 @@ namespace voice {
         mPan.track(gate, other.mPan);
 
         mEnvCoeff.track(gate, other.mEnvCoeff);
-        mCutoffEnv.track(gate, other.mCutoffEnv);
         mShapeEnv.track(gate, other.mShapeEnv);
         mLevelEnv.track(gate, other.mLevelEnv);
         mPanEnv.track(gate, other.mPanEnv);
@@ -138,7 +134,6 @@ namespace voice {
       util::four::TrackAndHold mPan { 0 };
 
       env::four::Coefficients mEnvCoeff;
-      util::four::TrackAndHold mCutoffEnv { 0 };
       util::four::TrackAndHold mShapeEnv { 0 };
       util::four::TrackAndHold mLevelEnv { 0 };
       util::four::TrackAndHold mPanEnv { 0 };
