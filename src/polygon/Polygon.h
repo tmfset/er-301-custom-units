@@ -213,7 +213,7 @@ namespace polygon {
 
       od::Outlet    mOutLeft    { "Out1" };
       od::Outlet    mOutRight   { "Out2" };
-      od::Parameter mGain       { "Output Gain" };
+      od::Parameter mGain       { "Output Gain", 1 };
       od::Option    mAgcEnabled { "Enable AGC", 1 };
       od::Parameter mAgc        { "AGC" };
 

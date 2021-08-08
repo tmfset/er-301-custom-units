@@ -649,10 +649,6 @@ namespace util {
         track(gate, other.value());
       }
 
-      inline void modulate(const float32x4_t signal) {
-        mValue += signal;
-      }
-
       inline float32x4_t value() const { return mValue; }
 
       float32x4_t mValue;
@@ -687,14 +683,18 @@ namespace util {
         mScale.track(gate, other.mScale);
       }
 
-      inline float32x4_t delta(const float32x4_t f0) {
+      inline float32x4_t freq(const float32x4_t f0) {
         return f0 * mScale.value();
       }
 
-      inline void configure(const float32x4_t vpo) {
+      inline float32x4_t delta(const float32x4_t f0) {
         const auto sp = vdupq_n_f32(globalConfig.samplePeriod);
+        return freq(f0) * sp;
+      }
+
+      inline void configure(const float32x4_t vpo) {
         const float32x4_t vpoLogMax = vdupq_n_f32(FULLSCALE_IN_VOLTS * logf(2.0f));
-        mScale.set(simd::exp_f32(vpo * vpoLogMax) * sp);
+        mScale.set(simd::exp_f32(vpo * vpoLogMax));
       }
 
       TrackAndHold mScale { 1 };

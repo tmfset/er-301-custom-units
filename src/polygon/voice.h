@@ -15,12 +15,16 @@ namespace voice {
     }
 
     inline void process(const uint32_t gate, const int count) {
+      mGate = vdupq_n_u32(gate);
+
       uint32_t active[8];
       vst1q_u32(active + 0, vdupq_n_u32(0));
       vst1q_u32(active + 4, vdupq_n_u32(0));
 
       auto next = ~gate;
-      if (mTrigger.read(next)) mCurrent = (mCurrent + 1) % mTotal;
+      if (mTrigger.read(next)) {
+        mCurrent = (mCurrent + 1) % mTotal;
+      }
 
       for (int i = 0; i < count; i++) {
         active[(mCurrent + i) % mTotal] = 0xffffffff;
@@ -29,8 +33,8 @@ namespace voice {
       mActive = vld2q_u32(active);
     }
 
-    inline uint32x4_t roundAD() { return vandq_u32(mActive.val[0], mGate); }
-    inline uint32x4_t roundEH() { return vandq_u32(mActive.val[1], mGate); }
+    inline uint32x4_t roundAD() { return mActive.val[0] & mGate; }
+    inline uint32x4_t roundEH() { return mActive.val[1] & mGate; }
 
     uint32x4_t mGate;
     uint32x4x2_t mActive;
@@ -70,7 +74,7 @@ namespace voice {
         mCutoff = mCutoff + other.mCutoff;
         mShape  = mShape + other.mShape;
         mLevel  = mLevel + other.mLevel;
-        mPan    = mPan + other.mLevel;
+        mPan    = mPan + other.mPan;
 
         mRise      = mRise + other.mRise;
         mFall      = mFall + other.mFall;
@@ -140,7 +144,7 @@ namespace voice {
       util::four::TrackAndHold mPanEnv { 0 };
 
       inline float32x4_t cutoff(const float32x4_t env, const float32x4_t f0) {
-        return mCutoff.delta(f0) * env;
+        return mCutoff.freq(f0) * env;
       }
 
       inline float32x4_t shape(const float32x4_t env) {
@@ -157,7 +161,7 @@ namespace voice {
     };
 
     struct Pan {
-      inline void configure(const float32x4_t amount) {
+      inline void configure(float32x4_t amount) {
         auto half = vdupq_n_f32(0.5);
         auto one  = vdupq_n_f32(1);
 
@@ -166,11 +170,13 @@ namespace voice {
         mRight = normal;
       }
 
-      inline float32x4_t left(const float32x4_t value) { return value * mLeft; }
-      inline float32x4_t right(const float32x4_t value) { return value * mRight; }
+      inline float32x4_t left(const float32x4_t value) const {
+        return value * mLeft;
+      }
+      inline float32x4_t right(const float32x4_t value) const { return value * mRight; }
 
-      float32x4_t mLeft;
-      float32x4_t mRight;
+      float32x4_t mLeft = vdupq_n_f32(0);
+      float32x4_t mRight = vdupq_n_f32(0);
     };
 
     struct Oscillator {
@@ -230,9 +236,9 @@ namespace voice {
         mSignal = mFilter.process(mix * env);
       }
 
-      inline float32x4_t mono() { return mSignal; }
-      inline float32x4_t left() { return mPan.left(mSignal); }
-      inline float32x4_t right() { return mPan.right(mSignal); }
+      inline float32x4_t mono() const { return mSignal; }
+      inline float32x4_t left() const { return mPan.left(mSignal); }
+      inline float32x4_t right() const { return mPan.right(mSignal); }
 
       float32x4_t mSignal;
       Pan mPan;
@@ -273,21 +279,21 @@ namespace voice {
       mVoiceEH.process(gateEH, pitchF0, filterF0);
     }
 
-    inline float mono() {
+    inline float mono() const {
       auto monoAD = mVoiceAD.mono();
       auto monoEH = mVoiceEH.mono();
       auto mix = util::simd::sumq_f32(monoAD + monoEH);
       return mix;
     }
 
-    inline float left() {
+    inline float left() const {
       auto leftAD = mVoiceAD.left();
       auto leftEH = mVoiceEH.left();
       auto mix = util::simd::sumq_f32(leftAD + leftEH);
       return mix;
     }
 
-    inline float right() {
+    inline float right() const {
       auto rightAD = mVoiceAD.right();
       auto rightEH = mVoiceEH.right();
       auto mix = util::simd::sumq_f32(rightAD + rightEH);

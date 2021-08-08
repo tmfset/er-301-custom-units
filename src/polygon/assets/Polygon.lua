@@ -57,6 +57,8 @@ function Polygon:onLoadGraph(channelCount)
   local shapeRR     = self:addParameterAdapterControl("shapeRR")
   local levelRR     = self:addParameterAdapterControl("levelRR")
   local panRR       = self:addParameterAdapterControl("panRR")
+  vpoRR:hardSet("Gain", 1)
+  detuneRR:hardSet("Gain", 1)
 
   local pitchF0     = self:addGainBiasControl("pitchF0")
   local filterF0    = self:addGainBiasControl("filterF0")
@@ -127,6 +129,17 @@ function Polygon:onLoadViews()
       offset      = self.objects.detuneRR,
       range       = self.objects.detuneRR
     },
+    pan   = GainBias {
+      button        = "pan",
+      description   = "Pan",
+      branch        = self.branches.panRR,
+      gainbias      = self.objects.panRR,
+      range         = self.objects.panRR,
+      biasMap       = Encoder.getMap("[-1,1]"),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = 0
+    },
     pf0 = GainBias {
       button      = "pf0",
       description = "Pitch Fundamental",
@@ -180,7 +193,7 @@ function Polygon:onLoadViews()
       biasMap       = Encoder.getMap("[-1,1]"),
       biasUnits     = app.unitNone,
       biasPrecision = 2,
-      initialBias   = 0.5
+      initialBias   = 0
     },
     level   = GainBias {
       button        = "subLvl",
@@ -203,7 +216,7 @@ function Polygon:onLoadViews()
       scaling      = app.linearScaling
     }
   }, {
-    expanded  = { "gate", "vpo", "detune", "pf0", "ff0", "rise", "fall", "shape", "level", "output" },
+    expanded  = { "output", "pan", "gate", "vpo", "detune", "pf0", "ff0", "rise", "fall", "shape", "level" },
     collapsed = { }
   }
 end
