@@ -117,15 +117,17 @@ namespace polygon {
           auto _pitchF0  = vdupq_n_f32(pitchF0[i]);
           auto _filterF0 = vdupq_n_f32(filterF0[i]);
 
-          mVoices.process(
+          auto signal = mVoices.process(
             _gateRR,
             _gateAD,
             _gateEH,
             _pitchF0,
-            _filterF0
+            _filterF0,
+            gain,
+            agcEnabled
           );
 
-          auto signal = mVoices.stereoAgc(gain, agcEnabled);
+          //auto signal = mVoices.stereoAgc(gain, agcEnabled);
 
           outLeft[i] = vget_lane_f32(signal, 0);
           outRight[i] = vget_lane_f32(signal, 1);

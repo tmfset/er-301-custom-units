@@ -36,8 +36,8 @@ namespace voice {
       mCurrent = current;
 
       auto _active = vld2q_u32(active);
-      _active.val[0] = _active.val[0] * _gate;
-      _active.val[1] = _active.val[1] * _gate;
+      _active.val[0] = _active.val[0] & _gate;
+      _active.val[1] = _active.val[1] & _gate;
       return _active;
     }
 
@@ -168,19 +168,35 @@ namespace voice {
     };
 
     struct Pan {
-      inline void configure(float32x4_t amount) {
+      // inline void configure(float32x4_t amount) {
+      //   auto half = vdupq_n_f32(0.5);
+      //   auto one  = vdupq_n_f32(1);
+
+      //   mRight = amount * half + half;
+      //   mLeft  = one - mRight;
+      // }
+
+      inline float32x4x2_t process(
+        const float32x4_t signal,
+        const float32x4_t amount
+      ) {
         auto half = vdupq_n_f32(0.5);
         auto one  = vdupq_n_f32(1);
 
-        mRight = amount * half + half;
-        mLeft  = one - mRight;
+        auto rightAmount = amount * half + half;
+        auto leftAmount  = one - rightAmount;
+
+        float32x4x2_t output;
+        output.val[0] = signal * leftAmount;
+        output.val[1] = signal * rightAmount;
+        return output;
       }
 
-      inline float32x4_t left(const float32x4_t value) const { return value * mLeft; }
-      inline float32x4_t right(const float32x4_t value) const { return value * mRight; }
+      // inline float32x4_t left(const float32x4_t value) const { return value * mLeft; }
+      // inline float32x4_t right(const float32x4_t value) const { return value * mRight; }
 
-      float32x4_t mLeft = vdupq_n_f32(0);
-      float32x4_t mRight = vdupq_n_f32(0);
+      // float32x4_t mLeft = vdupq_n_f32(0);
+      // float32x4_t mRight = vdupq_n_f32(0);
     };
 
     struct Oscillator {
@@ -220,7 +236,7 @@ namespace voice {
         mShared.track(gate, shared);
       }
 
-      inline float32x2_t process(
+      inline float32x4x2_t process(
         const uint32x4_t gate,
         const float32x4_t pitchF0,
         const float32x4_t filterF0
@@ -232,7 +248,7 @@ namespace voice {
         auto level  = mConfig.level(mShared, env);
         auto pan    = mConfig.pan(mShared, env);
 
-        mPan.configure(pan);
+        //mPan.configure(pan);
         mFilter.configure(cutoff);
 
         auto mix = mOscillator.process(
@@ -242,14 +258,19 @@ namespace voice {
           level
         );
 
-        mSignal = mFilter.process(mix * env);
+        return mPan.process(
+          mFilter.process(mix * env),
+          pan
+        );
+
+        //mSignal = mFilter.process(mix * env);
       }
 
-      inline float32x4_t mono() const { return mSignal; }
-      inline float32x4_t left() const { return mPan.left(mSignal); }
-      inline float32x4_t right() const { return mPan.right(mSignal); }
+      // inline float32x4_t mono() const { return mSignal; }
+      // inline float32x4_t left() const { return mPan.left(mSignal); }
+      // inline float32x4_t right() const { return mPan.right(mSignal); }
 
-      float32x4_t mSignal;
+      //float32x4_t mSignal;
 
       Pan mPan;
       Oscillator mOscillator;
@@ -274,40 +295,49 @@ namespace voice {
       mConfigEH.configure(paramsEH);
     }
 
-    inline void process(
+    inline float32x2_t process(
       const uint32_t gateRR,
       const uint32x4_t directGateAD,
       const uint32x4_t directGateEH,
       const float32x4_t pitchF0,
-      const float32x4_t filterF0
+      const float32x4_t filterF0,
+      float32x4_t gain,
+      uint32x4_t agcEnabled
     ) {
       auto gate = mRound.process(gateRR, 1);
-      auto gateAD = gate.val[0];//mRound.roundAD() | directGateAD;
-      auto gateEH = gate.val[1];//mRound.roundEH() | directGateEH;
+      auto gateAD = gate.val[0] | directGateAD;//mRound.roundAD() | directGateAD;
+      auto gateEH = gate.val[1] | directGateEH;//mRound.roundEH() | directGateEH;
 
       mVoiceAD.track(gateAD, mConfigAD, mShared);
       mVoiceEH.track(gateEH, mConfigEH, mShared);
 
-      mVoiceAD.process(gateAD, pitchF0, filterF0);
-      mVoiceEH.process(gateEH, pitchF0, filterF0);
-    }
+      auto outAD = mVoiceAD.process(gateAD, pitchF0, filterF0);
+      auto outEH = mVoiceEH.process(gateEH, pitchF0, filterF0);
 
-    inline float mono() const {
-      auto monoAD = mVoiceAD.mono();
-      auto monoEH = mVoiceEH.mono();
-      auto mix = util::simd::sumq_f32(monoAD + monoEH);
-      return mix;
-    }
-
-    inline float32x2_t stereo() const {
-      return util::simd::make_f32(
-        util::simd::sumq_f32(mVoiceAD.left() + mVoiceEH.left()),
-        util::simd::sumq_f32(mVoiceAD.right() + mVoiceEH.right())
+      auto sum = util::simd::make_f32(
+        util::simd::sumq_f32(outAD.val[0] + outEH.val[0]),
+        util::simd::sumq_f32(outAD.val[1] + outEH.val[1])
       );
+
+      return stereoAgc(sum, gain, agcEnabled);
     }
 
-    inline float32x2_t stereoAgc(float32x4_t gain, uint32x4_t agcEnabled) {
-      auto signal = stereo();
+    // inline float mono() const {
+    //   auto monoAD = mVoiceAD.mono();
+    //   auto monoEH = mVoiceEH.mono();
+    //   auto mix = util::simd::sumq_f32(monoAD + monoEH);
+    //   return mix;
+    // }
+
+    // inline float32x2_t stereo() const {
+    //   return util::simd::make_f32(
+    //     util::simd::sumq_f32(mVoiceAD.left() + mVoiceEH.left()),
+    //     util::simd::sumq_f32(mVoiceAD.right() + mVoiceEH.right())
+    //   );
+    // }
+
+    inline float32x2_t stereoAgc(float32x2_t signal, float32x4_t gain, uint32x4_t agcEnabled) {
+      //auto signal = stereo();
 
       auto input = vcombine_f32(signal, signal);
       auto agc = mAgcFollower.process(input, mShared.mAgcCoeff);
