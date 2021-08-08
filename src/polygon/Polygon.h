@@ -70,13 +70,16 @@ namespace polygon {
         auto levelEnv  = mLevelEnv.value();
         auto panEnv    = mPanEnv.value();
 
-        auto paramsRR = voice::four::Parameters {
+        const auto paramsRR = voice::four::VoiceParams {
           vdupq_n_f32(mVoiceRR.mVpo.value()),
           vdupq_n_f32(mVoiceRR.mDetune.value()),
           vdupq_n_f32(mVoiceRR.mCutoff.value()),
           vdupq_n_f32(mVoiceRR.mShape.value()),
           vdupq_n_f32(mVoiceRR.mLevel.value()),
-          vdupq_n_f32(mVoiceRR.mPan.value()),
+          vdupq_n_f32(mVoiceRR.mPan.value())
+        };
+
+        const auto sharedParams = voice::four::SharedParams {
           vdupq_n_f32(rise),
           vdupq_n_f32(fall),
           vdupq_n_f32(shapeEnv),
@@ -84,37 +87,28 @@ namespace polygon {
           vdupq_n_f32(panEnv)
         };
 
-        auto paramsAD = voice::four::Parameters {
+        auto paramsAD = voice::four::VoiceParams {
           vpo(mVoiceA, mVoiceB, mVoiceC, mVoiceD),
           detune(mVoiceA, mVoiceB, mVoiceC, mVoiceD),
           cutoff(mVoiceA, mVoiceB, mVoiceC, mVoiceD),
           shape(mVoiceA, mVoiceB, mVoiceC, mVoiceD),
           level(mVoiceA, mVoiceB, mVoiceC, mVoiceD),
-          pan(mVoiceA, mVoiceB, mVoiceC, mVoiceD),
-          vdupq_n_f32(0),
-          vdupq_n_f32(0),
-          vdupq_n_f32(0),
-          vdupq_n_f32(0),
-          vdupq_n_f32(0)
+          pan(mVoiceA, mVoiceB, mVoiceC, mVoiceD)
         };
 
-        auto paramsEH = voice::four::Parameters {
+        auto paramsEH = voice::four::VoiceParams {
           vpo(mVoiceE, mVoiceF, mVoiceG, mVoiceH),
           detune(mVoiceE, mVoiceF, mVoiceG, mVoiceH),
           cutoff(mVoiceE, mVoiceF, mVoiceG, mVoiceH),
           shape(mVoiceE, mVoiceF, mVoiceG, mVoiceH),
           level(mVoiceE, mVoiceF, mVoiceG, mVoiceH),
-          pan(mVoiceE, mVoiceF, mVoiceG, mVoiceH),
-          vdupq_n_f32(0),
-          vdupq_n_f32(0),
-          vdupq_n_f32(0),
-          vdupq_n_f32(0),
-          vdupq_n_f32(0)
+          pan(mVoiceE, mVoiceF, mVoiceG, mVoiceH)
         };
 
-        mVoices.configure(paramsRR, paramsAD, paramsEH);
+        mVoices.configure(sharedParams, paramsRR, paramsAD, paramsEH);
 
         auto zero = vdupq_n_f32(0);
+        mAgc.hardSet(util::toDecibels(mVoices.mAgc));
 
         for (int i = 0; i < FRAMELENGTH; i++) {
           auto _gateRR = gateRR[i] > 0.0f ? 0xffffffff : 0;
@@ -132,8 +126,8 @@ namespace polygon {
             _filterF0
           );
 
-          outLeft[i] = mVoices.left() * gain;
-          outRight[i] = mVoices.right() * gain;
+          outLeft[i] = mVoices.left(gain, agcEnabled);
+          outRight[i] = mVoices.right(gain, agcEnabled);
         }
       }
 

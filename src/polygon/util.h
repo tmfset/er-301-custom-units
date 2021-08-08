@@ -460,12 +460,12 @@ namespace util {
     }
 
     inline float32x4_t makeq_f32(float a, float b, float c, float d) {
-      float32x4_t x = vdupq_n_f32(0);
-      x = vsetq_lane_f32(a, x, 0);
-      x = vsetq_lane_f32(b, x, 1);
-      x = vsetq_lane_f32(c, x, 2);
-      x = vsetq_lane_f32(d, x, 3);
-      return x;
+      float _x[4];
+      _x[0] = a;
+      _x[1] = b;
+      _x[2] = c;
+      _x[3] = d;
+      return vld1q_f32(_x);
     }
 
     inline float32x2_t padd_self(const float32x2_t v) {
