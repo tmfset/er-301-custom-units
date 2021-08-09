@@ -385,26 +385,28 @@ namespace osc {
       );
     }
 
-    inline float32x4_t triangleToPulse(
-      const float32x4_t phase,
-      const float32x4_t shape
-    ) {
-      auto zero = vdupq_n_f32(0);
-      auto half = vdupq_n_f32(0.5);
-      auto one  = vdupq_n_f32(1);
+    struct TriangleToPulse {
+      inline void configure(const float32x4_t shape) {
+        auto zero = vdupq_n_f32(0);
+        auto half = vdupq_n_f32(0.5);
+        auto one  = vdupq_n_f32(1);
 
-      auto low    = vcltq_f32(shape, zero);
-      auto amount = vabsq_f32(shape);
-      auto width  = vbslq_f32(low, one - amount * half, one);
+        mLow    = vcltq_f32(shape, zero);
+        mAmount = vabsq_f32(shape);
+        mWidth  = vbslq_f32(mLow, one - mAmount * half, one);
+      }
 
-      auto tri = triangle(phase, width);
-      auto pls = pulse(phase, half);
-      //return vbslq_f32(low, tri, tri * (one - amount) + pls * amount);
-      // tri - amount * tri + pls * amount
-      // tri + pls * amount - amount * tri
-      // tri + (pls - tri) * amount
-      return vbslq_f32(low, tri, tri + (pls - tri) * amount);
-    }
+      inline float32x4_t process(const float32x4_t phase) const {
+        auto half = vdupq_n_f32(0.5);
+        auto tri = triangle(phase, mWidth);
+        auto pls = pulse(phase, half);
+        return vbslq_f32(mLow, tri, tri + (pls - tri) * mAmount);
+      }
+
+      uint32x4_t mLow;
+      float32x4_t mAmount;
+      float32x4_t mWidth;
+    };
 
     inline float32x4_t pulseConst(
       const float32x4_t phase

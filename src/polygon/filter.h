@@ -280,8 +280,24 @@ namespace filter {
 
     namespace four {
       struct Coefficients {
-        inline void process() {
+        inline void configure(const float32x4_t f0) {
+          auto theta = vmaxq_f32(f0, vdupq_n_f32(1)) * vdupq_n_f32(2.0f * M_PI * globalConfig.samplePeriod);
+          float32x4_t sinTheta, cosTheta;
+          util::simd::sincos_f32(theta, &sinTheta, &cosTheta);
 
+          auto k = vdupq_n_f32(0.70710678118f);
+
+          auto half = vdupq_n_f32(0.5);
+          auto one = vdupq_n_f32(1);
+
+          mB1 = one - cosTheta;
+          mB0 = mB1 * half;
+          mB2 = mB0;
+
+          auto a = sinTheta * k;
+          mA0I = util::simd::invert(one + a);
+          mA1 = vdupq_n_f32(-2) * cosTheta;
+          mA2 = one - a;
         }
 
         float32x4_t mA0I;
@@ -291,6 +307,34 @@ namespace filter {
         float32x4_t mB0;
         float32x4_t mB1;
         float32x4_t mB2;
+      };
+
+      struct Lowpass {
+        inline void configure(const float32x4_t f0) {
+          mCf.configure(f0);
+        }
+
+        inline float32x4_t process(const float32x4_t signal) {
+          auto out = mCf.mB0 * signal;
+          out     += mCf.mB1 * mXz1;
+          out     += mCf.mB2 * mXz2;
+          out     -= mCf.mA1 * mYz1;
+          out     -= mCf.mA2 * mYz2;
+
+          mXz2 = mXz1;
+          mYz2 = mYz1;
+
+          mXz1 = signal;
+          mYz1 = out;
+
+          return out;
+        }
+
+        Coefficients mCf;
+        float32x4_t mXz1 = vdupq_n_f32(0);
+        float32x4_t mXz2 = vdupq_n_f32(0);
+        float32x4_t mYz1 = vdupq_n_f32(0);
+        float32x4_t mYz2 = vdupq_n_f32(0);
       };
     }
 

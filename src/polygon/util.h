@@ -524,6 +524,10 @@ namespace util {
       vst1q_f32(ptr + 12, vcombine_f32(vget_high_f32(ab.val[1]), vget_high_f32(cd.val[1])));
     }
 
+    inline void print_f(float x) {
+      logRaw("%f\n", x);
+    }
+
     inline void print_u32(const uint32x4_t x, bool newline = false) {
             static int count = 0;
       count++;
@@ -683,13 +687,17 @@ namespace util {
         mScale.track(gate, other.mScale);
       }
 
-      inline float32x4_t freq(const float32x4_t f0) {
+      inline float32x4_t freq(const float32x4_t f0) const {
         return f0 * mScale.value();
       }
 
-      inline float32x4_t delta(const float32x4_t f0) {
+      inline float32x4_t delta(const float32x4_t f0) const {
         const auto sp = vdupq_n_f32(globalConfig.samplePeriod);
         return freq(f0) * sp;
+      }
+
+      inline float32x4_t deltaOffset(const float32x4_t f0, const Vpo& offset) const {
+        return delta(offset.freq(f0));
       }
 
       inline void configure(const float32x4_t vpo) {

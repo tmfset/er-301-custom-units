@@ -52,16 +52,17 @@ end
 function Polygon:onLoadGraph(channelCount)
   local gateRR      = self:addComparatorControl("gateRR", app.COMPARATOR_GATE)
   local vpoRR       = self:addParameterAdapterControl("vpoRR")
-  local detuneRR    = self:addParameterAdapterControl("detuneRR")
-  local cutoffRR    = self:addParameterAdapterControl("cutoffRR")
-  local shapeRR     = self:addParameterAdapterControl("shapeRR")
-  local levelRR     = self:addParameterAdapterControl("levelRR")
   local panRR       = self:addParameterAdapterControl("panRR")
   vpoRR:hardSet("Gain", 1)
-  detuneRR:hardSet("Gain", 1)
 
   local pitchF0     = self:addGainBiasControl("pitchF0")
   local filterF0    = self:addGainBiasControl("filterF0")
+
+  local detune    = self:addParameterAdapterControl("detune")
+  detune:hardSet("Gain", 1)
+  local shape     = self:addParameterAdapterControl("shape")
+  local level     = self:addParameterAdapterControl("level")
+  local cutoff    = self:addParameterAdapterControl("cutoff")
 
   local rise      = self:addParameterAdapterControl("rise")
   local fall      = self:addParameterAdapterControl("fall")
@@ -69,17 +70,18 @@ function Polygon:onLoadGraph(channelCount)
   local levelEnv  = self:addParameterAdapterControl("levelEnv")
   local panEnv    = self:addParameterAdapterControl("panEnv")
 
-  local op = self:addObject("op", polygon.Polygon())
+  local op = self:addObject("op", polygon.Polygon(channelCount > 1))
   connect(gateRR,   "Out", op, "Gate RR")
   connect(pitchF0,  "Out", op, "Pitch Fundamental")
   connect(filterF0, "Out", op, "Filter Fundamental")
 
   tie(op, "V/Oct RR",  vpoRR,    "Out")
-  tie(op, "Detune RR", detuneRR, "Out")
-  tie(op, "Cutoff RR", cutoffRR, "Out")
-  tie(op, "Shape RR",  shapeRR,  "Out")
-  tie(op, "Level RR",  levelRR,  "Out")
   tie(op, "Pan RR",    panRR,    "Out")
+
+  tie(op, "Detune", detune, "Out")
+  tie(op, "Shape",  shape,  "Out")
+  tie(op, "Level",  level,  "Out")
+  tie(op, "Cutoff", cutoff, "Out")
 
   tie(op, "Rise",       rise,      "Out")
   tie(op, "Fall",       fall,      "Out")
@@ -122,10 +124,10 @@ function Polygon:onLoadViews()
     },
     detune = Pitch {
       button      = "V/oct",
-      branch      = self.branches.detuneRR,
+      branch      = self.branches.detune,
       description = "V/oct",
-      offset      = self.objects.detuneRR,
-      range       = self.objects.detuneRR
+      offset      = self.objects.detune,
+      range       = self.objects.detune
     },
     pan   = GainBias {
       button        = "pan",
@@ -185,9 +187,9 @@ function Polygon:onLoadViews()
     shape   = GainBias {
       button        = "shape",
       description   = "Shape",
-      branch        = self.branches.shapeRR,
-      gainbias      = self.objects.shapeRR,
-      range         = self.objects.shapeRR,
+      branch        = self.branches.shape,
+      gainbias      = self.objects.shape,
+      range         = self.objects.shape,
       biasMap       = Encoder.getMap("[-1,1]"),
       biasUnits     = app.unitNone,
       biasPrecision = 2,
@@ -196,9 +198,9 @@ function Polygon:onLoadViews()
     level   = GainBias {
       button        = "subLvl",
       description   = "Sub Level",
-      branch        = self.branches.levelRR,
-      gainbias      = self.objects.levelRR,
-      range         = self.objects.levelRR,
+      branch        = self.branches.level,
+      gainbias      = self.objects.level,
+      range         = self.objects.level,
       biasMap       = Encoder.getMap("[0,1]"),
       biasUnits     = app.unitNone,
       biasPrecision = 2,
