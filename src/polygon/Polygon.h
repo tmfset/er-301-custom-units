@@ -65,32 +65,23 @@ namespace polygon {
         auto pitchF0  = mPitchF0.buffer();
         auto filterF0 = mFilterF0.buffer();
 
-        auto detune = mDetune.value();
-        auto shape  = mShape.value();
-        auto level  = mLevel.value();
-        auto cutoff = 0;
-
-        auto rise      = mRise.value();
-        auto fall      = mFall.value();
-        auto shapeEnv  = mShapeEnv.value();
-        auto levelEnv  = mLevelEnv.value();
-        auto panEnv    = mPanEnv.value();
+        const auto sharedConfig = voice::four::SharedConfig {
+          voice::four::SharedParams {
+            vdupq_n_f32(mDetune.value()),
+            vdupq_n_f32(mShape.value()),
+            vdupq_n_f32(mLevel.value()),
+            vdupq_n_f32(0),
+            vdupq_n_f32(mRise.value()),
+            vdupq_n_f32(mFall.value()),
+            vdupq_n_f32(mShapeEnv.value()),
+            vdupq_n_f32(mLevelEnv.value()),
+            vdupq_n_f32(mPanEnv.value())
+          }
+        };
 
         const auto paramsRR = voice::four::VoiceParams {
           vdupq_n_f32(mVoiceRR.mVpo.value()),
           vdupq_n_f32(mVoiceRR.mPan.value())
-        };
-
-        const auto sharedParams = voice::four::SharedParams {
-          vdupq_n_f32(detune),
-          vdupq_n_f32(shape),
-          vdupq_n_f32(level),
-          vdupq_n_f32(cutoff),
-          vdupq_n_f32(rise),
-          vdupq_n_f32(fall),
-          vdupq_n_f32(shapeEnv),
-          vdupq_n_f32(levelEnv),
-          vdupq_n_f32(panEnv)
         };
 
         voice::four::VoiceParams params[POLYGON_SETS];
@@ -99,31 +90,28 @@ namespace polygon {
             mFourVoice[i].vpo(),
             mFourVoice[i].pan()
           };
+          params[i].add(paramsRR);
         }
 
-        mVoices.configure(paramsRR, params, sharedParams);
+        mVoices.configure(params);
 
         auto zero = vdupq_n_f32(0);
 
         float _gates[POLYGON_SETS * 4];
 
         for (int i = 0; i < FRAMELENGTH; i++) {
-          auto _gateRR = gateRR[i] > 0.0f ? 0xffffffff : 0;
-
           for (int j = 0; j < POLYGON_SETS * 4; j++) {
             _gates[j] = gates[j][i];
           }
 
-          auto _pitchF0  = vdupq_n_f32(pitchF0[i]);
-          auto _filterF0 = vdupq_n_f32(filterF0[i]);
-
           auto signal = mVoices.process(
-            _gateRR,
+            gateRR[i] > 0.0f ? 0xffffffff : 0,
             _gates,
-            _pitchF0,
-            _filterF0,
+            vdupq_n_f32(pitchF0[i]),
+            vdupq_n_f32(filterF0[i]),
             gain,
-            agcEnabled
+            agcEnabled,
+            sharedConfig
           );
 
           outLeft[i] = vget_lane_f32(signal, 0);

@@ -69,6 +69,10 @@ namespace voice {
     };
 
     struct SharedConfig {
+      inline SharedConfig() {}
+      inline SharedConfig(const SharedParams& params) {
+        configure(params);
+      }
       inline void configure(const SharedParams& params) {
         mDetune.configure(params.mDetune);
         mShape.set(params.mShape);
@@ -254,13 +258,9 @@ namespace voice {
     }
 
     inline void configure(
-      const four::VoiceParams &rr,
-      four::VoiceParams* params,
-      const four::SharedParams &shared
+      four::VoiceParams* params
     ) {
-      mShared.configure(shared);
       for (int i = 0; i < sets; i++) {
-        params[i].add(rr);
         mConfigs[i].configure(params[i]);
       }
     }
@@ -271,7 +271,8 @@ namespace voice {
       const float32x4_t pf0,
       const float32x4_t ff0,
       const float32x4_t gain,
-      const uint32x4_t agcEnabled
+      const uint32x4_t agcEnabled,
+      const four::SharedConfig &shared
     ) {
       uint32x4_t gates[sets];
       mRoundRobin.process(rr, gates);
@@ -281,7 +282,7 @@ namespace voice {
       for (int i = 0; i < sets; i++) {
         auto direct = vcgtq_f32(vld1q_f32(gate + (i * 4)), vdupq_n_f32(0));
         gates[i] = gates[i] | direct;
-        mVoices[i].track(gates[i], mConfigs[i], mShared);
+        mVoices[i].track(gates[i], mConfigs[i], shared);
 
         auto signal = mVoices[i].process(gates[i], pf0, ff0);
         sum = vadd_f32(sum, util::simd::make_f32(
@@ -290,12 +291,17 @@ namespace voice {
         ));
       }
 
-      return stereoAgc(sum, gain, agcEnabled);
+      return stereoAgc(sum, gain, agcEnabled, shared);
     }
 
-    inline float32x2_t stereoAgc(float32x2_t signal, float32x4_t gain, uint32x4_t agcEnabled) {
+    inline float32x2_t stereoAgc(
+      float32x2_t signal,
+      float32x4_t gain,
+      uint32x4_t agcEnabled,
+      const four::SharedConfig &shared
+    ) {
       auto input = vcombine_f32(signal, signal);
-      auto agc = mAgcFollower.process(input, mShared.mAgcCoeff);
+      auto agc = mAgcFollower.process(input, shared.mAgcCoeff);
       agc = vmaxq_f32(agc, vdupq_n_f32(1));
       agc = util::simd::invert(agc);
       mAppliedAgc = agc;
