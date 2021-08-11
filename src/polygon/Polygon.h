@@ -6,6 +6,7 @@
 #include <voice.h>
 #include <sstream>
 #include <vector>
+#include "util.h"
 
 #define POLYGON_SETS 2
 
@@ -59,8 +60,8 @@ namespace polygon {
 
         auto outLeft    = mOutLeft.buffer();
         auto outRight   = mOutRight.buffer();
-        auto gain       = vdupq_n_f32(mGain.value());
-        auto agcEnabled = isAgcEnabled() ? vdupq_n_u32(0xffffffff) : vdupq_n_u32(0);
+        auto gain       = vdup_n_f32(mGain.value());
+        auto agcEnabled = isAgcEnabled() ? vdup_n_u32(0xffffffff) : vdup_n_u32(0);
 
         auto pitchF0  = mPitchF0.buffer();
         auto filterF0 = mFilterF0.buffer();
@@ -95,13 +96,19 @@ namespace polygon {
 
         mVoices.configure(params);
 
-        auto zero = vdupq_n_f32(0);
-
-        float _gates[POLYGON_SETS * 4];
-
         for (int i = 0; i < FRAMELENGTH; i++) {
-          for (int j = 0; j < POLYGON_SETS * 4; j++) {
-            _gates[j] = gates[j][i];
+          uint32x4_t _gates[POLYGON_SETS];
+          for (int j = 0; j < POLYGON_SETS; j++) {
+            auto offset = j * 4;
+            _gates[j] = vcgtq_f32(
+              util::simd::makeq_f32(
+                gates[offset + 0][i],
+                gates[offset + 1][i],
+                gates[offset + 2][i],
+                gates[offset + 3][i]
+              ),
+              vdupq_n_f32(0)
+            );
           }
 
           auto signal = mVoices.process(

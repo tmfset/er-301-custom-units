@@ -215,6 +215,17 @@ namespace util {
       return inv;
     }
 
+    inline float32x2_t invert2(const float32x2_t x) {
+      float32x2_t inv;
+      // https://en.wikipedia.org/wiki/Division_algorithm#Newton.E2.80.93Raphson_division
+      inv = vrecpe_f32(x);
+      // iterate 3 times for 24 bits of precision
+      inv = vmul_f32(inv, vrecps_f32(x, inv));
+      inv = vmul_f32(inv, vrecps_f32(x, inv));
+      inv = vmul_f32(inv, vrecps_f32(x, inv));
+      return inv;
+    }
+
     inline float32x4_t sqrt(const float32x4_t x) {
       float _x[4];
       vst1q_f32(_x, x);

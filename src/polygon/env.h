@@ -43,15 +43,15 @@ namespace env {
         const uint32x4_t gate,
         const Coefficients& cf
       ) {
-        auto one  = vdupq_n_f32(1.0f);
-
-        auto reset  = vcgtq_f32(mValue, vdupq_n_f32(0.999));
-        auto high   = mLatch.read(gate, reset);
+        auto high = gate;
+        //auto reset  = vcgtq_f32(mValue, vdupq_n_f32(0.999));
+        //auto high   = mLatch.read(gate, reset);
 
         auto coeff  = cf.pick(high);
         auto target = vcvtq_n_f32_u32(high, 32);
 
-        mValue = coeff * mValue + (one - coeff) * target;
+        mValue = target + coeff * (mValue - target);
+        //mValue = coeff * mValue + (one - coeff) * target;
         return mValue;
       }
 
@@ -64,17 +64,56 @@ namespace env {
         const float32x4_t input,
         const Coefficients& cf
       ) {
-        auto zero = vdupq_n_f32(0.0f);
-        auto one  = vdupq_n_f32(1.0f);
-
         auto excite = vabsq_f32(input);
         auto high = vcgtq_f32(excite, mValue);
         auto coeff = cf.pick(high);
-        mValue = coeff * mValue + (one - coeff) * excite;
+        mValue = excite + coeff * (mValue - excite);
+        //mValue = coeff * mValue + (one - coeff) * excite;
         return mValue;
       }
 
       float32x4_t mValue = vdupq_n_f32(0);
+    };
+  }
+
+  namespace two {
+    inline float32x2_t slew_coeff(const float32x2_t time) {
+      const auto sp = vdupq_n_f32(globalConfig.samplePeriod);
+      const auto timeI = util::simd::invert(vmaxq_f32(vcombine_f32(time, time), sp));
+      return vget_low_f32(util::simd::exp_f32(-sp * timeI));
+    }
+
+    struct Coefficients {
+      inline float32x2_t pick(const uint32x2_t rise) const {
+        return vbsl_f32(rise, mRiseCoeff, mFallCoeff);
+      }
+
+      inline void configure(
+        const float32x2_t rise,
+        const float32x2_t fall
+      ) {
+        mRiseCoeff = slew_coeff(rise);
+        mFallCoeff = slew_coeff(fall);
+      }
+
+      float32x2_t mRiseCoeff;
+      float32x2_t mFallCoeff;
+    };
+
+    struct EnvFollower {
+      inline float32x2_t process(
+        const float32x2_t input,
+        const Coefficients& cf
+      ) {
+        auto excite = vabs_f32(input);
+        auto high = vcgt_f32(excite, mValue);
+        auto coeff = cf.pick(high);
+        mValue = vmla_f32(excite, coeff, vsub_f32(mValue, excite));
+        //mValue = coeff * mValue + (one - coeff) * excite;
+        return mValue;
+      }
+
+      float32x2_t mValue = vdup_n_f32(0);
     };
   }
 

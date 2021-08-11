@@ -79,7 +79,7 @@ namespace voice {
         mLevel.set(params.mLevel);
         mCutoff.configure(params.mCutoff);
         mEnvCoeff.configure(params.mRise, params.mFall);
-        mAgcCoeff.configure(vdupq_n_f32(globalConfig.samplePeriod), params.mFall + params.mRise);
+        mAgcCoeff.configure(vdup_n_f32(globalConfig.samplePeriod), vget_low_f32(params.mFall + params.mRise));
         mShapeEnv.set(params.mShapeEnv);
         mLevelEnv.set(params.mLevelEnv);
         mPanEnv.set(params.mPanEnv);
@@ -101,7 +101,7 @@ namespace voice {
       util::four::TrackAndHold mLevel { 0 };
       util::four::Vpo mCutoff;
       env::four::Coefficients mEnvCoeff;
-      env::four::Coefficients mAgcCoeff;
+      env::two::Coefficients mAgcCoeff;
       util::four::TrackAndHold mShapeEnv { 0 };
       util::four::TrackAndHold mLevelEnv { 0 };
       util::four::TrackAndHold mPanEnv { 0 };
@@ -267,11 +267,11 @@ namespace voice {
 
     inline float32x2_t process(
       const uint32_t rr,
-      float* gate,
+      const uint32x4_t* direct,
       const float32x4_t pf0,
       const float32x4_t ff0,
-      const float32x4_t gain,
-      const uint32x4_t agcEnabled,
+      const float32x2_t gain,
+      const uint32x2_t agcEnabled,
       const four::SharedConfig &shared
     ) {
       uint32x4_t gates[sets];
@@ -280,8 +280,7 @@ namespace voice {
       float32x2_t sum = vdup_n_f32(0);
 
       for (int i = 0; i < sets; i++) {
-        auto direct = vcgtq_f32(vld1q_f32(gate + (i * 4)), vdupq_n_f32(0));
-        gates[i] = gates[i] | direct;
+        gates[i] = gates[i] | direct[i];
         mVoices[i].track(gates[i], mConfigs[i], shared);
 
         auto signal = mVoices[i].process(gates[i], pf0, ff0);
@@ -296,25 +295,22 @@ namespace voice {
 
     inline float32x2_t stereoAgc(
       float32x2_t signal,
-      float32x4_t gain,
-      uint32x4_t agcEnabled,
+      float32x2_t gain,
+      uint32x2_t agcEnabled,
       const four::SharedConfig &shared
     ) {
-      auto input = vcombine_f32(signal, signal);
-      auto agc = mAgcFollower.process(input, shared.mAgcCoeff);
-      agc = vmaxq_f32(agc, vdupq_n_f32(1));
-      agc = util::simd::invert(agc);
+      auto agc = mAgcFollower.process(signal, shared.mAgcCoeff);
+      agc = vmax_f32(agc, vdup_n_f32(1));
+      agc = util::simd::invert2(agc);
       mAppliedAgc = agc;
 
-      auto appliedGain = vbslq_f32(agcEnabled, agc * gain, gain);
-      return vmul_f32(vget_low_f32(appliedGain), signal);
+      auto appliedGain = vbsl_f32(agcEnabled, vmul_f32(agc, gain), gain);
+      return vmul_f32(appliedGain, signal);
     }
 
     inline float agcDb() {
-      auto agcLeft = vgetq_lane_f32(mAppliedAgc, 0);
-      auto agcRight = vgetq_lane_f32(mAppliedAgc, 1);
-      auto avg = (agcLeft + agcRight) * 0.5f;
-      return util::toDecibels(avg);
+      auto x = vpadd_f32(mAppliedAgc, mAppliedAgc) * vdup_n_f32(0.5);
+      return util::toDecibels(vget_lane_f32(x, 0));
     }
 
     RoundRobin<sets> mRoundRobin;
@@ -322,7 +318,7 @@ namespace voice {
     std::unique_ptr<four::Voice[]> mVoices;
     std::unique_ptr<four::VoiceConfig[]> mConfigs;
 
-    float32x4_t mAppliedAgc;
-    env::four::EnvFollower mAgcFollower;
+    float32x2_t mAppliedAgc;
+    env::two::EnvFollower mAgcFollower;
   };
 }
