@@ -67,16 +67,14 @@ namespace polygon {
         auto filterF0 = mFilterF0.buffer();
 
         const auto sharedConfig = voice::four::SharedConfig {
-          voice::four::SharedParams {
-            vdupq_n_f32(mDetune.value()),
-            vdupq_n_f32(mShape.value()),
-            vdupq_n_f32(mLevel.value()),
-            vdupq_n_f32(mRise.value()),
-            vdupq_n_f32(mFall.value()),
-            vdupq_n_f32(mShapeEnv.value()),
-            vdupq_n_f32(mLevelEnv.value()),
-            vdupq_n_f32(mPanEnv.value())
-          }
+          vdupq_n_f32(mDetune.value()),
+          vdupq_n_f32(mShape.value()),
+          vdupq_n_f32(mLevel.value()),
+          vdupq_n_f32(mRise.value()),
+          vdupq_n_f32(mFall.value()),
+          vdupq_n_f32(mShapeEnv.value()),
+          vdupq_n_f32(mLevelEnv.value()),
+          vdupq_n_f32(mPanEnv.value())
         };
 
         const auto rrVpo = vdupq_n_f32(mVoiceRR.mVpo.value());

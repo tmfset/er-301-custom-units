@@ -62,7 +62,6 @@ function Polygon:onLoadGraph(channelCount)
   detune:hardSet("Gain", 1)
   local shape     = self:addParameterAdapterControl("shape")
   local level     = self:addParameterAdapterControl("level")
-  local cutoff    = self:addParameterAdapterControl("cutoff")
 
   local rise      = self:addParameterAdapterControl("rise")
   local fall      = self:addParameterAdapterControl("fall")
@@ -81,7 +80,6 @@ function Polygon:onLoadGraph(channelCount)
   tie(op, "Detune", detune, "Out")
   tie(op, "Shape",  shape,  "Out")
   tie(op, "Level",  level,  "Out")
-  tie(op, "Cutoff", cutoff, "Out")
 
   tie(op, "Rise",       rise,      "Out")
   tie(op, "Fall",       fall,      "Out")
@@ -135,6 +133,17 @@ function Polygon:onLoadViews()
       branch        = self.branches.panRR,
       gainbias      = self.objects.panRR,
       range         = self.objects.panRR,
+      biasMap       = Encoder.getMap("[-1,1]"),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = 0
+    },
+    panEnv   = GainBias {
+      button        = "panEnv",
+      description   = "Pan Env",
+      branch        = self.branches.panEnv,
+      gainbias      = self.objects.panEnv,
+      range         = self.objects.panEnv,
       biasMap       = Encoder.getMap("[-1,1]"),
       biasUnits     = app.unitNone,
       biasPrecision = 2,
@@ -195,6 +204,17 @@ function Polygon:onLoadViews()
       biasPrecision = 2,
       initialBias   = 0
     },
+    shapeEnv   = GainBias {
+      button        = "shpEnv",
+      description   = "Shape Env",
+      branch        = self.branches.shapeEnv,
+      gainbias      = self.objects.shapeEnv,
+      range         = self.objects.shapeEnv,
+      biasMap       = Encoder.getMap("[-1,1]"),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = 0
+    },
     level   = GainBias {
       button        = "subLvl",
       description   = "Sub Level",
@@ -206,6 +226,17 @@ function Polygon:onLoadViews()
       biasPrecision = 2,
       initialBias   = 0.5
     },
+    levelEnv   = GainBias {
+      button        = "lvlEnv",
+      description   = "Level Env",
+      branch        = self.branches.levelEnv,
+      gainbias      = self.objects.levelEnv,
+      range         = self.objects.levelEnv,
+      biasMap       = Encoder.getMap("[-1,1]"),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = 0
+    },
     output = OutputMeter {
       button       = "output",
       description  = "Output Gain",
@@ -216,7 +247,7 @@ function Polygon:onLoadViews()
       scaling      = app.linearScaling
     }
   }, {
-    expanded  = { "output", "pan", "gate", "vpo", "detune", "pf0", "ff0", "rise", "fall", "shape", "level" },
+    expanded  = { "output", "pan", "panEnv", "gate", "vpo", "detune", "pf0", "ff0", "rise", "fall", "shape", "shapeEnv", "level", "levelEnv" },
     collapsed = { }
   }
 end

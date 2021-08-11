@@ -34,20 +34,16 @@ namespace voice {
 
       auto _max = max();
       uint32_t active[_max];
-      for (int i = 0; i < sets; i++) vst1q_u32(active + (i * 4), vdupq_n_u32(0));
-      //for (int i = 0; i < _max; i++) active[i] = 0;
-      //memset(active, 0, _max);
+      for (int i = 0; i < sets; i++)
+        vst1q_u32(active + (i * 4), vdupq_n_u32(0));
+
       for (int i = 0; i < mCount; i++)
         active[index(current + i)] = 0xffffffff;
 
       auto _gate = vdupq_n_u32(gate);
       for (int i = 0; i < sets; i++) {
         out[i] = vandq_u32(_gate, vld1q_u32(active + (i * 4)));
-        //util::simd::print_u32(_gate);
-        //util::simd::print_u32(out[i], true);
       }
-
-      //util::simd::print_newline();
     }
 
     int mTotal, mCount;
@@ -56,78 +52,52 @@ namespace voice {
   };
 
   namespace four {
-    struct SharedParams {
-      float32x4_t mDetune;
-      float32x4_t mShape;
-      float32x4_t mLevel;
-      float32x4_t mRise;
-      float32x4_t mFall;
-      float32x4_t mShapeEnv;
-      float32x4_t mLevelEnv;
-      float32x4_t mPanEnv;
-    };
-
     struct SharedConfig {
-      inline SharedConfig() {}
-      inline SharedConfig(const SharedParams& params) {
-        configure(params);
-      }
-
-      inline void configure(const SharedParams& params) {
-        mDetune.configure(params.mDetune);
-        mShape.set(params.mShape);
-        mLevel.set(params.mLevel);
-        mEnvCoeff.configure(params.mRise, params.mFall);
-        mAgcCoeff.configure(vdup_n_f32(globalConfig.samplePeriod), vget_low_f32(params.mFall + params.mRise));
-        mShapeEnv.set(params.mShapeEnv);
-        mLevelEnv.set(params.mLevelEnv);
-        mPanEnv.set(params.mPanEnv);
-      }
-
-      inline void track(const uint32x4_t gate, const SharedConfig& other) {
-        mDetune.track(gate, other.mDetune);
-        mShape.track(gate, other.mShape);
-        mLevel.track(gate, other.mLevel);
-        mEnvCoeff.track(gate, other.mEnvCoeff);
-        mShapeEnv.track(gate, other.mShapeEnv);
-        mLevelEnv.track(gate, other.mLevelEnv);
-        mPanEnv.track(gate, other.mPanEnv);
+      inline SharedConfig(
+        float32x4_t detune,
+        float32x4_t shape,
+        float32x4_t level,
+        float32x4_t rise,
+        float32x4_t fall,
+        float32x4_t shapeEnv,
+        float32x4_t levelEnv,
+        float32x4_t panEnv
+      ) {
+        mDetune.configure(detune);
+        mEnvCoeff.configure(rise, fall);
+        mAgcCoeff.configure(vdup_n_f32(globalConfig.samplePeriod), vget_low_f32(fall + rise));
+        mShape = shape;
+        mLevel = level;
+        mShapeEnv = shapeEnv;
+        mLevelEnv = levelEnv;
+        mPanEnv = panEnv;
       }
 
       util::four::Vpo mDetune;
-      util::four::TrackAndHold mShape { 0 };
-      util::four::TrackAndHold mLevel { 0 };
       env::four::Coefficients mEnvCoeff;
       env::two::Coefficients mAgcCoeff;
-      util::four::TrackAndHold mShapeEnv { 0 };
-      util::four::TrackAndHold mLevelEnv { 0 };
-      util::four::TrackAndHold mPanEnv { 0 };
+
+      float32x4_t mShape;
+      float32x4_t mLevel;
+      float32x4_t mShapeEnv;
+      float32x4_t mLevelEnv;
+      float32x4_t mPanEnv;
 
       inline float32x4_t cutoff(const float32x4_t env, const float32x4_t f0) const {
         return f0 * env;
       }
 
       inline float32x4_t shape(const float32x4_t env) const {
-        return mShape.value() + mShapeEnv.value() * env;
+        return mShape + mShapeEnv * env;
       }
 
       inline float32x4_t level(const float32x4_t env) const {
-        return mLevel.value() + mLevelEnv.value() * env;
+        return mLevel + mLevelEnv * env;
       }
 
       inline float32x4_t pan(const float32x4_t offset, const float32x4_t env) const {
-        return offset + mPanEnv.value() * env;
+        return offset + mPanEnv * env;
       }
-    };
-
-    struct VoiceParams {
-      inline void add(const VoiceParams& other) {
-        mVpo = mVpo + other.mVpo;
-        mPan = mPan + other.mPan;
-      }
-
-      float32x4_t mVpo;
-      float32x4_t mPan;
     };
 
     struct VoiceConfig {
@@ -141,13 +111,28 @@ namespace voice {
         mPan.set(pan);
       }
 
-      inline void track(const uint32x4_t gate, const VoiceConfig& other) {
-        mVpo.track(gate, other.mVpo);
-        mPan.track(gate, other.mPan);
+      util::four::Vpo mVpo;
+      util::four::TrackAndHold mPan { 0 };
+    };
+
+    struct VoiceTrack {
+      inline VoiceTrack() {}
+
+      inline void track(
+        const uint32x4_t gate,
+        const VoiceConfig& config,
+        const SharedConfig& shared
+      ) {
+        mVpo.track(gate, config.mVpo);
+        mDetune.track(gate, shared.mDetune);
+        mPan.track(gate, config.mPan);
+        mEnvCoeff.track(gate, shared.mEnvCoeff);
       }
 
       util::four::Vpo mVpo;
+      util::four::Vpo mDetune;
       util::four::TrackAndHold mPan { 0 };
+      env::four::Coefficients mEnvCoeff;
     };
 
     struct Pan {
@@ -207,35 +192,32 @@ namespace voice {
         const VoiceConfig &config,
         const SharedConfig& shared
       ) {
-        mConfig.track(gate, config);
-        mShared.track(gate, shared);
+        mTracked.track(gate, config, shared);
       }
 
       inline float32x4x2_t process(
         const uint32x4_t gate,
         const float32x4_t pitchF0,
-        const float32x4_t filterF0
+        const float32x4_t filterF0,
+        const SharedConfig& shared
       ) {
-        auto env    = mEnvelope.process(gate, mShared.mEnvCoeff);
+        auto env = mEnvelope.process(gate, mTracked.mEnvCoeff);
 
-        auto cutoff = mShared.cutoff(env, filterF0);
-        auto shape  = mShared.shape(env);
-        auto level  = mShared.level(env);
-        auto pan    = mShared.pan(mConfig.mPan.value(), env);
-
-        mFilter.configure(cutoff);
+        mFilter.configure(
+          shared.cutoff(env, filterF0)
+        );
 
         auto mix = mOscillator.process(
-          mConfig.mVpo.delta(pitchF0),
-          mShared.mDetune.deltaOffset(pitchF0, mConfig.mVpo),
-          shape,
-          level,
+          mTracked.mVpo.delta(pitchF0),
+          mTracked.mDetune.deltaOffset(pitchF0, mTracked.mVpo),
+          shared.shape(env),
+          shared.level(env),
           gate
         );
 
         return mPan.process(
           mFilter.process(mix * env),
-          pan
+          shared.pan(mTracked.mPan.value(), env)
         );
       }
 
@@ -243,8 +225,7 @@ namespace voice {
       Oscillator mOscillator;
       env::four::SlewEnvelope mEnvelope;
       filter::svf::four::Lowpass mFilter;
-      VoiceConfig mConfig;
-      SharedConfig mShared;
+      VoiceTrack mTracked;
     };
   }
 
@@ -253,7 +234,7 @@ namespace voice {
     inline MultiVoice() :
       mVoices(new four::Voice[sets]) {
       for (int i = 0; i < sets; i++) {
-        mVoices[i]  = four::Voice { };
+        mVoices[i] = four::Voice { };
       }
     }
 
@@ -270,28 +251,18 @@ namespace voice {
       uint32x4_t gates[sets];
       mRoundRobin.process(rr, gates);
 
-      float32x2_t sum = vdup_n_f32(0);
-
+      float32x2_t signal = vdup_n_f32(0);
       for (int i = 0; i < sets; i++) {
         gates[i] = gates[i] | direct[i];
         mVoices[i].track(gates[i], configs[i], shared);
 
-        auto signal = mVoices[i].process(gates[i], pf0, ff0);
-        sum = vadd_f32(sum, util::simd::make_f32(
-          util::simd::sumq_f32(signal.val[0]),
-          util::simd::sumq_f32(signal.val[1])
+        auto out = mVoices[i].process(gates[i], pf0, ff0, shared);
+        signal = vadd_f32(signal, util::simd::make_f32(
+          util::simd::sumq_f32(out.val[0]),
+          util::simd::sumq_f32(out.val[1])
         ));
       }
 
-      return stereoAgc(sum, gain, agcEnabled, shared);
-    }
-
-    inline float32x2_t stereoAgc(
-      float32x2_t signal,
-      float32x2_t gain,
-      uint32x2_t agcEnabled,
-      const four::SharedConfig &shared
-    ) {
       auto agc = mAgcFollower.process(signal, shared.mAgcCoeff);
       agc = vmax_f32(agc, vdup_n_f32(1));
       agc = util::simd::invert2(agc);
@@ -310,7 +281,6 @@ namespace voice {
     }
 
     RoundRobin<sets> mRoundRobin;
-    four::SharedConfig mShared;
     std::unique_ptr<four::Voice[]> mVoices;
 
     float32x2_t mAppliedAgc;
