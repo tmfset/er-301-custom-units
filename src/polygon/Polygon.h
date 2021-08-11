@@ -71,7 +71,6 @@ namespace polygon {
             vdupq_n_f32(mDetune.value()),
             vdupq_n_f32(mShape.value()),
             vdupq_n_f32(mLevel.value()),
-            vdupq_n_f32(0),
             vdupq_n_f32(mRise.value()),
             vdupq_n_f32(mFall.value()),
             vdupq_n_f32(mShapeEnv.value()),
@@ -80,21 +79,16 @@ namespace polygon {
           }
         };
 
-        const auto paramsRR = voice::four::VoiceParams {
-          vdupq_n_f32(mVoiceRR.mVpo.value()),
-          vdupq_n_f32(mVoiceRR.mPan.value())
-        };
+        const auto rrVpo = vdupq_n_f32(mVoiceRR.mVpo.value());
+        const auto rrPan = vdupq_n_f32(mVoiceRR.mPan.value());
 
-        voice::four::VoiceParams params[POLYGON_SETS];
+        voice::four::VoiceConfig configs[POLYGON_SETS];
         for (int i = 0; i < POLYGON_SETS; i++) {
-          params[i] = voice::four::VoiceParams {
-            mFourVoice[i].vpo(),
-            mFourVoice[i].pan()
+          configs[i] = voice::four::VoiceConfig {
+            mFourVoice[i].vpo() + rrVpo,
+            mFourVoice[i].pan() + rrPan
           };
-          params[i].add(paramsRR);
         }
-
-        mVoices.configure(params);
 
         for (int i = 0; i < FRAMELENGTH; i++) {
           uint32x4_t _gates[POLYGON_SETS];
@@ -114,6 +108,7 @@ namespace polygon {
           auto signal = mVoices.process(
             gateRR[i] > 0.0f ? 0xffffffff : 0,
             _gates,
+            configs,
             vdupq_n_f32(pitchF0[i]),
             vdupq_n_f32(filterF0[i]),
             gain,
