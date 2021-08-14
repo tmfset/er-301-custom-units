@@ -11,34 +11,40 @@
 #include <memory>
 
 namespace voice {
+
   template <int sets>
-  struct RoundRobin {
-    inline RoundRobin() :
-      mTotal(max()),
-      mCount(1) { }
+  struct RoundRobinConstants {
+    inline RoundRobinConstants(int total, int count, int stride) :
+      mTotal(util::clamp(total, 1, max())),
+      mCount(util::clamp(count, 1, mTotal)),
+      mStride(stride < 1 ? 1 : stride) { }
 
     inline int max() const { return sets * 4; }
     inline int index(int i) const { return i % mTotal; }
+    inline int next(int current) const { return index(current + mStride); }
 
-    inline void configure(int total, int count) {
-      mTotal = util::clamp(total, 1, max());
-      mCount = util::clamp(count, 1, mTotal);
-    }
+    int mTotal, mCount, mStride;
+  };
 
-    inline void process(const uint32_t gate, uint32x4_t *out) {
+  template <int sets>
+  struct RoundRobin {
+    inline void process(
+      const uint32_t gate,
+      const RoundRobinConstants<sets>& c,
+      uint32x4_t *out
+    ) {
       auto current = mCurrent;
-      auto next = mTrigger.read(~gate);
-      if (next)
-        current = index(current + 1);
+      auto step = mTrigger.read(~gate);
+      if (step) current = c.next(current);
       mCurrent = current;
 
-      auto _max = max();
+      auto _max = c.max();
       uint32_t active[_max];
       for (int i = 0; i < sets; i++)
         vst1q_u32(active + (i * 4), vdupq_n_u32(0));
 
-      for (int i = 0; i < mCount; i++)
-        active[index(current + i)] = 0xffffffff;
+      for (int i = 0; i < c.mCount; i++)
+        active[c.index(current + i)] = 0xffffffff;
 
       auto _gate = vdupq_n_u32(gate);
       for (int i = 0; i < sets; i++) {
@@ -46,7 +52,6 @@ namespace voice {
       }
     }
 
-    int mTotal, mCount;
     int mCurrent = 0;
     util::Trigger mTrigger;
   };
@@ -61,7 +66,7 @@ namespace voice {
         float32x4_t fall,
         float32x4_t shapeEnv,
         float32x4_t levelEnv,
-        float32x4_t panEnv
+        float32x4_t pan
       ) {
         mDetune.configure(detune);
         mEnvCoeff.configure(rise, fall);
@@ -70,7 +75,7 @@ namespace voice {
         mLevel = level;
         mShapeEnv = shapeEnv;
         mLevelEnv = levelEnv;
-        mPanEnv = panEnv;
+        mPan = pan;
       }
 
       util::four::Vpo mDetune;
@@ -81,7 +86,7 @@ namespace voice {
       float32x4_t mLevel;
       float32x4_t mShapeEnv;
       float32x4_t mLevelEnv;
-      float32x4_t mPanEnv;
+      float32x4_t mPan;
 
       inline float32x4_t cutoff(const float32x4_t env, const float32x4_t f0) const {
         return f0 * env;
@@ -95,8 +100,8 @@ namespace voice {
         return mLevel + mLevelEnv * env;
       }
 
-      inline float32x4_t pan(const float32x4_t offset, const float32x4_t env) const {
-        return offset + mPanEnv * env;
+      inline float32x4_t pan(const float32x4_t offset) const {
+        return mPan + offset;
       }
     };
 
@@ -108,11 +113,11 @@ namespace voice {
         const float32x4_t pan
       ) {
         mVpo.configure(vpo);
-        mPan.set(pan);
+        mPan = pan;
       }
 
       util::four::Vpo mVpo;
-      util::four::TrackAndHold mPan { 0 };
+      float32x4_t mPan;
     };
 
     struct VoiceTrack {
@@ -125,13 +130,13 @@ namespace voice {
       ) {
         mVpo.track(gate, config.mVpo);
         mDetune.track(gate, shared.mDetune);
-        mPan.track(gate, config.mPan);
+        mPan = config.mPan;
         mEnvCoeff.track(gate, shared.mEnvCoeff);
       }
 
       util::four::Vpo mVpo;
       util::four::Vpo mDetune;
-      util::four::TrackAndHold mPan { 0 };
+      float32x4_t mPan;
       env::four::Coefficients mEnvCoeff;
     };
 
@@ -217,7 +222,7 @@ namespace voice {
 
         return mPan.process(
           mFilter.process(mix * env),
-          shared.pan(mTracked.mPan.value(), env)
+          shared.pan(mTracked.mPan)
         );
       }
 
@@ -239,8 +244,7 @@ namespace voice {
     }
 
     inline float32x2_t process(
-      const uint32_t rr,
-      const uint32x4_t* direct,
+      const uint32x4_t* gates,
       const four::VoiceConfig* configs,
       const float32x4_t pf0,
       const float32x4_t ff0,
@@ -248,12 +252,8 @@ namespace voice {
       const uint32x2_t agcEnabled,
       const four::SharedConfig &shared
     ) {
-      uint32x4_t gates[sets];
-      mRoundRobin.process(rr, gates);
-
       float32x2_t signal = vdup_n_f32(0);
       for (int i = 0; i < sets; i++) {
-        gates[i] = gates[i] | direct[i];
         mVoices[i].track(gates[i], configs[i], shared);
 
         auto out = mVoices[i].process(gates[i], pf0, ff0, shared);
@@ -280,9 +280,7 @@ namespace voice {
       return util::toDecibels(vget_lane_f32(x, 0));
     }
 
-    RoundRobin<sets> mRoundRobin;
     std::unique_ptr<four::Voice[]> mVoices;
-
     float32x2_t mAppliedAgc;
     env::two::EnvFollower mAgcFollower;
   };

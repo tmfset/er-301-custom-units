@@ -43,49 +43,54 @@ function Polygon.addConstantOffsetControl(self, name)
   return co;
 end
 
-function Polygon.addParameterAdapterControl(self, name)
+function Polygon.addParameterAdapterControl(self, name, defaultGain)
   local pa = self:addObject(name, app.ParameterAdapter())
   self:addMonoBranch(name, pa, "In", pa, "Out")
+  if defaultGain then
+    pa:hardSet("Gain", defaultGain)
+  end
   return pa
 end
 
 function Polygon:onLoadGraph(channelCount)
-  local gateRR      = self:addComparatorControl("gateRR", app.COMPARATOR_GATE)
-  local vpoRR       = self:addParameterAdapterControl("vpoRR")
-  local panRR       = self:addParameterAdapterControl("panRR")
-  vpoRR:hardSet("Gain", 1)
-
-  local pitchF0     = self:addGainBiasControl("pitchF0")
-  local filterF0    = self:addGainBiasControl("filterF0")
-
-  local detune    = self:addParameterAdapterControl("detune")
-  detune:hardSet("Gain", 1)
-  local shape     = self:addParameterAdapterControl("shape")
-  local level     = self:addParameterAdapterControl("level")
-
-  local rise      = self:addParameterAdapterControl("rise")
-  local fall      = self:addParameterAdapterControl("fall")
-  local shapeEnv  = self:addParameterAdapterControl("shapeEnv")
-  local levelEnv  = self:addParameterAdapterControl("levelEnv")
-  local panEnv    = self:addParameterAdapterControl("panEnv")
-
   local op = self:addObject("op", polygon.Polygon(channelCount > 1))
-  connect(gateRR,   "Out", op, "Gate RR")
-  connect(pitchF0,  "Out", op, "Pitch Fundamental")
-  connect(filterF0, "Out", op, "Filter Fundamental")
 
-  tie(op, "V/Oct RR",  vpoRR,    "Out")
-  tie(op, "Pan RR",    panRR,    "Out")
+  local pf0      = self:addGainBiasControl("pf0")
+  local ff0      = self:addGainBiasControl("ff0")
+  local rise     = self:addParameterAdapterControl("rise")
+  local fall     = self:addParameterAdapterControl("fall")
+  connect(pf0, "Out", op, "Pitch Fundamental")
+  connect(ff0, "Out", op, "Filter Fundamental")
+  tie(op, "Rise", rise, "Out")
+  tie(op, "Fall", fall, "Out")
 
-  tie(op, "Detune", detune, "Out")
-  tie(op, "Shape",  shape,  "Out")
-  tie(op, "Level",  level,  "Out")
+  local rrGate   = self:addComparatorControl("rrGate", app.COMPARATOR_GATE)
+  local rrVpo    = self:addParameterAdapterControl("rrVpo", 1)
+  local rrCount  = self:addParameterAdapterControl("rrCount")
+  local rrStride = self:addParameterAdapterControl("rrStride")
+  local rrTotal  = self:addParameterAdapterControl("rrTotal")
+  connect(rrGate, "Out", op, "RR Gate")
+  tie(op, "RR V/Oct",  rrVpo,    "Out")
+  tie(op, "RR Count",  rrCount,  "Out")
+  tie(op, "RR Stride", rrStride, "Out")
+  tie(op, "RR Total",  rrTotal,  "Out")
 
-  tie(op, "Rise",       rise,      "Out")
-  tie(op, "Fall",       fall,      "Out")
-  tie(op, "Shape Env",  shapeEnv,  "Out")
-  tie(op, "Level Env",  levelEnv,  "Out")
-  tie(op, "Pan Env",    panEnv,    "Out")
+  local detune   = self:addParameterAdapterControl("detune", 1)
+  local level    = self:addParameterAdapterControl("level")
+  local levelEnv = self:addParameterAdapterControl("levelEnv")
+  tie(op, "Detune",    detune,   "Out")
+  tie(op, "Level",     level,    "Out")
+  tie(op, "Level Env", levelEnv, "Out")
+
+  local shape    = self:addParameterAdapterControl("shape")
+  local shapeEnv = self:addParameterAdapterControl("shapeEnv")
+  tie(op, "Shape",     shape,    "Out")
+  tie(op, "Shape Env", shapeEnv, "Out")
+
+  local panOffset = self:addParameterAdapterControl("panOffset")
+  local panWidth  = self:addParameterAdapterControl("panWidth")
+  tie(op, "Pan Offset", panOffset, "Out")
+  tie(op, "Pan Width",  panWidth,  "Out")
 
   for i = 1, channelCount do
     connect(op, "Out"..i, self, "Out"..i)
@@ -98,6 +103,13 @@ function Polygon.linMap(min, max, superCoarse, coarse, fine, superFine)
   return map
 end
 
+function Polygon.intMap(min, max)
+  local map = app.LinearDialMap(min,max)
+    map:setSteps(2, 1, 0.25, 0.25)
+    map:setRounding(1)
+    return map
+end
+
 function Polygon.defaultDecibelMap()
   local map = app.LinearDialMap(-60, 12)
   map:setZero(0)
@@ -107,54 +119,12 @@ end
 
 function Polygon:onLoadViews()
   return {
-    gate = Gate {
-      button      = "gate",
-      description = "Gate",
-      branch      = self.branches.gateRR,
-      comparator  = self.objects.gateRR
-    },
-    vpo = Pitch {
-      button      = "V/oct",
-      branch      = self.branches.vpoRR,
-      description = "V/oct",
-      offset      = self.objects.vpoRR,
-      range       = self.objects.vpoRR
-    },
-    detune = Pitch {
-      button      = "V/oct",
-      branch      = self.branches.detune,
-      description = "V/oct",
-      offset      = self.objects.detune,
-      range       = self.objects.detune
-    },
-    pan   = GainBias {
-      button        = "pan",
-      description   = "Pan",
-      branch        = self.branches.panRR,
-      gainbias      = self.objects.panRR,
-      range         = self.objects.panRR,
-      biasMap       = Encoder.getMap("[-1,1]"),
-      biasUnits     = app.unitNone,
-      biasPrecision = 2,
-      initialBias   = 0
-    },
-    panEnv   = GainBias {
-      button        = "panEnv",
-      description   = "Pan Env",
-      branch        = self.branches.panEnv,
-      gainbias      = self.objects.panEnv,
-      range         = self.objects.panEnv,
-      biasMap       = Encoder.getMap("[-1,1]"),
-      biasUnits     = app.unitNone,
-      biasPrecision = 2,
-      initialBias   = 0
-    },
     pf0 = GainBias {
       button      = "pf0",
       description = "Pitch Fundamental",
-      branch      = self.branches.pitchF0,
-      gainbias    = self.objects.pitchF0,
-      range       = self.objects.pitchF0,
+      branch      = self.branches.pf0,
+      gainbias    = self.objects.pf0,
+      range       = self.objects.pf0,
       biasMap     = Encoder.getMap("oscFreq"),
       biasUnits   = app.unitHertz,
       initialBias = 110,
@@ -164,9 +134,9 @@ function Polygon:onLoadViews()
     ff0 = GainBias {
       button      = "ff0",
       description = "Filter Fundamental",
-      branch      = self.branches.filterF0,
-      gainbias    = self.objects.filterF0,
-      range       = self.objects.filterF0,
+      branch      = self.branches.ff0,
+      gainbias    = self.objects.ff0,
+      range       = self.objects.ff0,
       biasMap     = Encoder.getMap("oscFreq"),
       biasUnits   = app.unitHertz,
       initialBias = 440,
@@ -193,27 +163,58 @@ function Polygon:onLoadViews()
       biasUnits   = app.unitSecs,
       initialBias = 0.200
     },
-    shape   = GainBias {
-      button        = "shape",
-      description   = "Shape",
-      branch        = self.branches.shape,
-      gainbias      = self.objects.shape,
-      range         = self.objects.shape,
-      biasMap       = Encoder.getMap("[-1,1]"),
-      biasUnits     = app.unitNone,
-      biasPrecision = 2,
-      initialBias   = 0
+    rrGate = Gate {
+      button      = "rrGate",
+      description = "Round Robin Gate",
+      branch      = self.branches.rrGate,
+      comparator  = self.objects.rrGate
     },
-    shapeEnv   = GainBias {
-      button        = "shpEnv",
-      description   = "Shape Env",
-      branch        = self.branches.shapeEnv,
-      gainbias      = self.objects.shapeEnv,
-      range         = self.objects.shapeEnv,
-      biasMap       = Encoder.getMap("[-1,1]"),
+    rrVpo = Pitch {
+      button      = "rrVpo",
+      branch      = self.branches.rrVpo,
+      description = "Round Robin V/Oct",
+      offset      = self.objects.rrVpo,
+      range       = self.objects.rrVpo
+    },
+    rrCount   = GainBias {
+      button        = "rrCount",
+      description   = "Round Robin Count",
+      branch        = self.branches.rrCount,
+      gainbias      = self.objects.rrCount,
+      range         = self.objects.rrCount,
+      biasMap       = self.intMap(1, 8),
       biasUnits     = app.unitNone,
-      biasPrecision = 2,
-      initialBias   = 0
+      biasPrecision = 0,
+      initialBias   = 1
+    },
+    rrStride   = GainBias {
+      button        = "rrStride",
+      description   = "Round Robin Stride",
+      branch        = self.branches.rrStride,
+      gainbias      = self.objects.rrStride,
+      range         = self.objects.rrStride,
+      biasMap       = self.intMap(1, 8),
+      biasUnits     = app.unitNone,
+      biasPrecision = 0,
+      initialBias   = 1
+    },
+    rrTotal   = GainBias {
+      button        = "rrTotal",
+      description   = "Round Robin Total",
+      branch        = self.branches.rrTotal,
+      gainbias      = self.objects.rrTotal,
+      range         = self.objects.rrTotal,
+      biasMap       = self.intMap(1, 8),
+      biasUnits     = app.unitNone,
+      biasPrecision = 0,
+      initialBias   = 8
+    },
+    detune = Pitch {
+      button      = "detune",
+      branch      = self.branches.detune,
+      description = "Detune V/oct",
+      offset      = self.objects.detune,
+      range       = self.objects.detune
     },
     level   = GainBias {
       button        = "subLvl",
@@ -237,6 +238,50 @@ function Polygon:onLoadViews()
       biasPrecision = 2,
       initialBias   = 0
     },
+    shape   = GainBias {
+      button        = "shape",
+      description   = "Shape",
+      branch        = self.branches.shape,
+      gainbias      = self.objects.shape,
+      range         = self.objects.shape,
+      biasMap       = Encoder.getMap("[-1,1]"),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = 0
+    },
+    shapeEnv   = GainBias {
+      button        = "shpEnv",
+      description   = "Shape Env",
+      branch        = self.branches.shapeEnv,
+      gainbias      = self.objects.shapeEnv,
+      range         = self.objects.shapeEnv,
+      biasMap       = Encoder.getMap("[-1,1]"),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = 0
+    },
+    panOffset   = GainBias {
+      button        = "panOff",
+      description   = "Pan Offset",
+      branch        = self.branches.panOffset,
+      gainbias      = self.objects.panOffset,
+      range         = self.objects.panOffset,
+      biasMap       = Encoder.getMap("[-1,1]"),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = 0
+    },
+    panWidth   = GainBias {
+      button        = "panWid",
+      description   = "Pan Width",
+      branch        = self.branches.panWidth,
+      gainbias      = self.objects.panWidth,
+      range         = self.objects.panWidth,
+      biasMap       = Encoder.getMap("[-1,1]"),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = 0
+    },
     output = OutputMeter {
       button       = "output",
       description  = "Output Gain",
@@ -247,7 +292,7 @@ function Polygon:onLoadViews()
       scaling      = app.linearScaling
     }
   }, {
-    expanded  = { "output", "pan", "panEnv", "gate", "vpo", "detune", "pf0", "ff0", "rise", "fall", "shape", "shapeEnv", "level", "levelEnv" },
+    expanded  = { "output", "rrGate", "rrVpo", "rrCount", "rrStride", "rrTotal", "pf0", "ff0", "rise", "fall", "detune", "level", "levelEnv", "shape", "shapeEnv", "panOffset", "panWidth" },
     collapsed = { }
   }
 end

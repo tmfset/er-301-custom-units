@@ -16,10 +16,8 @@ namespace polygon {
       Polygon(bool stereo) :
         mStereo(stereo) {
 
-        addVoice(mVoiceRR);
-
         for (int i = 0; i < POLYGON_SETS; i++) {
-          mFourVoice.push_back(FourVoice { char('A' + i) });
+          mFourVoice.push_back(FourVoice { char('A' + i), i });
         }
 
         addOutput(mOutLeft);
@@ -30,24 +28,30 @@ namespace polygon {
 
         addInput(mPitchF0);
         addInput(mFilterF0);
-
-        addParameter(mDetune);
-        addParameter(mShape);
-        addParameter(mLevel);
-
         addParameter(mRise);
         addParameter(mFall);
-        addParameter(mShapeEnv);
+
+        addInput(mRRGate);
+        addParameter(mRRVpo);
+        addParameter(mRRCount);
+        addParameter(mRRStride);
+        addParameter(mRRTotal);
+
+        addParameter(mDetune);
+        addParameter(mLevel);
         addParameter(mLevelEnv);
-        addParameter(mPanEnv);
+
+        addParameter(mShape);
+        addParameter(mShapeEnv);
+
+        addParameter(mPanOffset);
+        addParameter(mPanWidth);
       }
 
 #ifndef SWIGLUA
       virtual void process();
 
       void processInternal() {
-
-        auto gateRR = mVoiceRR.mGate.buffer();
 
         float *gates[POLYGON_SETS * 4];
         for (int i = 0; i < POLYGON_SETS; i++) {
@@ -66,6 +70,12 @@ namespace polygon {
         auto pitchF0  = mPitchF0.buffer();
         auto filterF0 = mFilterF0.buffer();
 
+        const auto rrConst = voice::RoundRobinConstants<POLYGON_SETS> {
+          mRRTotal.value(),
+          mRRCount.value(),
+          mRRStride.value()
+        };
+
         const auto sharedConfig = voice::four::SharedConfig {
           vdupq_n_f32(mDetune.value()),
           vdupq_n_f32(mShape.value()),
@@ -74,37 +84,43 @@ namespace polygon {
           vdupq_n_f32(mFall.value()),
           vdupq_n_f32(mShapeEnv.value()),
           vdupq_n_f32(mLevelEnv.value()),
-          vdupq_n_f32(mPanEnv.value())
+          vdupq_n_f32(mPanOffset.value())
         };
 
-        const auto rrVpo = vdupq_n_f32(mVoiceRR.mVpo.value());
-        const auto rrPan = vdupq_n_f32(mVoiceRR.mPan.value());
+        const auto rrGate = mRRGate.buffer();
+        const auto rrVpo = vdupq_n_f32(mRRVpo.value());
+
+        const auto panOffset = vdupq_n_f32(mPanOffset.value());
+        const auto panWidth  = vdupq_n_f32(mPanWidth.value());
 
         voice::four::VoiceConfig configs[POLYGON_SETS];
         for (int i = 0; i < POLYGON_SETS; i++) {
           configs[i] = voice::four::VoiceConfig {
             mFourVoice[i].vpo() + rrVpo,
-            mFourVoice[i].pan() + rrPan
+            mFourVoice[i].pan(panOffset, panWidth)
           };
         }
 
         for (int i = 0; i < FRAMELENGTH; i++) {
           uint32x4_t _gates[POLYGON_SETS];
+          mRoundRobin.process(
+            rrGate[i] > 0.0f ? 0xffffffff : 0,
+            rrConst,
+            _gates
+          );
+
           for (int j = 0; j < POLYGON_SETS; j++) {
             auto offset = j * 4;
-            _gates[j] = vcgtq_f32(
+            _gates[j] = _gates[j] | vcgtq_f32(
               util::simd::makeq_f32(
-                gates[offset + 0][i],
-                gates[offset + 1][i],
-                gates[offset + 2][i],
-                gates[offset + 3][i]
+                gates[offset + 0][i], gates[offset + 1][i],
+                gates[offset + 2][i], gates[offset + 3][i]
               ),
               vdupq_n_f32(0)
             );
           }
 
           auto signal = mVoices.process(
-            gateRR[i] > 0.0f ? 0xffffffff : 0,
             _gates,
             configs,
             vdupq_n_f32(pitchF0[i]),
@@ -122,45 +138,56 @@ namespace polygon {
       }
 
       struct Voice {
-        inline Voice(const std::string &name) :
+        inline Voice(const std::string &name, int index) :
           mGate("Gate " + name),
           mVpo("V/Oct " + name),
-          mPan("Pan " + name) { }
+          mPanIndex(index % 2 ? -(index + 1) : index + 2),
+          mPanSpace(mPanIndex / ((float)POLYGON_SETS * 4.0f)) {
+            // Even index goes right, odd goes left
+            // 0 -> 2, 2/4
+            // 1 -> 2, 2/4
+            // 2 -> 4, 4/4
+            // 3 -> 4, 4/4
+          }
 
         od::Inlet mGate;
         od::Parameter mVpo;
-        od::Parameter mPan;
+        const int mPanIndex;
+        const float mPanSpace;
       };
 
       inline void addVoice(Voice &voice) {
         addInput(voice.mGate);
         addParameter(voice.mVpo);
-        addParameter(voice.mPan);
       }
 
       struct FourVoice {
-        inline FourVoice(const char &name) :
-          mA(name + "A"),
-          mB(name + "B"),
-          mC(name + "C"),
-          mD(name + "D") { }
+        inline FourVoice(const char &name, int index) :
+          mA(name + "A", (index * 4) + 0),
+          mB(name + "B", (index * 4) + 1),
+          mC(name + "C", (index * 4) + 2),
+          mD(name + "D", (index * 4) + 3) { }
 
         inline float32x4_t vpo() {
           return util::simd::makeq_f32(
-            mA.mVpo.value(),
-            mB.mVpo.value(),
-            mC.mVpo.value(),
-            mD.mVpo.value()
+            mA.mVpo.value(), mB.mVpo.value(),
+            mC.mVpo.value(), mD.mVpo.value()
           );
         }
 
-        inline float32x4_t pan() {
-          return util::simd::makeq_f32(
-            mA.mPan.value(),
-            mB.mPan.value(),
-            mC.mPan.value(),
-            mD.mPan.value()
+        inline float32x4_t pan(
+          float32x4_t offset,
+          float32x4_t width
+        ) {
+          auto space = util::simd::makeq_f32(
+            mA.mPanSpace, mB.mPanSpace,
+            mC.mPanSpace, mD.mPanSpace
           );
+
+          auto dir = vcgtq_f32(space, vdupq_n_f32(0));
+          auto sign = vbslq_f32(dir, vdupq_n_f32(1), vdupq_n_f32(-1));
+
+          return offset + space * width;
         }
 
         Voice mA;
@@ -184,12 +211,6 @@ namespace polygon {
         return vparam(a.mVpo, b.mVpo, c.mVpo, d.mVpo);
       }
 
-      static inline float32x4_t pan(Voice& a, Voice& b, Voice& c, Voice& d) {
-        return vparam(a.mPan, b.mPan, c.mPan, d.mPan);
-      }
-
-      Voice mVoiceRR { "RR" };
-
       std::vector<FourVoice> mFourVoice;
 
       od::Outlet    mOutLeft    { "Out1" };
@@ -198,18 +219,26 @@ namespace polygon {
       od::Option    mAgcEnabled { "Enable AGC", 1 };
       od::Parameter mAgc        { "AGC" };
 
-      od::Inlet mPitchF0  { "Pitch Fundamental" };
-      od::Inlet mFilterF0 { "Filter Fundamental" };
+      od::Inlet     mPitchF0    { "Pitch Fundamental" };
+      od::Inlet     mFilterF0   { "Filter Fundamental" };
+      od::Parameter mRise       { "Rise" };
+      od::Parameter mFall       { "Fall" };
+
+      od::Inlet     mRRGate     { "RR Gate" };
+      od::Parameter mRRVpo      { "RR V/Oct" };
+      od::Parameter mRRCount    { "RR Count", 1 };
+      od::Parameter mRRStride   { "RR Stride", 1 };
+      od::Parameter mRRTotal    { "RR Total", POLYGON_SETS * 4 };
 
       od::Parameter mDetune    { "Detune" };
-      od::Parameter mShape     { "Shape" };
       od::Parameter mLevel     { "Level" };
-
-      od::Parameter mRise      { "Rise" };
-      od::Parameter mFall      { "Fall" };
-      od::Parameter mShapeEnv  { "Shape Env" };
       od::Parameter mLevelEnv  { "Level Env" };
-      od::Parameter mPanEnv    { "Pan Env" };
+
+      od::Parameter mShape     { "Shape" };
+      od::Parameter mShapeEnv  { "Shape Env" };
+
+      od::Parameter mPanOffset { "Pan Offset" };
+      od::Parameter mPanWidth  { "Pan Width" };
 
 #endif
 
@@ -224,6 +253,7 @@ namespace polygon {
 
     private:
       const bool mStereo;
+      voice::RoundRobin<POLYGON_SETS> mRoundRobin;
       voice::MultiVoice<POLYGON_SETS> mVoices;
   };
 }
