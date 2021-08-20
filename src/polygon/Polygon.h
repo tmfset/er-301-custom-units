@@ -118,6 +118,8 @@ namespace polygon {
               ),
               vdupq_n_f32(0)
             );
+
+            mFourVoice[j].addGate(_gates[j]);
           }
 
           auto signal = mVoices.process(
@@ -190,6 +192,22 @@ namespace polygon {
           return offset + space * width;
         }
 
+        inline void addGate(uint32x4_t gate) {
+          mGateCount += vshrq_n_u32(gate, 31);
+        }
+
+        inline uint32_t getGateCount(int lane) {
+          //return vgetq_lane_u32(mGateCount, lane);
+          switch (lane) {
+            case 0: return vgetq_lane_u32(mGateCount, 0);
+            case 1: return vgetq_lane_u32(mGateCount, 1);
+            case 2: return vgetq_lane_u32(mGateCount, 2);
+            case 3: return vgetq_lane_u32(mGateCount, 3);
+          }
+        }
+
+        uint32x4_t mGateCount = vdupq_n_u32(0);
+
         Voice mA;
         Voice mB;
         Voice mC;
@@ -241,6 +259,19 @@ namespace polygon {
       od::Parameter mPanWidth  { "Pan Width" };
 
 #endif
+
+    uint32_t getSetCount() {
+      return POLYGON_SETS;
+    }
+
+    uint32_t getVoiceCount() {
+      return POLYGON_SETS * 4;
+    }
+
+    uint32_t getGateCount(uint32_t index) {
+      const uint32_t wrapped = index % (POLYGON_SETS * 4);
+      return mFourVoice.at(wrapped / 4).getGateCount(wrapped % 4);
+    }
 
     bool isAgcEnabled() {
       return mAgcEnabled.value() == 1;

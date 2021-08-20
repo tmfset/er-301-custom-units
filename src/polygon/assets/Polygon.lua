@@ -6,6 +6,7 @@ local Unit = require "Unit"
 local Gate = require "Unit.ViewControl.Gate"
 local GainBias = require "Unit.ViewControl.GainBias"
 local Pitch = require "Unit.ViewControl.Pitch"
+local RoundRobin = require "polygon.RoundRobin"
 local OutputMeter = require "polygon.OutputMeter"
 
 local Polygon = Class {}
@@ -119,6 +120,9 @@ end
 
 function Polygon:onLoadViews()
   return {
+    roundRobin = RoundRobin {
+      polygon = self.objects.op
+    },
     pf0 = GainBias {
       button      = "pf0",
       description = "Pitch Fundamental",
@@ -292,7 +296,8 @@ function Polygon:onLoadViews()
       scaling      = app.linearScaling
     }
   }, {
-    expanded  = { "output", "rrGate", "rrVpo", "rrCount", "rrStride", "rrTotal", "pf0", "ff0", "rise", "fall", "detune", "level", "levelEnv", "shape", "shapeEnv", "panOffset", "panWidth" },
+    expanded = { "roundRobin", "rrGate", "rrCount", "rrStride", "rrTotal" },
+    --expanded  = { "output", "rrGate", "rrVpo", "rrCount", "rrStride", "rrTotal", "pf0", "ff0", "rise", "fall", "detune", "level", "levelEnv", "shape", "shapeEnv", "panOffset", "panWidth" },
     collapsed = { }
   }
 end
