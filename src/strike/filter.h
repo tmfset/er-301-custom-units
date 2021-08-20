@@ -190,6 +190,112 @@ namespace filter {
       HIGHPASS = 3
     };
 
+    namespace four {
+      struct Coefficients {
+        inline Coefficients(
+          const float32x4_t vpo,
+          const float32x4_t f0,
+          const float32x4_t q,
+          const Type t
+        ) {
+          auto _f = util::simd::vpo_scale(vpo, f0);
+          auto _q = util::simd::exp_n_scale(q, 0.70710678118f, 500.0f);
+
+          auto theta = _f * vdupq_n_f32(2.0f * M_PI * globalConfig.samplePeriod);
+          float32x4_t sinTheta, cosTheta;
+          util::simd::sincos_f32(theta, &sinTheta, &cosTheta);
+
+          auto k = util::simd::invert(_q);
+
+          auto ntwo = vdupq_n_f32(-2.0f);
+          auto zero = vdupq_n_f32(0.0f);
+          auto half = vdupq_n_f32(0.5f);
+          auto one  = vdupq_n_f32(1.0f);
+
+          auto sh = sinTheta * half;
+          auto a  = sh * k;
+          setA(
+            util::simd::invert(one + a),
+            ntwo * cosTheta,
+            one - a
+          );
+
+          float32x4_t c, ch;
+          switch (t) {
+            case BANDPASS:
+              setB(sh, zero, -sh);
+              break;
+
+            case HIGHPASS:
+              c  = one + cosTheta;
+              ch = c * half;
+              setB(ch, -c, ch);
+              break;
+
+            default: // LOWPASS
+              c  = one - cosTheta;
+              ch = c * half;
+              setB(ch, c, ch);
+              break;
+          }
+        }
+
+        inline void setA(
+          const float32x4_t a0I,
+          const float32x4_t a1,
+          const float32x4_t a2
+        ) {
+          mA0I = a0I;
+          mA1  = a1;
+          mA2  = a2;
+        }
+
+        inline void setB(
+          const float32x4_t b0,
+          const float32x4_t b1,
+          const float32x4_t b2
+        ) {
+          mB0 = b0;
+          mB1 = b1;
+          mB2 = b2;
+        }
+
+        float32x4_t mA0I;
+        float32x4_t mA1;
+        float32x4_t mA2;
+
+        float32x4_t mB0;
+        float32x4_t mB1;
+        float32x4_t mB2;
+      };
+
+      struct Filter {
+        inline Filter() {
+          auto zero = vdupq_n_f32(0);
+          mY   = zero;
+          mWz1 = zero;
+          mWz2 = zero;
+        }
+
+        inline void process(
+          const Coefficients& cf,
+          const float32x4_t x
+        ) {
+          // https://en.wikipedia.org/wiki/Digital_biquad_filter#Direct_form_2
+          auto fb = cf.mA1 * mWz1 + cf.mA2 * mWz2;
+          auto w = x - fb * cf.mA0I;
+          mY = (cf.mB0 * w + cf.mB1 * mWz1 + cf.mB2 * mWz2) * cf.mA0I;
+
+          mWz2 = mWz1;
+          mWz1 = w;
+        }
+
+        float32x4_t mY;
+        float32x4_t mWz1;
+        float32x4_t mWz2;
+      };
+    }
+
     // https://webaudio.github.io/Audio-EQ-Cookbook/audio-eq-cookbook.html
     // https://arachnoid.com/BiQuadDesigner/index.html
     class Coefficients {
@@ -275,6 +381,29 @@ namespace filter {
       MODE_12DB = 1,
       MODE_24DB = 2,
       MODE_36DB = 3
+    };
+
+    struct MultiMode {
+      inline void process(
+        const four::Coefficients& cf,
+        const float x
+      ) {
+        mFilter.process(cf, util::simd::pushq_f32(mFilter.mY, x));
+      }
+
+      inline float mode12dB() const { return vgetq_lane_f32(mFilter.mY, 3); }
+      inline float mode24dB() const { return vgetq_lane_f32(mFilter.mY, 2); }
+      inline float mode36dB() const { return vgetq_lane_f32(mFilter.mY, 1); }
+
+      inline float mode(Mode m) const {
+        switch (m) {
+          case MODE_24DB: return mode24dB();
+          case MODE_36DB: return mode36dB();
+          default: return mode12dB();
+        }
+      }
+
+      four::Filter mFilter;
     };
 
     template <int STAGES>
