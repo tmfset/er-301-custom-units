@@ -17,7 +17,7 @@ namespace polygon {
         mStereo(stereo) {
 
         for (int i = 0; i < POLYGON_SETS; i++) {
-          mFourVoice.push_back(FourVoice { char('A' + i), i });
+          mFourVoice.push_back(FourVoice { i });
         }
 
         addOutput(mOutLeft);
@@ -36,6 +36,7 @@ namespace polygon {
         addParameter(mRRCount);
         addParameter(mRRStride);
         addParameter(mRRTotal);
+        addParameter(mGateThresh);
 
         addParameter(mDetune);
         addParameter(mLevel);
@@ -71,9 +72,9 @@ namespace polygon {
         auto filterF0 = mFilterF0.buffer();
 
         const auto rrConst = voice::RoundRobinConstants<POLYGON_SETS> {
-          mRRTotal.value(),
-          mRRCount.value(),
-          mRRStride.value()
+          (int)mRRTotal.value(),
+          (int)mRRCount.value(),
+          (int)mRRStride.value()
         };
 
         const auto sharedConfig = voice::four::SharedConfig {
@@ -104,7 +105,7 @@ namespace polygon {
         for (int i = 0; i < FRAMELENGTH; i++) {
           uint32x4_t _gates[POLYGON_SETS];
           mRoundRobin.process(
-            rrGate[i] > 0.0f ? 0xffffffff : 0,
+            (rrGate[i] > 0.0f ? 0xffffffff : 0) | mManualRRGate,
             rrConst,
             _gates
           );
@@ -117,9 +118,10 @@ namespace polygon {
                 gates[offset + 2][i], gates[offset + 3][i]
               ),
               vdupq_n_f32(0)
-            );
+            ) | mFourVoice[j].mManualGate;
 
-            mFourVoice[j].addGate(_gates[j]);
+            mFourVoice[j].markGate(_gates[j]);
+            mFourVoice[j].markEnv(mVoices.env(j));
           }
 
           auto signal = mVoices.process(
@@ -140,9 +142,9 @@ namespace polygon {
       }
 
       struct Voice {
-        inline Voice(const std::string &name, int index) :
-          mGate("Gate " + name),
-          mVpo("V/Oct " + name),
+        inline Voice(int index) :
+          mGate("Gate " + std::to_string(index + 1)),
+          mVpo("V/Oct " + std::to_string(index + 1)),
           mPanIndex(index % 2 ? -(index + 1) : index + 2),
           mPanSpace(mPanIndex / ((float)POLYGON_SETS * 4.0f)) {
             // Even index goes right, odd goes left
@@ -164,11 +166,11 @@ namespace polygon {
       }
 
       struct FourVoice {
-        inline FourVoice(const char &name, int index) :
-          mA(name + "A", (index * 4) + 0),
-          mB(name + "B", (index * 4) + 1),
-          mC(name + "C", (index * 4) + 2),
-          mD(name + "D", (index * 4) + 3) { }
+        inline FourVoice(int index) :
+          mA(0 + index * 4),
+          mB(1 + index * 4),
+          mC(2 + index * 4),
+          mD(3 + index * 4) { }
 
         inline float32x4_t vpo() {
           return util::simd::makeq_f32(
@@ -186,27 +188,56 @@ namespace polygon {
             mC.mPanSpace, mD.mPanSpace
           );
 
-          auto dir = vcgtq_f32(space, vdupq_n_f32(0));
-          auto sign = vbslq_f32(dir, vdupq_n_f32(1), vdupq_n_f32(-1));
+          //auto dir = vcgtq_f32(space, vdupq_n_f32(0));
+          //auto sign = vbslq_f32(dir, vdupq_n_f32(1), vdupq_n_f32(-1));
 
           return offset + space * width;
         }
 
-        inline void addGate(uint32x4_t gate) {
+        inline void markGate(uint32x4_t gate) {
           mGateCount += vshrq_n_u32(gate, 31);
         }
 
+        inline void markEnv(float32x4_t env) {
+          mVoiceEnv = env;
+        }
+
+        inline void markManualGate(int lane) {
+          switch (lane) {
+            case 0: mManualGate = vsetq_lane_u32(0xffffffff, mManualGate, 0); break;
+            case 1: mManualGate = vsetq_lane_u32(0xffffffff, mManualGate, 1); break;
+            case 2: mManualGate = vsetq_lane_u32(0xffffffff, mManualGate, 2); break;
+            case 3: mManualGate = vsetq_lane_u32(0xffffffff, mManualGate, 3); break;
+          }
+        }
+
+        inline void releaseManualGates() {
+          mManualGate = vdupq_n_u32(0);
+        }
+
         inline uint32_t getGateCount(int lane) {
-          //return vgetq_lane_u32(mGateCount, lane);
           switch (lane) {
             case 0: return vgetq_lane_u32(mGateCount, 0);
             case 1: return vgetq_lane_u32(mGateCount, 1);
             case 2: return vgetq_lane_u32(mGateCount, 2);
             case 3: return vgetq_lane_u32(mGateCount, 3);
           }
+          return 0;
+        }
+
+        inline float32_t getEnvLevel(int lane) {
+          switch (lane) {
+            case 0: return vgetq_lane_f32(mVoiceEnv, 0);
+            case 1: return vgetq_lane_f32(mVoiceEnv, 1);
+            case 2: return vgetq_lane_f32(mVoiceEnv, 2);
+            case 3: return vgetq_lane_f32(mVoiceEnv, 3);
+          }
+          return 0;
         }
 
         uint32x4_t mGateCount = vdupq_n_u32(0);
+        float32x4_t mVoiceEnv = vdupq_n_f32(0);
+        uint32x4_t mManualGate = vdupq_n_u32(0);
 
         Voice mA;
         Voice mB;
@@ -247,6 +278,7 @@ namespace polygon {
       od::Parameter mRRCount    { "RR Count", 1 };
       od::Parameter mRRStride   { "RR Stride", 1 };
       od::Parameter mRRTotal    { "RR Total", POLYGON_SETS * 4 };
+      od::Parameter mGateThresh { "Gate Threshold", 0.001 };
 
       od::Parameter mDetune    { "Detune" };
       od::Parameter mLevel     { "Level" };
@@ -260,17 +292,38 @@ namespace polygon {
 
 #endif
 
-    uint32_t getSetCount() {
+    int getSetCount() {
       return POLYGON_SETS;
     }
 
-    uint32_t getVoiceCount() {
+    int getVoiceCount() {
       return POLYGON_SETS * 4;
     }
 
-    uint32_t getGateCount(uint32_t index) {
-      const uint32_t wrapped = index % (POLYGON_SETS * 4);
+    int getGateCount(int index) {
+      const int wrapped = index % getVoiceCount();
       return mFourVoice.at(wrapped / 4).getGateCount(wrapped % 4);
+    }
+
+    float getVoiceEnv(int index) {
+      const int wrapped = index % getVoiceCount();
+      return mFourVoice.at(wrapped / 4).getEnvLevel(wrapped % 4);
+    }
+
+    void markRRManualGate() {
+      mManualRRGate = 0xffffffff;
+    }
+
+    void markManualGate(int index) {
+      const int wrapped = index % getVoiceCount();
+      mFourVoice.at(wrapped / 4).markManualGate(wrapped % 4);
+    }
+
+    void releaseManualGates() {
+      mManualRRGate = 0;
+      for (int i = 0; i < POLYGON_SETS; i++) {
+        mFourVoice.at(i).releaseManualGates();
+      }
     }
 
     bool isAgcEnabled() {
@@ -283,6 +336,7 @@ namespace polygon {
     }
 
     private:
+      uint32_t mManualRRGate = 0;
       const bool mStereo;
       voice::RoundRobin<POLYGON_SETS> mRoundRobin;
       voice::MultiVoice<POLYGON_SETS> mVoices;

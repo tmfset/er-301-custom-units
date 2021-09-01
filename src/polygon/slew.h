@@ -2,12 +2,15 @@
 
 #include <od/config.h>
 #include <hal/simd.h>
-#include <util.h>
+#include "util.h"
 
 namespace slew {
   struct Slew {
-    inline void setRiseFall(float rise, float fall) {
-      auto sp = globalConfig.samplePeriod;
+    inline void setRate(float rate, float sp) {
+      setRiseFall(rate, rate, sp);
+    }
+
+    inline void setRiseFall(float rise, float fall, float sp) {
       rise = util::fmax(rise, sp);
       fall = util::fmax(fall, sp);
 
@@ -15,25 +18,17 @@ namespace slew {
       mFallCoeff = exp(-sp / fall);
     }
 
-    inline float32x4_t process(float32x4_t to) {
-      float _last = mValue,
-            rc    = mRiseCoeff,
-            fc    = mFallCoeff;
+    inline float pick(bool rise) const {
+      return rise ? mRiseCoeff : mFallCoeff;
+    }
 
-      float _target[4];
-      vst1q_f32(_target, to);
+    inline float value() const {
+      return mValue;
+    }
 
-      for (int i = 0; i < 4; i++) {
-        auto target = _target[i];
-
-        auto c = target > _last ? rc : fc;
-        _last = c * _last + (1.0f - c) * target;
-
-        _target[i] = _last;
-      }
-
-      mValue = _last;
-      return vld1q_f32(_target);
+    inline void process(float target) {
+      auto coeff = pick(mValue < target);
+      mValue = target + coeff * (mValue - target);
     }
 
     float mValue = 0;

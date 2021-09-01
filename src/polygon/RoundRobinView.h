@@ -30,7 +30,7 @@ namespace polygon {
       void draw(od::FrameBuffer &fb) {
         //fb.text(WHITE, mWorldLeft, mWorldBottom, "TEST");
 
-        for (int i = 0; i < mGateCounts.size(); i++) {
+        for (int i = 0; i < (int)mGateCounts.size(); i++) {
           const auto newCount = mPolygon.getGateCount(i);
 
           if (newCount > mGateCounts[i]) {
@@ -61,15 +61,16 @@ namespace polygon {
 
         for (int c = 0; c < cols; c++) {
           const auto left = gridLeft + (c + 1) * pad + c * size;
-          const auto right = left + size;
+          //const auto right = left + size;
           const auto x = left + size / 2.0f;
 
           for (int r = 0; r < rows; r++) {
             const auto index = c * rows + r;
-            const auto fadeAmount = mFades[index].mValue;
+            const auto fadeAmount = mPolygon.getVoiceEnv(index);
+            //const auto fadeAmount = mFades[index].mValue;
 
             const auto bottom = gridBottom + (r + 1) * pad + r * size;
-            const auto top = bottom + size;
+            //const auto top = bottom + size;
             const auto y = bottom + size / 2.0f;
 
             fb.fillCircle(WHITE * fadeAmount, x, y, size / 2.0f);
@@ -81,7 +82,7 @@ namespace polygon {
         }
       }
 
-      std::vector<uint32_t> mGateCounts;
+      std::vector<int> mGateCounts;
       std::vector<od::LinearRamp> mFades;
       Polygon &mPolygon;
   };

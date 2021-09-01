@@ -207,6 +207,7 @@ namespace voice {
         const SharedConfig& shared
       ) {
         auto env = mEnvelope.process(gate, mTracked.mEnvCoeff);
+        mEnvLevel = env;
 
         mFilter.configure(
           shared.cutoff(env, filterF0)
@@ -225,6 +226,9 @@ namespace voice {
           shared.pan(mTracked.mPan)
         );
       }
+
+      float32x4_t mEnvLevel = vdupq_n_f32(0);
+      float32x4_t getEnvLevel() { return mEnvLevel; }
 
       Pan mPan;
       Oscillator mOscillator;
@@ -278,6 +282,10 @@ namespace voice {
         vdup_n_f32(0.5)
       );
       return util::toDecibels(vget_lane_f32(x, 0));
+    }
+
+    inline float32x4_t env(int i) {
+      return mVoices[i].getEnvLevel();
     }
 
     std::unique_ptr<four::Voice[]> mVoices;
