@@ -41,43 +41,45 @@ namespace polygon {
           mFades[i].step();
         }
 
-        const int cols = POLYGON_SETS;
-        const int rows = 4;
+        const float cols = (float)POLYGON_SETS;
+        const float rows = (float)4;
 
-        const auto width = (float)mWidth;
-        const auto height = (float)mHeight;
-        const auto pad = 3.0f;
+        const float width = (float)mWidth;
+        const float height = (float)mHeight;
+        const float pad = 3.0f;
+
+        const auto totalColPad = pad * (cols + 1);
+        const auto totalRowPad = pad * (rows + 1);
 
         const auto size = util::fmin(
-          (width - pad * (cols + 1)) / (float)cols,
-          (height - pad * (rows + 1)) / (float)rows
+          (width - totalColPad) / cols,
+          (height - totalRowPad) / rows
         );
 
-        const auto widthCenteringOffset = (width - size * cols - pad * (cols + 1)) / 2.0f;
-        const auto heightCenteringOffset = (height - size * rows - pad * (rows + 1)) / 2.0f;
+        const auto halfSize = size / 2.0f;
 
-        const auto gridLeft = mWorldLeft + widthCenteringOffset;
-        const auto gridBottom = mWorldBottom + heightCenteringOffset;
+        const auto totalColWidth = size * cols + totalColPad;
+        const auto totalRowWidth = size * rows + totalRowPad;
+
+        const auto colMargin = (width - totalColWidth) / 2.0f;
+        const auto rowMargin = (height - totalRowWidth) / 2.0f;
+
+        const auto gridLeft = mWorldLeft + colMargin;
+        const auto gridBottom = mWorldBottom + rowMargin;
 
         for (int c = 0; c < cols; c++) {
           const auto left = gridLeft + (c + 1) * pad + c * size;
-          //const auto right = left + size;
-          const auto x = left + size / 2.0f;
+          const auto x = left + halfSize;
 
           for (int r = 0; r < rows; r++) {
             const auto index = c * rows + r;
             const auto fadeAmount = mPolygon.getVoiceEnv(index);
-            //const auto fadeAmount = mFades[index].mValue;
 
             const auto bottom = gridBottom + (r + 1) * pad + r * size;
-            //const auto top = bottom + size;
-            const auto y = bottom + size / 2.0f;
+            const auto y = bottom + halfSize;
 
-            fb.fillCircle(WHITE * fadeAmount, x, y, size / 2.0f);
-            fb.circle(WHITE, x, y, size / 2.0f);
-            
-            
-            //fb.box(WHITE, left, bottom, right, top);
+            fb.fillCircle(WHITE * fadeAmount, x, y, halfSize);
+            fb.circle(GRAY10, x, y, halfSize);
           }
         }
       }

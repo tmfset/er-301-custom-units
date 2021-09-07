@@ -25,6 +25,7 @@ namespace polygon {
 
     private:
        void draw(od::FrameBuffer &fb) {
+         mFrame = (mFrame + 1) % 20;
          const auto pad = 3.0f;
          const auto size = 3.0f;
          const auto center = mHeight / 2.0f;
@@ -34,7 +35,7 @@ namespace polygon {
          for (int i = 0; i < mChildren.size(); i++) {
            auto pageOffset = mPage - i;
 
-           if (pageOffset == 0) {
+           if (pageOffset == 0 && (mFrame % 2) == 0) {
              fb.fillCircle(WHITE, mWidth, center, size);
            } else {
              fb.circle(WHITE, mWidth, center + pageOffset * (size * 2.0f + pad), size);
@@ -47,6 +48,7 @@ namespace polygon {
        }
 
        int mPage = 0;
+       int mFrame = 0;
        slew::Slew mPageSlew;
   };
 }

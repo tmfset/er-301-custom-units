@@ -1,25 +1,25 @@
-local app = app
+local app   = app
 local Class = require "Base.Class"
-local Encoder = require "Encoder"
-local SubView = require "polygon.SubView"
-local ply = app.SECTION_PLY
 
-local line1 = app.GRID5_LINE1
-local line4 = app.GRID5_LINE4
-
-local center1 = app.GRID5_CENTER1
-local center3 = app.GRID5_CENTER3
-local center4 = app.GRID5_CENTER4
-
-local col1 = app.BUTTON1_CENTER
-local col2 = app.BUTTON2_CENTER
-local col3 = app.BUTTON3_CENTER
+local Base           = require "polygon.SubView"
+local SubViewReadout = require "polygon.SubViewReadout"
+local SubViewChain   = require "polygon.SubViewChain"
+local SubViewButton  = require "polygon.SubViewButton"
 
 local GateSubView = Class {}
-GateSubView:include(SubView)
+GateSubView:include(Base)
 
 local overlay = (function ()
   local instructions = app.DrawingInstructions()
+
+  local line1 = app.GRID5_LINE1
+  local line4 = app.GRID5_LINE4
+
+  local center3 = app.GRID5_CENTER3
+
+  local col1 = app.BUTTON1_CENTER
+  local col2 = app.BUTTON2_CENTER
+  local col3 = app.BUTTON3_CENTER
 
   -- threshold
   instructions:box(col2 - 13, center3 - 8, 26, 16)
@@ -53,107 +53,49 @@ local overlay = (function ()
   return instructions
 end)()
 
-function GateSubView:init(args)
-  local description = args.description or app.logError("%s.init: missing description.", self)
-
-  local branch = args.branch or app.logError("%s.init: missing branch.", self)
-  self.branch = branch
-  self.branch:subscribe("contentChanged", self)
-
-  local threshold = args.threshold or app.logError("%s.init: missing threshold paramater.", self)
-  threshold:enableSerialization()
-
-  local fire = args.fire or app.logError("%s.init: missing fire callback.", self)
-  self.fire = fire
-
-  self.graphic = app.Graphic(0, 0, 128, 64)
-
+function GateSubView:addDrawing()
   local drawing = app.Drawing(0, 0, 128, 64)
   drawing:add(overlay)
   self.graphic:addChild(drawing)
 
   local label = app.Label("or", 10)
   label:fitToText(0)
-  label:setCenter(col3 + 1, center3 + 1)
+  label:setCenter(app.BUTTON3_CENTER + 1, app.GRID5_CENTER3 + 1)
   self.graphic:addChild(label)
+end
 
-  self.scope = app.MiniScope(col1 - 20, line4, 40, 45)
-  self.scope:setBorder(1)
-  self.scope:setCornerRadius(3, 3, 3, 3)
-  self.graphic:addChild(self.scope)
+function GateSubView:init(args)
+  Base.init(self, args)
 
-  self.threshold = {
-    readout = (function ()
-      local readout = app.Readout(0, 0, ply, 10)
-      readout:setParameter(threshold)
-      readout:setAttributes(app.unitNone, Encoder.getMap("default"))
-      readout:setCenter(col2, center4)
-      return readout
-    end)(),
-    message       = "Gate detection threshold.",
-    commitMessage = "Updated gate detection threshold.",
-    encoderState  = Encoder.Coarse
+  self:addDrawing()
+
+  SubViewChain {
+    parent   = self,
+    position = 1,
+    name     = "empty",
+    branch   = args.branch,
+    column   = app.BUTTON1_CENTER - 20,
+    row      = app.GRID5_LINE4
   }
-  self.graphic:addChild(self.threshold.readout)
 
-  self.description = app.Label(description, 10)
-  self.description:fitToText(3)
-  self.description:setSize(ply * 2 - 4, self.description.mHeight)
-  self.description:setBorder(1)
-  self.description:setCornerRadius(3, 3, 3, 3)
-  self.description:setCenter(0.5 * (col2 + col3), center1)
-  self.graphic:addChild(self.description)
+  SubViewReadout {
+    parent        = self,
+    position      = 2,
+    name          = "thresh",
+    parameter     = args.threshold,
+    editMessage   = "Gate detection threshold.",
+    commitMessage = "Updated gate detection threshold.",
+    column        = app.BUTTON2_CENTER,
+    row           = app.GRID5_CENTER4
+  }
 
-  self.modButton = app.SubButton("empty", 1)
-  self.graphic:addChild(self.modButton)
-
-  self.threshButton = app.SubButton("thresh", 2)
-  self.graphic:addChild(self.threshButton)
-
-  self.fireButton = app.SubButton("fire", 3)
-  self.graphic:addChild(self.fireButton)
-end
-
-function GateSubView:onRemove()
-  self.branch:unsubscribe("contentChanged", self)
-end
-
-function GateSubView:contentChanged(chain)
-  if chain ~= self.branch then return end
-
-  local outlet = chain:getMonitoringOutput(1)
-  self.scope:watchOutlet(outlet)
-  self.modButton:setText(chain:mnemonic())
-end
-
-function GateSubView:getReadoutByIndex(i)
-  if i == 2 then return self.threshold end
-  return nil
-end
-
-function GateSubView:subReleased(i)
-  if i == 1 and self.branch then
-    self:unfocus()
-    self.branch:show()
-  end
-
-  if i == 2 then
-    self:setFocusedReadout(self.threshold)
-  end
-
-  if i == 3 then
-    -- simulate falling edge?
-  end
-
-  return true
-end
-
-function GateSubView:subPressed(i)
-  if i == 3 then
-    self.fire()
-  end
-  
-  return true
+  SubViewButton {
+    parent    = self,
+    position  = 3,
+    name      = "fire",
+    onPress   = args.onPressFire,
+    onRelease = args.onReleaseFire
+  }
 end
 
 return GateSubView

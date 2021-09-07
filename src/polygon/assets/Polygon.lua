@@ -1,14 +1,17 @@
-local app = app
+local app     = app
 local polygon = require "polygon.libpolygon"
-local Class = require "Base.Class"
+
+local Class   = require "Base.Class"
 local Encoder = require "Encoder"
-local Unit = require "Unit"
-local Gate = require "Unit.ViewControl.Gate"
-local GainBias = require "Unit.ViewControl.GainBias"
-local Pitch = require "Unit.ViewControl.Pitch"
-local RoundRobin = require "polygon.RoundRobin"
-local OutputMeter = require "polygon.OutputMeter"
-local GateSubView = require "polygon.GateSubView"
+
+local Unit        = require "Unit"
+local Gate        = require "Unit.ViewControl.Gate"
+local GainBias    = require "Unit.ViewControl.GainBias"
+local Pitch       = require "Unit.ViewControl.Pitch"
+local OutputScope = require "Unit.ViewControl.OutputScope"
+
+local OutputMeter    = require "polygon.OutputMeter"
+local RoundRobinGate = require "polygon.RoundRobinGate"
 
 local Polygon = Class {}
 Polygon:include(Unit)
@@ -54,17 +57,31 @@ function Polygon.addParameterAdapterControl(self, name, defaultGain)
   return pa
 end
 
-function Polygon:addFreeBranch(name, obj, outlet)
+function Polygon:addMonitorBranch(name, obj, inlet)
   local monitor = self:addObject(name.."Monitor", app.Monitor())
-  self:addMonoBranch(name, monitor, "In", obj, outlet)
+  connect(monitor, "Out", obj, inlet)
+  return self:addMonoBranch(name, monitor, "In", monitor, "Out")
+end
+
+function Polygon:addParameterAdapterBranch(name, obj, inlet)
+  local pa = self:addObject(name, app.ParameterAdapter())
+  tie(pa, "Bias", obj, inlet)
+  return self:addMonoBranch(name, pa, "In", pa, "Out")
+end
+
+function Polygon:addVoiceControl(n, op)
+  self.gateBranches = self.gateBranches or {}
+  self.vpoBranches = self.vpoBranches or {}
+
+  self.gateBranches[n] = self:addMonitorBranch("gate"..n, op, "Gate"..n)
+  self.vpoBranches[n]  = self:addParameterAdapterBranch("vpo"..n, op, "V/Oct"..n)
 end
 
 function Polygon:onLoadGraph(channelCount)
   local op = self:addObject("op", polygon.Polygon(channelCount > 1))
 
   for i = 1, op:getVoiceCount() do
-    self:addFreeBranch("gate"..i, op, "Gate "..i)
-    self:addFreeBranch("vpo"..i, op, "V/Oct "..i)
+    self:addVoiceControl(i, op)
   end
 
   local pf0      = self:addGainBiasControl("pf0")
@@ -76,7 +93,7 @@ function Polygon:onLoadGraph(channelCount)
   tie(op, "Rise", rise, "Out")
   tie(op, "Fall", fall, "Out")
 
-  local rrGate   = self:addFreeBranch("rrGate", op, "RR Gate")
+  local rrGate   = self:addMonitorBranch("rrGate", op, "RR Gate")
   local rrVpo    = self:addParameterAdapterControl("rrVpo", 1)
   local rrCount  = self:addParameterAdapterControl("rrCount")
   local rrStride = self:addParameterAdapterControl("rrStride")
@@ -128,38 +145,50 @@ function Polygon.defaultDecibelMap()
   return map
 end
 
-function Polygon:createGateSubViews()
-  local threshold = self.objects.op:getParameter("Gate Threshold")
-
-  local gateSubViews = {}
-  gateSubViews[#gateSubViews + 1] = GateSubView {
-    description = "Round Robin",
-    branch      = self.branches.rrGate,
-    threshold   = threshold,
-    fire        = function ()
-      self.objects.op:markRRManualGate()
-    end
-  }
-
-  for i = 1, self.objects.op:getVoiceCount() do
-    gateSubViews[#gateSubViews + 1] = GateSubView {
-      description = "Voice "..i,
-      branch      = self.branches["gate"..i],
-      threshold   = threshold,
-      fire        = function ()
-        self.objects.op:markManualGate(i - 1)
-      end
-    }
-  end
-
-  return gateSubViews
-end
-
 function Polygon:onLoadViews()
   return {
-    roundRobin = RoundRobin {
-      polygon  = self.objects.op,
-      subViews = self:createGateSubViews()
+    wave1 = OutputScope {
+      monitor = self,
+      width   = 1 * app.SECTION_PLY
+    },
+    roundRobin = RoundRobinGate {
+      name    = "Gates",
+      polygon = self.objects.op,
+      branch  = self.branches.rrGate,
+      gates   = self.gateBranches
+    },
+    count   = GainBias {
+      button        = "count",
+      description   = "RR Count",
+      branch        = self.branches.rrCount,
+      gainbias      = self.objects.rrCount,
+      range         = self.objects.rrCount,
+      biasMap       = self.intMap(1, 8),
+      biasUnits     = app.unitNone,
+      biasPrecision = 0,
+      initialBias   = 1
+    },
+    stride   = GainBias {
+      button        = "stride",
+      description   = "RR Stride",
+      branch        = self.branches.rrStride,
+      gainbias      = self.objects.rrStride,
+      range         = self.objects.rrStride,
+      biasMap       = self.intMap(1, 8),
+      biasUnits     = app.unitNone,
+      biasPrecision = 0,
+      initialBias   = 1
+    },
+    total   = GainBias {
+      button        = "total",
+      description   = "RR Total",
+      branch        = self.branches.rrTotal,
+      gainbias      = self.objects.rrTotal,
+      range         = self.objects.rrTotal,
+      biasMap       = self.intMap(1, 8),
+      biasUnits     = app.unitNone,
+      biasPrecision = 0,
+      initialBias   = 8
     },
     pf0 = GainBias {
       button      = "pf0",
@@ -211,39 +240,6 @@ function Polygon:onLoadViews()
       description = "Round Robin V/Oct",
       offset      = self.objects.rrVpo,
       range       = self.objects.rrVpo
-    },
-    rrCount   = GainBias {
-      button        = "rrCount",
-      description   = "Round Robin Count",
-      branch        = self.branches.rrCount,
-      gainbias      = self.objects.rrCount,
-      range         = self.objects.rrCount,
-      biasMap       = self.intMap(1, 8),
-      biasUnits     = app.unitNone,
-      biasPrecision = 0,
-      initialBias   = 1
-    },
-    rrStride   = GainBias {
-      button        = "rrStride",
-      description   = "Round Robin Stride",
-      branch        = self.branches.rrStride,
-      gainbias      = self.objects.rrStride,
-      range         = self.objects.rrStride,
-      biasMap       = self.intMap(1, 8),
-      biasUnits     = app.unitNone,
-      biasPrecision = 0,
-      initialBias   = 1
-    },
-    rrTotal   = GainBias {
-      button        = "rrTotal",
-      description   = "Round Robin Total",
-      branch        = self.branches.rrTotal,
-      gainbias      = self.objects.rrTotal,
-      range         = self.objects.rrTotal,
-      biasMap       = self.intMap(1, 8),
-      biasUnits     = app.unitNone,
-      biasPrecision = 0,
-      initialBias   = 8
     },
     detune = Pitch {
       button      = "detune",
@@ -328,8 +324,10 @@ function Polygon:onLoadViews()
       scaling      = app.linearScaling
     }
   }, {
-    expanded = { "roundRobin", "rrCount", "rrStride", "rrTotal", "fall" },
+    expanded = { "roundRobin", "shape", "fall", "output" },
     --expanded  = { "output", "rrVpo", "rrCount", "rrStride", "rrTotal", "pf0", "ff0", "rise", "fall", "detune", "level", "levelEnv", "shape", "shapeEnv", "panOffset", "panWidth" },
+    roundRobin = { "roundRobin", "wave1", "count", "stride", "total" },
+    fall       = { "fall", "wave1", "rise" },
     collapsed = { }
   }
 end

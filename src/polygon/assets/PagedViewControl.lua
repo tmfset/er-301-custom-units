@@ -1,82 +1,93 @@
 local app = app
 local polygon = require "polygon.libpolygon"
 local Class = require "Base.Class"
-local ViewControl = require "Unit.ViewControl"
+local Base = require "Unit.ViewControl.EncoderControl"
 
 local PagedViewControl = Class {}
-PagedViewControl:include(ViewControl)
+PagedViewControl:include(Base)
 
 function PagedViewControl:init(args)
-  ViewControl.init(self)
+  Base.init(self, args.name)
 
-  self.subViews = args.subViews or {}
-
-  self.menuItems = {}
+  self.subViews       = {}
+  self.pages          = {}
+  self.pageIndexByKey = {}
 
   self.subGraphic = polygon.PagedSubView();
-  for _, subView in ipairs(self.subViews) do
-    -- TODO: Do better.
-    self.menuItems[#self.menuItems + 1] = subView.description:getText()
-
-    subView:setViewControl(self)
-    self.subGraphic:addChild(subView.graphic)
-  end
 end
 
 function PagedViewControl:onRemove()
-  for _, subViews in ipairs(self.subViews) do
-    viewControl:onRemove()
+  for _, subView in ipairs(self.subViews) do
+    subView:onRemove()
   end
+end
+
+function PagedViewControl:addSubView(subView)
+  local nextIndex = #self.subViews + 1
+
+  self.subViews[nextIndex]          = subView
+  self.pages[nextIndex]             = subView.name
+  self.pageIndexByKey[subView.name] = nextIndex
+
+  subView:setViewControl(self)
+  self.subGraphic:addChild(subView.graphic)
+end
+
+function PagedViewControl:currentSubView()
+  local currentPage = self.subGraphic:currentPage()
+  return self.subViews[currentPage + 1]
+end
+
+function PagedViewControl:zeroPressed()
+  return self:currentSubView():zeroPressed()
+end
+
+function PagedViewControl:cancelReleased()
+  return self:currentSubView():cancelReleased()
 end
 
 function PagedViewControl:subReleased(i, shifted)
-  if shifted and i == 3 then
-    self.subGraphic:switchPage()
-    return true
-  end
-
-  local currentPage = self.subGraphic:currentPage()
-  local subView = self.subViews[currentPage + 1]
-  return subView:subReleased(i, shifted)
+  if shifted then return false end
+  return self:currentSubView():subReleased(i, shifted)
 end
 
 function PagedViewControl:subPressed(i, shifted)
-  local currentPage = self.subGraphic:currentPage()
-  local subView = self.subViews[currentPage + 1]
-  return subView:subPressed(i)
+  if shifted then return false end
+  return self:currentSubView():subPressed(i)
+end
+
+function PagedViewControl:encoder(change, shifted)
+  return self:currentSubView():encoder(change, shifted)
 end
 
 function PagedViewControl:getFloatingMenuItems()
-  return self.menuItems
+  return self.pages
+end
+
+function PagedViewControl:getPageName(i)
+  return self.pages[i] or ""
+end
+
+function PagedViewControl:getPageIndex(choice)
+  return self.pageIndexByKey[choice] or 1
+end
+
+function PagedViewControl:getFloatingMenuDefaultChoice()
+  return self:getPageName(self.subGraphic:currentPage() + 1)
 end
 
 function PagedViewControl:onFloatingMenuEnter()
-  self.subGraphic:setPage(0)
+  self:unfocusSubView()
 end
 
-function PagedViewControl:onFloatingMenuChange(change, index)
-  -- The first index is always cancel
-  if index > 0 then
-    self.subGraphic:setPage(index - 1)
-  end
+function PagedViewControl:onFloatingMenuChange(choice)
+  self:unfocusSubView()
+  self.subGraphic:setPage(self:getPageIndex(choice) - 1)
 end
 
-function PagedViewControl:spotPressed(spotIndex, shifted, isFocusedPress)
-  if isFocusedPress then
-    self.subGraphic:switchPage()
-    return true
-  end
-
-  --if shifted then return true end
-  return ViewControl.spotPressed(self, spotIndex, shifted, isFocusedPress)
+function PagedViewControl:unfocusSubView()
+  self:currentSubView():setFocusedPosition(nil)
+  self:unfocus()
 end
-
--- function PagedViewControl:spotReleased(spotIndex, shifted)
---   if shifted then
---     self.subGraphic:switchPage()
---     return true
---   end
---   return ViewControl.spotReleased(self, spotIndex, shifted)
--- end
 
 return PagedViewControl

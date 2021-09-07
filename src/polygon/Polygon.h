@@ -4,11 +4,18 @@
 #include <od/objects/Object.h>
 #include <hal/simd.h>
 #include <voice.h>
-#include <sstream>
 #include <vector>
+#include <sstream>
 #include "util.h"
 
-#define POLYGON_SETS 2
+#define BUILDOPT_VERBOSE
+#define BUILDOPT_DEBUG_LEVEL 10
+#include <hal/log.h>
+
+#define SSTR( x ) dynamic_cast< std::ostringstream & >( \
+            ( std::ostringstream() << std::dec << x ) ).str()
+
+#define POLYGON_SETS 3
 
 namespace polygon {
   class Polygon : public od::Object {
@@ -17,7 +24,9 @@ namespace polygon {
         mStereo(stereo) {
 
         for (int i = 0; i < POLYGON_SETS; i++) {
-          mFourVoice.push_back(FourVoice { i });
+          auto set = VoiceSet { i };
+          addVoiceSet(set);
+          mVoiceSets.push_back(set);
         }
 
         addOutput(mOutLeft);
@@ -53,14 +62,13 @@ namespace polygon {
       virtual void process();
 
       void processInternal() {
-
         float *gates[POLYGON_SETS * 4];
         for (int i = 0; i < POLYGON_SETS; i++) {
           auto j = i * 4;
-          gates[j + 0] = mFourVoice[i].mA.mGate.buffer();
-          gates[j + 1] = mFourVoice[i].mB.mGate.buffer();
-          gates[j + 2] = mFourVoice[i].mC.mGate.buffer();
-          gates[j + 3] = mFourVoice[i].mD.mGate.buffer();
+          gates[j + 0] = mVoiceSets[i].mA.mGate->buffer();
+          gates[j + 1] = mVoiceSets[i].mB.mGate->buffer();
+          gates[j + 2] = mVoiceSets[i].mC.mGate->buffer();
+          gates[j + 3] = mVoiceSets[i].mD.mGate->buffer();
         }
 
         auto outLeft    = mOutLeft.buffer();
@@ -97,8 +105,8 @@ namespace polygon {
         voice::four::VoiceConfig configs[POLYGON_SETS];
         for (int i = 0; i < POLYGON_SETS; i++) {
           configs[i] = voice::four::VoiceConfig {
-            mFourVoice[i].vpo() + rrVpo,
-            mFourVoice[i].pan(panOffset, panWidth)
+            mVoiceSets[i].vpo() + rrVpo,
+            mVoiceSets[i].pan(panOffset, panWidth)
           };
         }
 
@@ -118,10 +126,10 @@ namespace polygon {
                 gates[offset + 2][i], gates[offset + 3][i]
               ),
               vdupq_n_f32(0)
-            ) | mFourVoice[j].mManualGate;
+            ) | mVoiceSets[j].mManualGate;
 
-            mFourVoice[j].markGate(_gates[j]);
-            mFourVoice[j].markEnv(mVoices.env(j));
+            mVoiceSets[j].markGate(_gates[j]);
+            mVoiceSets[j].markEnv(mVoices.env(j));
           }
 
           auto signal = mVoices.process(
@@ -142,40 +150,35 @@ namespace polygon {
       }
 
       struct Voice {
-        inline Voice(int index) :
-          mGate("Gate " + std::to_string(index + 1)),
-          mVpo("V/Oct " + std::to_string(index + 1)),
-          mPanIndex(index % 2 ? -(index + 1) : index + 2),
-          mPanSpace(mPanIndex / ((float)POLYGON_SETS * 4.0f)) {
-            // Even index goes right, odd goes left
-            // 0 -> 2, 2/4
-            // 1 -> 2, 2/4
-            // 2 -> 4, 4/4
-            // 3 -> 4, 4/4
+        inline Voice(int n) {
+            mPanIndex = n % 2 ? -n : n + 1;
+            mPanSpace = mPanIndex / ((float)POLYGON_SETS * 4.0f);
+            mGate = new od::Inlet { SSTR("Gate" << n) };
+            mVpo  = new od::Parameter { SSTR("V/Oct" << n) };
           }
 
-        od::Inlet mGate;
-        od::Parameter mVpo;
-        const int mPanIndex;
-        const float mPanSpace;
+        od::Inlet *mGate;
+        od::Parameter *mVpo;
+        int mPanIndex;
+        float mPanSpace;
       };
 
       inline void addVoice(Voice &voice) {
-        addInput(voice.mGate);
-        addParameter(voice.mVpo);
+        addInputFromHeap(voice.mGate);
+        addParameterFromHeap(voice.mVpo);
       }
 
-      struct FourVoice {
-        inline FourVoice(int index) :
-          mA(0 + index * 4),
-          mB(1 + index * 4),
-          mC(2 + index * 4),
-          mD(3 + index * 4) { }
+      struct VoiceSet {
+        inline VoiceSet(int n) :
+          mA(1 + n * 4),
+          mB(2 + n * 4),
+          mC(3 + n * 4),
+          mD(4 + n * 4) { }
 
         inline float32x4_t vpo() {
           return util::simd::makeq_f32(
-            mA.mVpo.value(), mB.mVpo.value(),
-            mC.mVpo.value(), mD.mVpo.value()
+            mA.mVpo->value(), mB.mVpo->value(),
+            mC.mVpo->value(), mD.mVpo->value()
           );
         }
 
@@ -239,28 +242,15 @@ namespace polygon {
         float32x4_t mVoiceEnv = vdupq_n_f32(0);
         uint32x4_t mManualGate = vdupq_n_u32(0);
 
-        Voice mA;
-        Voice mB;
-        Voice mC;
-        Voice mD;
+        Voice mA, mB, mC, mD;
       };
 
-      inline void addFourVoice(FourVoice &four) {
-        addVoice(four.mA);
-        addVoice(four.mB);
-        addVoice(four.mC);
-        addVoice(four.mD);
+      inline void addVoiceSet(VoiceSet &set) {
+        addVoice(set.mA);
+        addVoice(set.mB);
+        addVoice(set.mC);
+        addVoice(set.mD);
       }
-
-      static inline float32x4_t vparam(od::Parameter &a, od::Parameter &b, od::Parameter &c, od::Parameter &d) {
-        return util::simd::makeq_f32(a.value(), b.value(), c.value(), d.value());
-      }
-
-      static inline float32x4_t vpo(Voice& a, Voice& b, Voice& c, Voice& d) {
-        return vparam(a.mVpo, b.mVpo, c.mVpo, d.mVpo);
-      }
-
-      std::vector<FourVoice> mFourVoice;
 
       od::Outlet    mOutLeft    { "Out1" };
       od::Outlet    mOutRight   { "Out2" };
@@ -278,7 +268,7 @@ namespace polygon {
       od::Parameter mRRCount    { "RR Count", 1 };
       od::Parameter mRRStride   { "RR Stride", 1 };
       od::Parameter mRRTotal    { "RR Total", POLYGON_SETS * 4 };
-      od::Parameter mGateThresh { "Gate Threshold", 0.001 };
+      od::Parameter mGateThresh { "Gate Threshold", 0.1 };
 
       od::Parameter mDetune    { "Detune" };
       od::Parameter mLevel     { "Level" };
@@ -302,12 +292,12 @@ namespace polygon {
 
     int getGateCount(int index) {
       const int wrapped = index % getVoiceCount();
-      return mFourVoice.at(wrapped / 4).getGateCount(wrapped % 4);
+      return mVoiceSets.at(wrapped / 4).getGateCount(wrapped % 4);
     }
 
     float getVoiceEnv(int index) {
       const int wrapped = index % getVoiceCount();
-      return mFourVoice.at(wrapped / 4).getEnvLevel(wrapped % 4);
+      return mVoiceSets.at(wrapped / 4).getEnvLevel(wrapped % 4);
     }
 
     void markRRManualGate() {
@@ -316,13 +306,13 @@ namespace polygon {
 
     void markManualGate(int index) {
       const int wrapped = index % getVoiceCount();
-      mFourVoice.at(wrapped / 4).markManualGate(wrapped % 4);
+      mVoiceSets.at(wrapped / 4).markManualGate(wrapped % 4);
     }
 
     void releaseManualGates() {
       mManualRRGate = 0;
       for (int i = 0; i < POLYGON_SETS; i++) {
-        mFourVoice.at(i).releaseManualGates();
+        mVoiceSets.at(i).releaseManualGates();
       }
     }
 
@@ -336,6 +326,7 @@ namespace polygon {
     }
 
     private:
+      std::vector<VoiceSet> mVoiceSets;
       uint32_t mManualRRGate = 0;
       const bool mStereo;
       voice::RoundRobin<POLYGON_SETS> mRoundRobin;
