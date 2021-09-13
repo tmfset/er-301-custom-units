@@ -33,27 +33,27 @@ function RoundRobinGate:init(args)
     onReleaseFire = onReleaseFire
   })
 
-  self:addSubView(ParameterSubView {
-    name        = "Settings",
-    param1 = {
-      name          = "count",
-      parameter     = self.polygon:getParameter("RR Count"),
-      editMessage   = "",
-      commitMessage = ""
-    },
-    param2 = {
-      name          = "stride",
-      parameter     = self.polygon:getParameter("RR Stride"),
-      editMessage   = "",
-      commitMessage = ""
-    },
-    param3 = {
-      name          = "total",
-      parameter     = self.polygon:getParameter("RR Total"),
-      editMessage   = "",
-      commitMessage = ""
-    }
-  })
+  -- self:addSubView(ParameterSubView {
+  --   name        = "Settings",
+  --   param1 = {
+  --     name          = "count",
+  --     parameter     = self.polygon:getParameter("RR Count"),
+  --     editMessage   = "",
+  --     commitMessage = ""
+  --   },
+  --   param2 = {
+  --     name          = "stride",
+  --     parameter     = self.polygon:getParameter("RR Stride"),
+  --     editMessage   = "",
+  --     commitMessage = ""
+  --   },
+  --   param3 = {
+  --     name          = "total",
+  --     parameter     = self.polygon:getParameter("RR Total"),
+  --     editMessage   = "",
+  --     commitMessage = ""
+  --   }
+  -- })
 
   for i, branch in ipairs(args.gates) do
     self:addSubView(GateSubView {

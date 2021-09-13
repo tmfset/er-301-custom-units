@@ -540,7 +540,7 @@ namespace util {
     }
 
     inline void print_u32(const uint32x4_t x, bool newline = false) {
-            static int count = 0;
+      static int count = 0;
       count++;
       if (count > 4000) return;
       
@@ -616,6 +616,14 @@ namespace util {
   inline float fromDecibels(float x) {
     // 10^(x/20)
     return powf(10.0f, x * 0.05);
+  }
+
+  inline uint32_t bcvt(const bool b) {
+    return b ? 0xffffffff : 0;
+  }
+
+  inline uint32_t fcgt(const float x, const float threshold) {
+    return bcvt(x > threshold);
   }
 
   inline int clamp(int value, int min, int max) {

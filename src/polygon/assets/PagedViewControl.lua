@@ -85,6 +85,10 @@ function PagedViewControl:onFloatingMenuChange(choice)
   self.subGraphic:setPage(self:getPageIndex(choice) - 1)
 end
 
+function PagedViewControl:onFloatingMenuSelection(choice)
+  self.subGraphic:setPage(self:getPageIndex(choice) - 1)
+end
+
 function PagedViewControl:unfocusSubView()
   self:currentSubView():setFocusedPosition(nil)
   self:unfocus()

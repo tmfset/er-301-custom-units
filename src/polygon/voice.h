@@ -4,7 +4,7 @@
 #include <osc.h>
 #include <filter.h>
 #include <env.h>
-#include <vector>
+#include <array>
 #include "util.h"
 #include <hal/simd.h>
 #include <hal/neon.h>
@@ -12,25 +12,25 @@
 
 namespace voice {
 
-  template <int sets>
+  template <int GROUPS>
   struct RoundRobinConstants {
     inline RoundRobinConstants(int total, int count, int stride) :
       mTotal(util::clamp(total, 1, max())),
       mCount(util::clamp(count, 1, mTotal)),
       mStride(stride < 1 ? 1 : stride) { }
 
-    inline int max() const { return sets * 4; }
+    inline int max() const { return GROUPS * 4; }
     inline int index(int i) const { return i % mTotal; }
     inline int next(int current) const { return index(current + mStride); }
 
     int mTotal, mCount, mStride;
   };
 
-  template <int sets>
+  template <int GROUPS>
   struct RoundRobin {
     inline void process(
       const uint32_t gate,
-      const RoundRobinConstants<sets>& c,
+      const RoundRobinConstants<GROUPS>& c,
       uint32x4_t *out
     ) {
       auto current = mCurrent;
@@ -40,14 +40,14 @@ namespace voice {
 
       auto _max = c.max();
       uint32_t active[_max];
-      for (int i = 0; i < sets; i++)
+      for (int i = 0; i < GROUPS; i++)
         vst1q_u32(active + (i * 4), vdupq_n_u32(0));
 
       for (int i = 0; i < c.mCount; i++)
         active[c.index(current + i)] = 0xffffffff;
 
       auto _gate = vdupq_n_u32(gate);
-      for (int i = 0; i < sets; i++) {
+      for (int i = 0; i < GROUPS; i++) {
         out[i] = vandq_u32(_gate, vld1q_u32(active + (i * 4)));
       }
     }
@@ -238,15 +238,8 @@ namespace voice {
     };
   }
 
-  template <int sets>
+  template <int GROUPS>
   struct MultiVoice {
-    inline MultiVoice() :
-      mVoices(new four::Voice[sets]) {
-      for (int i = 0; i < sets; i++) {
-        mVoices[i] = four::Voice { };
-      }
-    }
-
     inline float32x2_t process(
       const uint32x4_t* gates,
       const four::VoiceConfig* configs,
@@ -257,7 +250,7 @@ namespace voice {
       const four::SharedConfig &shared
     ) {
       float32x2_t signal = vdup_n_f32(0);
-      for (int i = 0; i < sets; i++) {
+      for (int i = 0; i < GROUPS; i++) {
         mVoices[i].track(gates[i], configs[i], shared);
 
         auto out = mVoices[i].process(gates[i], pf0, ff0, shared);
@@ -277,18 +270,15 @@ namespace voice {
     }
 
     inline float agcDb() {
-      auto x = vmul_f32(
-        vpadd_f32(mAppliedAgc, mAppliedAgc),
-        vdup_n_f32(0.5)
-      );
+      auto x = vmul_f32(vpadd_f32(mAppliedAgc, mAppliedAgc), vdup_n_f32(0.5));
       return util::toDecibels(vget_lane_f32(x, 0));
     }
 
-    inline float32x4_t env(int i) {
-      return mVoices[i].getEnvLevel();
+    inline float32x4_t envLevel(int group) {
+      return mVoices[group].getEnvLevel();
     }
 
-    std::unique_ptr<four::Voice[]> mVoices;
+    std::array<four::Voice, GROUPS> mVoices;
     float32x2_t mAppliedAgc;
     env::two::EnvFollower mAgcFollower;
   };

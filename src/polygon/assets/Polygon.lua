@@ -17,8 +17,7 @@ local Polygon = Class {}
 Polygon:include(Unit)
 
 function Polygon:init(args)
-  args.title = "Polygon"
-  args.mnemonic = "ply"
+  self.ctor = args.ctor
   Unit.init(self, args)
 end
 
@@ -78,18 +77,18 @@ function Polygon:addVoiceControl(n, op)
 end
 
 function Polygon:onLoadGraph(channelCount)
-  local op = self:addObject("op", polygon.Polygon(channelCount > 1))
+  local op = self:addObject("op", self.ctor())
 
-  for i = 1, op:getVoiceCount() do
+  for i = 1, op:voices() do
     self:addVoiceControl(i, op)
   end
 
   local pf0      = self:addGainBiasControl("pf0")
-  local ff0      = self:addGainBiasControl("ff0")
+  local peak      = self:addGainBiasControl("peak")
   local rise     = self:addParameterAdapterControl("rise")
   local fall     = self:addParameterAdapterControl("fall")
   connect(pf0, "Out", op, "Pitch Fundamental")
-  connect(ff0, "Out", op, "Filter Fundamental")
+  connect(peak, "Out", op, "Peak")
   tie(op, "Rise", rise, "Out")
   tie(op, "Fall", fall, "Out")
 
@@ -151,7 +150,7 @@ function Polygon:onLoadViews()
       monitor = self,
       width   = 1 * app.SECTION_PLY
     },
-    roundRobin = RoundRobinGate {
+    rrGate = RoundRobinGate {
       name    = "Gates",
       polygon = self.objects.op,
       branch  = self.branches.rrGate,
@@ -163,7 +162,7 @@ function Polygon:onLoadViews()
       branch        = self.branches.rrCount,
       gainbias      = self.objects.rrCount,
       range         = self.objects.rrCount,
-      biasMap       = self.intMap(1, 8),
+      biasMap       = self.intMap(1, self.objects.op:voices()),
       biasUnits     = app.unitNone,
       biasPrecision = 0,
       initialBias   = 1
@@ -174,7 +173,7 @@ function Polygon:onLoadViews()
       branch        = self.branches.rrStride,
       gainbias      = self.objects.rrStride,
       range         = self.objects.rrStride,
-      biasMap       = self.intMap(1, 8),
+      biasMap       = self.intMap(1, self.objects.op:voices()),
       biasUnits     = app.unitNone,
       biasPrecision = 0,
       initialBias   = 1
@@ -185,10 +184,10 @@ function Polygon:onLoadViews()
       branch        = self.branches.rrTotal,
       gainbias      = self.objects.rrTotal,
       range         = self.objects.rrTotal,
-      biasMap       = self.intMap(1, 8),
+      biasMap       = self.intMap(1, self.objects.op:voices()),
       biasUnits     = app.unitNone,
       biasPrecision = 0,
-      initialBias   = 8
+      initialBias   = self.objects.op:voices()
     },
     pf0 = GainBias {
       button      = "pf0",
@@ -202,12 +201,12 @@ function Polygon:onLoadViews()
       gainMap     = Encoder.getMap("freqGain"),
       scaling     = app.octaveScaling
     },
-    ff0 = GainBias {
-      button      = "ff0",
-      description = "Filter Fundamental",
-      branch      = self.branches.ff0,
-      gainbias    = self.objects.ff0,
-      range       = self.objects.ff0,
+    peak = GainBias {
+      button      = "peak",
+      description = "LPG Peak",
+      branch      = self.branches.peak,
+      gainbias    = self.objects.peak,
+      range       = self.objects.peak,
       biasMap     = Encoder.getMap("oscFreq"),
       biasUnits   = app.unitHertz,
       initialBias = 440,
@@ -324,10 +323,12 @@ function Polygon:onLoadViews()
       scaling      = app.linearScaling
     }
   }, {
-    expanded = { "roundRobin", "shape", "fall", "output" },
-    --expanded  = { "output", "rrVpo", "rrCount", "rrStride", "rrTotal", "pf0", "ff0", "rise", "fall", "detune", "level", "levelEnv", "shape", "shapeEnv", "panOffset", "panWidth" },
-    roundRobin = { "roundRobin", "wave1", "count", "stride", "total" },
-    fall       = { "fall", "wave1", "rise" },
+    expanded  = { "rrGate", "rrVpo", "shape", "fall", "output" },
+    rrGate    = { "rrGate", "wave1", "count", "stride", "total" },
+    rrVpo     = { "rrVpo", "wave1", "detune", "level", "levelEnv" },
+    shape     = { "shape", "wave1", "shapeEnv" },
+    fall      = { "fall", "wave1", "rise", "peak" },
+    output    = { "output", "wave1", "panOffset", "panWidth" },
     collapsed = { }
   }
 end

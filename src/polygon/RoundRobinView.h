@@ -1,47 +1,28 @@
 #pragma once
 
-#include "Polygon.h"
+#include "Observable.h"
 #include <od/graphics/Graphic.h>
 #include <od/extras/LinearRamp.h>
 #include "util.h"
 
+using namespace polygon;
+
 namespace polygon {
   class RoundRobinView : public od::Graphic {
     public:
-      RoundRobinView(Polygon &polygon, int left, int bottom, int width, int height) :
+      RoundRobinView(Observable &observable, int left, int bottom, int width, int height) :
         od::Graphic(left, bottom, width, height),
-        mPolygon(polygon) {
-          mPolygon.attach();
-
-          for (int i = 0; i < mPolygon.getVoiceCount(); i++) {
-            auto fade = od::LinearRamp {};
-            fade.setLength(GRAPHICS_REFRESH_RATE / 2);
-            mFades.push_back(fade);
-
-            mGateCounts.push_back(0);
-          }
+        mObservable(observable) {
+          mObservable.attach();
         }
 
       virtual ~RoundRobinView() {
-        mPolygon.release();
+        mObservable.release();
       }
 
     private:
       void draw(od::FrameBuffer &fb) {
-        //fb.text(WHITE, mWorldLeft, mWorldBottom, "TEST");
-
-        for (int i = 0; i < (int)mGateCounts.size(); i++) {
-          const auto newCount = mPolygon.getGateCount(i);
-
-          if (newCount > mGateCounts[i]) {
-            mFades[i].reset(1.0f, 0.0f);
-            mGateCounts[i] = newCount;
-          }
-
-          mFades[i].step();
-        }
-
-        const float cols = (float)POLYGON_SETS;
+        const float cols = (float)mObservable.groups();
         const float rows = (float)4;
 
         const float width = (float)mWidth;
@@ -73,7 +54,7 @@ namespace polygon {
 
           for (int r = 0; r < rows; r++) {
             const auto index = c * rows + r;
-            const auto fadeAmount = mPolygon.getVoiceEnv(index);
+            const auto fadeAmount = mObservable.envLevel(index);
 
             const auto bottom = gridBottom + (r + 1) * pad + r * size;
             const auto y = bottom + halfSize;
@@ -84,8 +65,6 @@ namespace polygon {
         }
       }
 
-      std::vector<int> mGateCounts;
-      std::vector<od::LinearRamp> mFades;
-      Polygon &mPolygon;
+      Observable &mObservable;
   };
 }

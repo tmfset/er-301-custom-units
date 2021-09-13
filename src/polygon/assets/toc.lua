@@ -6,8 +6,16 @@ return {
   author  = "tomf",
   units   = {
     {
-      title = "Polygon",
-      moduleName = "Polygon"
+      title = "4-tet",
+      moduleName = "Quartet"
+    },
+    {
+      title = "8-tet",
+      moduleName = "Octet"
+    },
+    {
+      title = "12-tet",
+      moduleName = "Duodecet"
     }
   }
 }
