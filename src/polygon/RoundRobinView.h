@@ -26,8 +26,16 @@ namespace polygon {
         const float cols = (float)mObservable.groups();
         const float rows = (float)4;
 
+        const float pad = 1.5;
+
         const Box world  = Box::lbwh(mWorldLeft, mWorldBottom, mWidth, mHeight);
-        const Box inner  = world.inner(2);
+
+        const Box corner = world.divideLeft(1.0f / cols).divideTop(1.0f / rows);
+        const Box inner = world.inner(
+          util::fmax((world.width - corner.minDimension() * cols) / 2.0f, pad),
+          util::fmax((world.height - corner.minDimension() * rows) / 2.0f, pad)
+        );
+
         const Box column = inner.divideLeft(1.0f / cols);
         const Box row    = inner.divideTop(1.0f / rows);
 
@@ -36,7 +44,7 @@ namespace polygon {
           for (int r = 0; r < rows; r++) {
             const Box rBox = row.offsetY(util::fhr(-row.height) * r);
 
-            const Box box = cBox.intersect(rBox).inner(1.5);
+            const Box box = cBox.intersect(rBox).inner(pad);
             const int radius = util::fhr(box.minDimension() * 0.5);
 
             const int index = c * rows + r;
