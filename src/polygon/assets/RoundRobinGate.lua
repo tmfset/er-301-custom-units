@@ -1,13 +1,9 @@
 local app     = app
 local polygon = require "polygon.libpolygon"
+local Class   = require "Base.Class"
 
-local Drawings = require "Drawings"
-local Utils    = require "Utils"
-local Class    = require "Base.Class"
-
-local Base             = require "polygon.PagedViewControl"
-local GateSubView      = require "polygon.GateSubView"
-local ParameterSubView = require "polygon.ParameterSubView"
+local Base        = require "polygon.PagedViewControl"
+local GateSubView = require "polygon.GateSubView"
 
 local ply = app.SECTION_PLY
 
@@ -33,32 +29,10 @@ function RoundRobinGate:init(args)
     onReleaseFire = onReleaseFire
   })
 
-  -- self:addSubView(ParameterSubView {
-  --   name        = "Settings",
-  --   param1 = {
-  --     name          = "count",
-  --     parameter     = self.polygon:getParameter("RR Count"),
-  --     editMessage   = "",
-  --     commitMessage = ""
-  --   },
-  --   param2 = {
-  --     name          = "stride",
-  --     parameter     = self.polygon:getParameter("RR Stride"),
-  --     editMessage   = "",
-  --     commitMessage = ""
-  --   },
-  --   param3 = {
-  --     name          = "total",
-  --     parameter     = self.polygon:getParameter("RR Total"),
-  --     editMessage   = "",
-  --     commitMessage = ""
-  --   }
-  -- })
-
-  for i, branch in ipairs(args.gates) do
+  for i, voice in ipairs(args.voices) do
     self:addSubView(GateSubView {
       name          = "Voice "..i,
-      branch        = branch,
+      branch        = voice.gateBranch,
       threshold     = threshold,
       onPressFire   = function () self.polygon:markManualGate(i - 1) end,
       onReleaseFire = onReleaseFire

@@ -113,7 +113,7 @@ function OutputMeter:init(args)
   self.agcIndicator = (function ()
     local option = polygon:getOption("Enable AGC")
     option:enableSerialization()
-    local ind = app.BinaryIndicator(0, 24, ply, 32)
+    local ind = app.BinaryIndicator(0, 0, 32, 32)
     ind:setCenter(col2, center3)
     return ind
   end)()

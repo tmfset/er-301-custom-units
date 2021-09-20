@@ -607,6 +607,12 @@ namespace util {
     return a < b ? a : b;
   }
 
+  inline int fhr(float v) {
+    int iv = v;
+    float d = v - iv;
+    return d >= 0.5f ? iv + 1 : iv;
+  }
+
   inline float toDecibels(float x) {
     // 20 * ln(x) / ln(10)
     x = fmax(x, 0.001);

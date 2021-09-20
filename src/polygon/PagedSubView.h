@@ -32,7 +32,7 @@ namespace polygon {
 
          mPageSlew.process(mPage);
 
-         for (int i = 0; i < mChildren.size(); i++) {
+         for (int i = 0; i < (int)mChildren.size(); i++) {
            auto pageOffset = mPage - i;
 
            if (pageOffset == 0 && (mFrame % 2) == 0) {

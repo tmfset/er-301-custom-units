@@ -38,6 +38,11 @@ function PagedViewControl:currentSubView()
   return self.subViews[currentPage + 1]
 end
 
+function PagedViewControl:onCursorEnter()
+  self:currentSubView():onCursorEnter()
+  Base.onCursorEnter(self)
+end
+
 function PagedViewControl:zeroPressed()
   return self:currentSubView():zeroPressed()
 end

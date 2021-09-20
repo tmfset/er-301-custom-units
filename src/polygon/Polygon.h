@@ -42,6 +42,7 @@ namespace polygon {
 
         addInput(mRRGate);
         addParameter(mRRVpo);
+        addOption(mRRVpoTrack);
         addParameter(mRRCount);
         addParameter(mRRStride);
         addParameter(mRRTotal);
@@ -70,6 +71,7 @@ namespace polygon {
         auto outRight   = mOutRight.buffer();
         auto gain       = vdup_n_f32(mGain.value());
         auto agcEnabled = vdup_n_u32(util::bcvt(isAgcEnabled()));
+        auto vpoTracked = isVpoTracked();
 
         auto pitchF0 = mPitchF0.buffer();
         auto peak    = mPeak.buffer();
@@ -98,7 +100,9 @@ namespace polygon {
         const auto panOffset = mPanOffset.value();
         const auto panWidth  = mPanWidth.value();
 
-        markVpoOffset(mRoundRobin.mCurrent, mRRVpo.value());
+        if (vpoTracked) {
+          markVpoOffset(mRoundRobin.mCurrent, mRRVpo.value());
+        }
 
         mAgc.hardSet(mVoices.agcDb());
 
@@ -164,6 +168,7 @@ namespace polygon {
 
       od::Inlet     mRRGate     { "RR Gate" };
       od::Parameter mRRVpo      { "RR V/Oct" };
+      od::Option    mRRVpoTrack { "RR V/Oct Track", 1 };
       od::Parameter mRRCount    { "RR Count", 1 };
       od::Parameter mRRStride   { "RR Stride", 1 };
       od::Parameter mRRTotal    { "RR Total", VOICES };
@@ -184,6 +189,18 @@ namespace polygon {
     int groups() { return GROUPS; }
     int voices() { return VOICES; }
 
+    od::Parameter* vpoRoundRobin() {
+      return &mRRVpo;
+    }
+
+    od::Parameter* vpoDirect(int index) {
+      return voice(index).vpoDirect();
+    }
+
+    od::Parameter* vpoOffset(int index) {
+      return voice(index).vpoOffset();
+    }
+
     float envLevel(int voice) {
       return this->voice(voice).envLevel();
     }
@@ -202,6 +219,10 @@ namespace polygon {
 
     void markVpoOffset(int index, float value) {
       voice(index).markVpoOffset(value);
+    }
+
+    bool isVpoTracked() {
+      return mRRVpoTrack.value() == 1;
     }
 
     bool isAgcEnabled() {
@@ -242,6 +263,9 @@ namespace polygon {
 
           inline void markVpoOffset(float value) { mVpoOffset->hardSet(value); }
           inline void markEnvLevel(float value) { mEnvLevel = value; }
+
+          inline od::Parameter* vpoDirect() { return mVpoDirect; }
+          inline od::Parameter* vpoOffset() { return mVpoOffset; }
 
         private:
           od::Inlet *mGate = 0;

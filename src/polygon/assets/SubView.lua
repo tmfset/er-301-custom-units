@@ -79,6 +79,12 @@ function SubView:onRemove()
   end
 end
 
+function SubView:onCursorEnter()
+  for _, control in pairs(self.controls) do
+    control:onCursorEnter()
+  end
+end
+
 function SubView:zeroPressed()
   local control = self:getFocusedControl()
   if control then control:onZero() end

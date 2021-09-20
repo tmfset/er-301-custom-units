@@ -11,7 +11,8 @@ local Pitch       = require "Unit.ViewControl.Pitch"
 local OutputScope = require "Unit.ViewControl.OutputScope"
 
 local OutputMeter    = require "polygon.OutputMeter"
-local RoundRobinGate = require "polygon.RoundRobinGate"
+local RoundRobinGate  = require "polygon.RoundRobinGate"
+local RoundRobinPitch = require "polygon.RoundRobinPitch"
 
 local Polygon = Class {}
 Polygon:include(Unit)
@@ -64,16 +65,19 @@ end
 
 function Polygon:addParameterAdapterBranch(name, obj, inlet)
   local pa = self:addObject(name, app.ParameterAdapter())
-  tie(pa, "Bias", obj, inlet)
+  pa:hardSet("Gain", 1)
+  tie(obj, inlet, pa, "Out")
   return self:addMonoBranch(name, pa, "In", pa, "Out")
 end
 
 function Polygon:addVoiceControl(n, op)
-  self.gateBranches = self.gateBranches or {}
-  self.vpoBranches = self.vpoBranches or {}
+  self.voices = self.voices or {}
 
-  self.gateBranches[n] = self:addMonitorBranch("gate"..n, op, "Gate"..n)
-  self.vpoBranches[n]  = self:addParameterAdapterBranch("vpo"..n, op, "V/Oct"..n)
+  self.voices[n] = {
+    gateBranch  = self:addMonitorBranch("gate"..n, op, "Gate"..n),
+    pitchBranch = self:addParameterAdapterBranch("vpo"..n, op, "V/Oct"..n),
+    pitchOffset = op:getParameter("V/Oct Offset"..n)
+  }
 end
 
 function Polygon:onLoadGraph(channelCount)
@@ -84,7 +88,7 @@ function Polygon:onLoadGraph(channelCount)
   end
 
   local pf0      = self:addGainBiasControl("pf0")
-  local peak      = self:addGainBiasControl("peak")
+  local peak     = self:addGainBiasControl("peak")
   local rise     = self:addParameterAdapterControl("rise")
   local fall     = self:addParameterAdapterControl("fall")
   connect(pf0, "Out", op, "Pitch Fundamental")
@@ -93,11 +97,12 @@ function Polygon:onLoadGraph(channelCount)
   tie(op, "Fall", fall, "Out")
 
   local rrGate   = self:addMonitorBranch("rrGate", op, "RR Gate")
-  local rrVpo    = self:addParameterAdapterControl("rrVpo", 1)
+  local rrVpo    = self:addParameterAdapterBranch("rrVpo", op, "RR V/Oct")
+  --local rrVpo    = self:addParameterAdapterControl("rrVpo", 1)
   local rrCount  = self:addParameterAdapterControl("rrCount")
   local rrStride = self:addParameterAdapterControl("rrStride")
   local rrTotal  = self:addParameterAdapterControl("rrTotal")
-  tie(op, "RR V/Oct",  rrVpo,    "Out")
+  --tie(op, "RR V/Oct",  rrVpo,    "Out")
   tie(op, "RR Count",  rrCount,  "Out")
   tie(op, "RR Stride", rrStride, "Out")
   tie(op, "RR Total",  rrTotal,  "Out")
@@ -154,7 +159,15 @@ function Polygon:onLoadViews()
       name    = "Gates",
       polygon = self.objects.op,
       branch  = self.branches.rrGate,
-      gates   = self.gateBranches
+      voices  = self.voices
+    },
+    rrVpo = RoundRobinPitch {
+      name    = "V/Oct",
+      polygon = self.objects.op,
+      branch  = self.branches.rrVpo,
+      tune    = self.objects.rrVpo:getParameter("Bias"),
+      voices  = self.voices,
+      biasMap = Encoder.getMap("cents")
     },
     count   = GainBias {
       button        = "count",
@@ -233,13 +246,13 @@ function Polygon:onLoadViews()
       biasUnits   = app.unitSecs,
       initialBias = 0.200
     },
-    rrVpo = Pitch {
-      button      = "rrVpo",
-      branch      = self.branches.rrVpo,
-      description = "Round Robin V/Oct",
-      offset      = self.objects.rrVpo,
-      range       = self.objects.rrVpo
-    },
+    -- rrVpo = Pitch {
+    --   button      = "rrVpo",
+    --   branch      = self.branches.rrVpo,
+    --   description = "Round Robin V/Oct",
+    --   offset      = self.objects.rrVpo,
+    --   range       = self.objects.rrVpo
+    -- },
     detune = Pitch {
       button      = "detune",
       branch      = self.branches.detune,

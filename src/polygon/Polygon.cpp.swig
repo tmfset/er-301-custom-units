@@ -7,6 +7,7 @@
 
 #include <Polygon.h>
 #include <RoundRobinView.h>
+#include <RoundRobinPitchView.h>
 #include <PagedSubView.h>
 
 #define SWIGLUA
@@ -15,6 +16,7 @@
 
 %include <Polygon.h>
 %include <RoundRobinView.h>
+%include <RoundRobinPitchView.h>
 %include <PagedSubView.h>
 %include <Observable.h>
 

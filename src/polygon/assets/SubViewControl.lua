@@ -31,6 +31,8 @@ function SubViewControl:unfocusParent()
   return self.parent:unfocus()
 end
 
+function SubViewControl:onCursorEnter() end
+
 function SubViewControl:getCursorController() end
 
 function SubViewControl:onRemove() end
