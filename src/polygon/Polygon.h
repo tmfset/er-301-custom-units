@@ -118,7 +118,7 @@ namespace polygon {
 
           g.markEnvLevel(mVoices.envLevel(i));
 
-          manualGates[i] = g.manualGate(); 
+          manualGates[i] = g.manualGate();
           configs[i] = voice::four::VoiceConfig { rrOffsetAll + g.vpo(), g.pan(panOffset, panWidth) };
 
           if (mReleaseManualGatesRequested) {

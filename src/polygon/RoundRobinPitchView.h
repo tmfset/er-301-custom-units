@@ -4,6 +4,7 @@
 #include <od/ui/DialMap.h>
 #include <od/graphics/Graphic.h>
 #include <od/extras/LinearRamp.h>
+#include <od/extras/Conversions.h>
 #include "util.h"
 #include "Box.h"
 
@@ -23,10 +24,10 @@ namespace polygon {
       }
 
       void setScale(od::DialMap &map) {
-        float min = map.min();
-        float max = map.max();
+        float min = fromCents(map.min());
+        float max = fromCents(map.max());
         float size = max - min;
-        mScale = 1.0f;// / size;
+        mScale = 1.0f / max;
       }
 
       void setCursorSelection(int value) {
@@ -34,6 +35,10 @@ namespace polygon {
       }
 
     private:
+      int scale(float value, int width) {
+        return util::funit(value * mScale) * width;
+      }
+
       void draw(od::FrameBuffer &fb) {
         Graphic::draw(fb);
 
@@ -50,8 +55,8 @@ namespace polygon {
         od::Parameter* vpoRoundRobin = mObservable.vpoRoundRobin();
         const float rrTarget = vpoRoundRobin->target();
         const float rrActual = vpoRoundRobin->value();
-        const int rrTargetY = util::fhr(leftPane.centerY + rrTarget * leftPane.height * mScale);
-        const int rrActualY = util::fhr(leftPane.centerY + rrActual * leftPane.height * mScale);
+        const int rrTargetY = util::fhr(leftPane.centerY + scale(rrTarget, leftPane.height / 2.0f));
+        const int rrActualY = util::fhr(leftPane.centerY + scale(rrActual, leftPane.height / 2.0f));
         fb.hline(GRAY7, leftPane.centerX - 4, leftPane.centerX + 4, rrActualY);
         fb.box(WHITE, leftPane.centerX - 3, rrTargetY - 1, leftPane.centerX + 3, rrTargetY + 1);
 
@@ -77,8 +82,8 @@ namespace polygon {
           const float target = vpoDirect->target() + vpoOffset->target();
           const float actual = vpoDirect->value() + vpoOffset->value();
 
-          const int targetX = util::fhr(next.centerX + target * next.width * mScale);
-          const int actualX = util::fhr(next.centerX + actual * next.width * mScale);
+          const int targetX = util::fhr(next.centerX + scale(target, next.width / 2.0f));
+          const int actualX = util::fhr(next.centerX + scale(actual, next.width / 2.0f));
           fb.vline(GRAY7, actualX, y - 3, y + 3);
           fb.box(WHITE, targetX - 1, y - 2, targetX + 1, y + 2);
 

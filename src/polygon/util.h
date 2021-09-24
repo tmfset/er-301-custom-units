@@ -607,6 +607,18 @@ namespace util {
     return a < b ? a : b;
   }
 
+  inline float fclamp(float v, float min, float max) {
+    return fmin(fmax(v, min), max);
+  }
+
+  inline float funit(float v) {
+    return fclamp(v, -1, 1);
+  }
+
+  inline float fpunit(float v) {
+    return fclamp(v, 0, 1);
+  }
+
   inline int fhr(float v) {
     int iv = v;
     float d = v - iv;
