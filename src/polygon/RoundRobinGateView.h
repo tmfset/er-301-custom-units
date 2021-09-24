@@ -9,20 +9,22 @@
 using namespace polygon;
 
 namespace polygon {
-  class RoundRobinView : public od::Graphic {
+  class RoundRobinGateView : public od::Graphic {
     public:
-      RoundRobinView(Observable &observable, int left, int bottom, int width, int height) :
+      RoundRobinGateView(Observable &observable, int left, int bottom, int width, int height) :
           od::Graphic(left, bottom, width, height),
           mObservable(observable) {
         mObservable.attach();
       }
 
-      virtual ~RoundRobinView() {
+      virtual ~RoundRobinGateView() {
         mObservable.release();
       }
 
     private:
       void draw(od::FrameBuffer &fb) {
+        Graphic::draw(fb);
+
         const float cols = (float)mObservable.groups();
         const float rows = (float)4;
 
@@ -55,6 +57,10 @@ namespace polygon {
 
             fb.fillCircle(WHITE * fillColor, x, y, radius);
             fb.circle(GRAY10, x, y, radius);
+
+            if (mObservable.isVoiceArmed(index)) {
+              fb.fillCircle(WHITE, x, y, 1);
+            }
           }
         }
       }

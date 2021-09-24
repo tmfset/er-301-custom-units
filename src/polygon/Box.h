@@ -35,6 +35,10 @@ namespace polygon {
       );
     }
 
+    inline Box padRight(float by) const {
+      return lbrt(left, bottom, right - by, top);
+    }
+
     inline Box divideTop(float by) const {
       return lbrt(left, top - height * by, right, top);
     }

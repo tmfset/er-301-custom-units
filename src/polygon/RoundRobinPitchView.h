@@ -29,23 +29,37 @@ namespace polygon {
         mScale = 1.0f;// / size;
       }
 
+      void setCursorSelection(int value) {
+        mCursorSelection = value;
+      }
+
     private:
       void draw(od::FrameBuffer &fb) {
+        Graphic::draw(fb);
+
         const float voices = mObservable.voices();
 
         const Box world     = Box::lbwh(mWorldLeft, mWorldBottom, mWidth, mHeight);
-        const Box leftPane  = world.divideLeft(0.4f).inner(0, 5);
-        const Box rightPane = world.divideRight(0.6f).inner(0, 0);
+        const Box leftPane  = world.divideLeft(0.3f).inner(0, 5);
+        const Box rightPane = world.divideRight(0.7f).inner(0, 0).padRight(4);
 
         fb.vline(GRAY7, leftPane.centerX, leftPane.bottom, leftPane.top);
         fb.hline(GRAY7, leftPane.centerX - 2, leftPane.centerX + 2, leftPane.bottom);
         fb.hline(GRAY7, leftPane.centerX - 2, leftPane.centerX + 2, leftPane.top);
 
         od::Parameter* vpoRoundRobin = mObservable.vpoRoundRobin();
-        const float rrTarget = vpoRoundRobin->value();
-        const float rrCenter = leftPane.centerY;
-        const int rrValue = util::fhr(rrCenter + rrTarget * leftPane.height * mScale);
-        fb.box(WHITE, leftPane.centerX - 3, rrValue - 1, leftPane.centerX + 3, rrValue + 1);
+        const float rrTarget = vpoRoundRobin->target();
+        const float rrActual = vpoRoundRobin->value();
+        const int rrTargetY = util::fhr(leftPane.centerY + rrTarget * leftPane.height * mScale);
+        const int rrActualY = util::fhr(leftPane.centerY + rrActual * leftPane.height * mScale);
+        fb.hline(GRAY7, leftPane.centerX - 4, leftPane.centerX + 4, rrActualY);
+        fb.box(WHITE, leftPane.centerX - 3, rrTargetY - 1, leftPane.centerX + 3, rrTargetY + 1);
+
+        if (mCursorSelection == 0) {
+          mCursorState.orientation = od::cursorRight;
+          mCursorState.x = leftPane.left - 5;
+          mCursorState.y = rrTargetY;
+        }
 
         const Box first = rightPane.divideTop(1.0f / voices);
         for (int i = 0; i < voices; i++) {
@@ -60,15 +74,28 @@ namespace polygon {
 
           od::Parameter* vpoDirect = mObservable.vpoDirect(i);
           od::Parameter* vpoOffset = mObservable.vpoOffset(i);
-          const float target = vpoDirect->value() + vpoOffset->value();
+          const float target = vpoDirect->target() + vpoOffset->target();
+          const float actual = vpoDirect->value() + vpoOffset->value();
 
-          const float center = next.centerX;
-          const int value = util::fhr(center + target * next.width * mScale);
-          fb.box(WHITE, value - 1, y - 2, value + 1, y + 2);
+          const int targetX = util::fhr(next.centerX + target * next.width * mScale);
+          const int actualX = util::fhr(next.centerX + actual * next.width * mScale);
+          fb.vline(GRAY7, actualX, y - 3, y + 3);
+          fb.box(WHITE, targetX - 1, y - 2, targetX + 1, y + 2);
+
+          if (mObservable.isVoiceArmed(i)) {
+            fb.fillCircle(WHITE, next.right + 3, next.centerY, 1);
+          }
+
+          if (mCursorSelection == i + 1) {
+            mCursorState.orientation = od::cursorRight;
+            mCursorState.x = next.left - 10;
+            mCursorState.y = next.centerY;
+          }
         }
       }
 
       float mScale = 0;
+      int mCursorSelection = 0;
 
       Observable &mObservable;
   };

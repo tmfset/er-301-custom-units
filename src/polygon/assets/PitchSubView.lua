@@ -88,4 +88,9 @@ function PitchSubView:init(args)
   }
 end
 
+function PitchSubView:onFocused()
+  self:setFocusedPosition(2)
+  Base.onFocused(self)
+end
+
 return PitchSubView

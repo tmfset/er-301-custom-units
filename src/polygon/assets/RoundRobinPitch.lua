@@ -37,10 +37,16 @@ function RoundRobinPitch:init(args)
 
   self.graphic = polygon.RoundRobinPitchView(self.polygon, 0, 0, ply, 64)
   self.graphic:setScale(biasMap)
+  self:setMainCursorController(self.graphic)
   self:setControlGraphic(self.graphic)
   self:addSpotDescriptor {
     center = 0.5 * ply
   }
+end
+
+function RoundRobinPitch:updatePageIndex(pageIndex)
+  self.graphic:setCursorSelection(pageIndex - 1)
+  Base.updatePageIndex(self, pageIndex)
 end
 
 return RoundRobinPitch

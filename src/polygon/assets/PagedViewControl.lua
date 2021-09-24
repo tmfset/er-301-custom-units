@@ -38,6 +38,11 @@ function PagedViewControl:currentSubView()
   return self.subViews[currentPage + 1]
 end
 
+function PagedViewControl:onFocused()
+  self:currentSubView():onFocused()
+  Base.onFocused(self)
+end
+
 function PagedViewControl:onCursorEnter()
   self:currentSubView():onCursorEnter()
   Base.onCursorEnter(self)
@@ -87,16 +92,21 @@ end
 
 function PagedViewControl:onFloatingMenuChange(choice)
   self:unfocusSubView()
-  self.subGraphic:setPage(self:getPageIndex(choice) - 1)
+  self:updatePageIndex(self:getPageIndex(choice))
 end
 
 function PagedViewControl:onFloatingMenuSelection(choice)
-  self.subGraphic:setPage(self:getPageIndex(choice) - 1)
+  self:updatePageIndex(self:getPageIndex(choice))
+  self:focus()
 end
 
 function PagedViewControl:unfocusSubView()
   self:currentSubView():setFocusedPosition(nil)
   self:unfocus()
+end
+
+function PagedViewControl:updatePageIndex(pageIndex)
+  self.subGraphic:setPage(pageIndex - 1)
 end
 
 return PagedViewControl

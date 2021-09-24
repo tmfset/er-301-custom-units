@@ -8,6 +8,7 @@ namespace polygon {
       Observable();
       virtual ~Observable();
 
+      virtual bool isVoiceArmed(int i) = 0;
       virtual int groups() = 0;
       virtual int voices() = 0;
 

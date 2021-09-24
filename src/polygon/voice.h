@@ -23,6 +23,13 @@ namespace voice {
     inline int index(int i) const { return i % mTotal; }
     inline int next(int current) const { return index(current + mStride); }
 
+    inline bool isArmed(int current, int query) {
+      for (int i = 0; i < mCount; i++)
+        if (index(current + i) == query)
+          return true;
+      return false;
+    }
+
     int mTotal, mCount, mStride;
   };
 

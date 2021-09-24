@@ -39,7 +39,7 @@ function RoundRobinGate:init(args)
     })
   end
 
-  self.graphic = polygon.RoundRobinView(self.polygon, 0, 0, ply, 64)
+  self.graphic = polygon.RoundRobinGateView(self.polygon, 0, 0, ply, 64)
   self:setControlGraphic(self.graphic)
   self:addSpotDescriptor {
     center = 0.5 * ply

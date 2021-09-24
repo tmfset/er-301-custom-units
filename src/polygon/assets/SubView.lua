@@ -79,6 +79,8 @@ function SubView:onRemove()
   end
 end
 
+function SubView:onFocused() end
+
 function SubView:onCursorEnter()
   for _, control in pairs(self.controls) do
     control:onCursorEnter()
@@ -96,6 +98,8 @@ function SubView:cancelReleased()
   if control then control:onCancel() end
   return true
 end
+
+function SubView:spotReleased(spot, shifted) end
 
 function SubView:subReleased(i)
   local control = self:getControl(i)

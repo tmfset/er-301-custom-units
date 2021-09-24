@@ -81,6 +81,7 @@ namespace polygon {
           (int)mRRCount.value(),
           (int)mRRStride.value()
         };
+        mRoundRobinConst = rrConst;
 
         const auto sharedConfig = voice::four::SharedConfig {
           vdupq_n_f32(mDetune.value()),
@@ -100,8 +101,12 @@ namespace polygon {
         const auto panOffset = mPanOffset.value();
         const auto panWidth  = mPanWidth.value();
 
+        auto rrOffsetAll = vdupq_n_f32(0);
+
         if (vpoTracked) {
           markVpoOffset(mRoundRobin.mCurrent, mRRVpo.value());
+        } else {
+          rrOffsetAll = vdupq_n_f32(mRRVpo.value());
         }
 
         mAgc.hardSet(mVoices.agcDb());
@@ -114,7 +119,7 @@ namespace polygon {
           g.markEnvLevel(mVoices.envLevel(i));
 
           manualGates[i] = g.manualGate(); 
-          configs[i] = voice::four::VoiceConfig { g.vpo(), g.pan(panOffset, panWidth) };
+          configs[i] = voice::four::VoiceConfig { rrOffsetAll + g.vpo(), g.pan(panOffset, panWidth) };
 
           if (mReleaseManualGatesRequested) {
             mManualRRGate = 0;
@@ -185,6 +190,10 @@ namespace polygon {
       od::Parameter mPanWidth  { "Pan Width" };
 
 #endif
+
+    bool isVoiceArmed(int i) {
+      return mRoundRobinConst.isArmed(mRoundRobin.mCurrent, i);
+    }
 
     int groups() { return GROUPS; }
     int voices() { return VOICES; }
@@ -348,6 +357,7 @@ namespace polygon {
 
       std::array<Group, GROUPS> mGroups;
       voice::RoundRobin<GROUPS> mRoundRobin;
+      voice::RoundRobinConstants<GROUPS> mRoundRobinConst { GROUPS * 4, 1, 1 };
       voice::MultiVoice<GROUPS> mVoices;
 
       inline Group& group(int index) {
