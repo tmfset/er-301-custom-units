@@ -9,6 +9,7 @@ namespace polygon {
       virtual ~Observable();
 
       virtual bool isVoiceArmed(int i) = 0;
+      virtual bool isVoiceNext(int i) = 0;
       virtual int groups() = 0;
       virtual int voices() = 0;
 

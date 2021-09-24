@@ -195,6 +195,10 @@ namespace polygon {
       return mRoundRobinConst.isArmed(mRoundRobin.mCurrent, i);
     }
 
+    bool isVoiceNext(int i) {
+      return mRoundRobinConst.isNext(mRoundRobin.mCurrent, i);
+    }
+
     int groups() { return GROUPS; }
     int voices() { return VOICES; }
 

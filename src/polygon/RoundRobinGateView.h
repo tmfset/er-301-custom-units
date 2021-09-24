@@ -59,7 +59,14 @@ namespace polygon {
             fb.circle(GRAY10, x, y, radius);
 
             if (mObservable.isVoiceArmed(index)) {
-              fb.fillCircle(WHITE, x, y, 1);
+              fb.pixel(WHITE, x - 1, y);
+              fb.pixel(WHITE, x + 1, y);
+              fb.pixel(WHITE, x, y - 1);
+              fb.pixel(WHITE, x, y + 1);
+            }
+
+            if (mObservable.isVoiceNext(index)) {
+              fb.pixel(WHITE, x, y);
             }
           }
         }

@@ -87,8 +87,18 @@ namespace polygon {
           fb.vline(GRAY7, actualX, y - 3, y + 3);
           fb.box(WHITE, targetX - 1, y - 2, targetX + 1, y + 2);
 
+          const int indX = next.right + 3;
+          const int indY = next.centerY;
+
           if (mObservable.isVoiceArmed(i)) {
-            fb.fillCircle(WHITE, next.right + 3, next.centerY, 1);
+            fb.pixel(WHITE, indX - 1, indY);
+            fb.pixel(WHITE, indX + 1, indY);
+            fb.pixel(WHITE, indX, indY - 1);
+            fb.pixel(WHITE, indX, indY + 1);
+          }
+
+          if (mObservable.isVoiceNext(i)) {
+            fb.pixel(WHITE, indX, indY);
           }
 
           if (mCursorSelection == i + 1) {

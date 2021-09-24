@@ -30,6 +30,13 @@ namespace voice {
       return false;
     }
 
+    inline bool isNext(int current, int query) {
+      for (int i = 0; i < mCount; i++)
+        if (index(current + mStride + i) == query)
+          return true;
+      return false;
+    }
+
     int mTotal, mCount, mStride;
   };
 
