@@ -16,6 +16,14 @@ function PagedViewControl:init(args)
   self.subGraphic = polygon.PagedSubView();
 end
 
+function PagedViewControl:attachFollower(follower)
+  self.follower = follower;
+end
+
+function PagedViewControl:updateFollower(pageIndex)
+  if self.follower then self.follower:updatePageIndex(pageIndex, false) end
+end
+
 function PagedViewControl:onRemove()
   for _, subView in ipairs(self.subViews) do
     subView:onRemove()
@@ -92,11 +100,11 @@ end
 
 function PagedViewControl:onFloatingMenuChange(choice)
   self:unfocusSubView()
-  self:updatePageIndex(self:getPageIndex(choice))
+  self:updatePageIndex(self:getPageIndex(choice), true)
 end
 
 function PagedViewControl:onFloatingMenuSelection(choice)
-  self:updatePageIndex(self:getPageIndex(choice))
+  self:updatePageIndex(self:getPageIndex(choice), true)
   self:focus()
 end
 
@@ -105,8 +113,9 @@ function PagedViewControl:unfocusSubView()
   self:unfocus()
 end
 
-function PagedViewControl:updatePageIndex(pageIndex)
+function PagedViewControl:updatePageIndex(pageIndex, propogate)
   self.subGraphic:setPage(pageIndex - 1)
+  if propogate then self:updateFollower(pageIndex) end
 end
 
 return PagedViewControl

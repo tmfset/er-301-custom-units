@@ -21,6 +21,10 @@ namespace polygon {
         mObservable.release();
       }
 
+      void setCursorSelection(int value) {
+        mCursorSelection = value;
+      }
+
     private:
       void draw(od::FrameBuffer &fb) {
         Graphic::draw(fb);
@@ -55,22 +59,41 @@ namespace polygon {
             const int x = util::fhr(box.centerX);
             const int y = util::fhr(box.centerY);
 
-            fb.fillCircle(WHITE * fillColor, x, y, radius);
-            fb.circle(GRAY10, x, y, radius);
+            fb.fillCircle(pColor(index + 1) * fillColor, x, y, radius);
+            fb.circle(sColor(index + 1), x, y, radius);
 
             if (mObservable.isVoiceArmed(index)) {
-              fb.pixel(WHITE, x - 1, y);
-              fb.pixel(WHITE, x + 1, y);
-              fb.pixel(WHITE, x, y - 1);
-              fb.pixel(WHITE, x, y + 1);
+              fb.pixel(pColor(index + 1), x - 1, y);
+              fb.pixel(pColor(index + 1), x + 1, y);
+              fb.pixel(pColor(index + 1), x, y - 1);
+              fb.pixel(pColor(index + 1), x, y + 1);
             }
 
             if (mObservable.isVoiceNext(index)) {
-              fb.pixel(WHITE, x, y);
+              fb.pixel(pColor(index + 1), x, y);
             }
           }
         }
       }
+
+      bool isFaded(int i) {
+        if (mCursorSelection == 0) return false;
+        return mCursorSelection != i;
+      }
+
+      int pColor(int i) {
+        return isFaded(i) ? mPrimaryColor - mColorFade : mPrimaryColor;
+      }
+
+      int sColor(int i) {
+        return isFaded(i) ? mSecondaryColor - mColorFade : mSecondaryColor;
+      }
+
+      int mPrimaryColor = WHITE;
+      int mSecondaryColor = GRAY10;
+      int mColorFade = 5;
+
+      int mCursorSelection = 0;
 
       Observable &mObservable;
   };

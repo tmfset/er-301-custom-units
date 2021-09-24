@@ -44,9 +44,9 @@ function RoundRobinPitch:init(args)
   }
 end
 
-function RoundRobinPitch:updatePageIndex(pageIndex)
+function RoundRobinPitch:updatePageIndex(pageIndex, propogate)
   self.graphic:setCursorSelection(pageIndex - 1)
-  Base.updatePageIndex(self, pageIndex)
+  Base.updatePageIndex(self, pageIndex, propogate)
 end
 
 return RoundRobinPitch

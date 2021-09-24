@@ -48,17 +48,17 @@ namespace polygon {
         const Box leftPane  = world.divideLeft(0.3f).inner(0, 5);
         const Box rightPane = world.divideRight(0.7f).inner(0, 0).padRight(4);
 
-        fb.vline(GRAY7, leftPane.centerX, leftPane.bottom, leftPane.top);
-        fb.hline(GRAY7, leftPane.centerX - 2, leftPane.centerX + 2, leftPane.bottom);
-        fb.hline(GRAY7, leftPane.centerX - 2, leftPane.centerX + 2, leftPane.top);
+        fb.vline(sColor(0), leftPane.centerX, leftPane.bottom, leftPane.top);
+        fb.hline(sColor(0), leftPane.centerX - 2, leftPane.centerX + 2, leftPane.bottom);
+        fb.hline(sColor(0), leftPane.centerX - 2, leftPane.centerX + 2, leftPane.top);
 
         od::Parameter* vpoRoundRobin = mObservable.vpoRoundRobin();
         const float rrTarget = vpoRoundRobin->target();
         const float rrActual = vpoRoundRobin->value();
         const int rrTargetY = util::fhr(leftPane.centerY + scale(rrTarget, leftPane.height / 2.0f));
         const int rrActualY = util::fhr(leftPane.centerY + scale(rrActual, leftPane.height / 2.0f));
-        fb.hline(GRAY7, leftPane.centerX - 4, leftPane.centerX + 4, rrActualY);
-        fb.box(WHITE, leftPane.centerX - 3, rrTargetY - 1, leftPane.centerX + 3, rrTargetY + 1);
+        fb.hline(sColor(0), leftPane.centerX - 4, leftPane.centerX + 4, rrActualY);
+        fb.box(pColor(0), leftPane.centerX - 3, rrTargetY - 1, leftPane.centerX + 3, rrTargetY + 1);
 
         if (mCursorSelection == 0) {
           mCursorState.orientation = od::cursorRight;
@@ -73,9 +73,9 @@ namespace polygon {
           const int x0 = util::fhr(next.left);
           const int x1 = util::fhr(next.right);
           const int y  = util::fhr(next.centerY);
-          fb.hline(GRAY7, x0, x1, y);
-          fb.vline(GRAY7, x0, y - 1, y);
-          fb.vline(GRAY7, x1, y, y + 1);
+          fb.hline(sColor(i + 1), x0, x1, y);
+          fb.vline(sColor(i + 1), x0, y - 1, y);
+          fb.vline(sColor(i + 1), x1, y, y + 1);
 
           od::Parameter* vpoDirect = mObservable.vpoDirect(i);
           od::Parameter* vpoOffset = mObservable.vpoOffset(i);
@@ -84,21 +84,21 @@ namespace polygon {
 
           const int targetX = util::fhr(next.centerX + scale(target, next.width / 2.0f));
           const int actualX = util::fhr(next.centerX + scale(actual, next.width / 2.0f));
-          fb.vline(GRAY7, actualX, y - 3, y + 3);
-          fb.box(WHITE, targetX - 1, y - 2, targetX + 1, y + 2);
+          fb.vline(sColor(i + 1), actualX, y - 3, y + 3);
+          fb.box(pColor(i + 1), targetX - 1, y - 2, targetX + 1, y + 2);
 
           const int indX = next.right + 3;
           const int indY = next.centerY;
 
           if (mObservable.isVoiceArmed(i)) {
-            fb.pixel(WHITE, indX - 1, indY);
-            fb.pixel(WHITE, indX + 1, indY);
-            fb.pixel(WHITE, indX, indY - 1);
-            fb.pixel(WHITE, indX, indY + 1);
+            fb.pixel(pColor(i + 1), indX - 1, indY);
+            fb.pixel(pColor(i + 1), indX + 1, indY);
+            fb.pixel(pColor(i + 1), indX, indY - 1);
+            fb.pixel(pColor(i + 1), indX, indY + 1);
           }
 
           if (mObservable.isVoiceNext(i)) {
-            fb.pixel(WHITE, indX, indY);
+            fb.pixel(pColor(i + 1), indX, indY);
           }
 
           if (mCursorSelection == i + 1) {
@@ -108,6 +108,23 @@ namespace polygon {
           }
         }
       }
+
+      bool isFaded(int i) {
+        if (mCursorSelection == 0) return false;
+        return mCursorSelection != i;
+      }
+
+      int pColor(int i) {
+        return isFaded(i) ? mPrimaryColor - mColorFade : mPrimaryColor;
+      }
+
+      int sColor(int i) {
+        return isFaded(i) ? mSecondaryColor - mColorFade : mSecondaryColor;
+      }
+
+      int mPrimaryColor = WHITE;
+      int mSecondaryColor = GRAY7;
+      int mColorFade = 5;
 
       float mScale = 0;
       int mCursorSelection = 0;

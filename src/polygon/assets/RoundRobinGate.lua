@@ -46,4 +46,9 @@ function RoundRobinGate:init(args)
   }
 end
 
+function RoundRobinGate:updatePageIndex(pageIndex, propogate)
+  self.graphic:setCursorSelection(pageIndex - 1)
+  Base.updatePageIndex(self, pageIndex, propogate)
+end
+
 return RoundRobinGate

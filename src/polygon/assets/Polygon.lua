@@ -150,25 +150,32 @@ function Polygon.defaultDecibelMap()
 end
 
 function Polygon:onLoadViews()
+  local gateView = RoundRobinGate {
+    name    = "Gates",
+    polygon = self.objects.op,
+    branch  = self.branches.rrGate,
+    voices  = self.voices
+  }
+
+  local pitchView = RoundRobinPitch {
+    name    = "V/Oct",
+    polygon = self.objects.op,
+    branch  = self.branches.rrVpo,
+    tune    = self.objects.rrVpo:getParameter("Bias"),
+    voices  = self.voices,
+    biasMap = Encoder.getMap("cents")
+  }
+
+  gateView:attachFollower(pitchView)
+  pitchView:attachFollower(gateView)
+
   return {
     wave1 = OutputScope {
       monitor = self,
       width   = 1 * app.SECTION_PLY
     },
-    rrGate = RoundRobinGate {
-      name    = "Gates",
-      polygon = self.objects.op,
-      branch  = self.branches.rrGate,
-      voices  = self.voices
-    },
-    rrVpo = RoundRobinPitch {
-      name    = "V/Oct",
-      polygon = self.objects.op,
-      branch  = self.branches.rrVpo,
-      tune    = self.objects.rrVpo:getParameter("Bias"),
-      voices  = self.voices,
-      biasMap = Encoder.getMap("cents")
-    },
+    rrGate = gateView,
+    rrVpo = pitchView,
     count   = GainBias {
       button        = "count",
       description   = "RR Count",
