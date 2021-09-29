@@ -10,6 +10,10 @@
 #include <hal/neon.h>
 #include <memory>
 
+#define BUILDOPT_VERBOSE
+#define BUILDOPT_DEBUG_LEVEL 10
+#include <hal/log.h>
+
 namespace voice {
 
   template <int GROUPS>
@@ -45,7 +49,7 @@ namespace voice {
     inline void process(
       const uint32_t gate,
       const RoundRobinConstants<GROUPS>& c,
-      uint32x4_t *out
+      std::array<uint32x4_t, GROUPS>& out
     ) {
       auto current = mCurrent;
       auto step = mTrigger.read(~gate);
@@ -80,42 +84,55 @@ namespace voice {
         float32x4_t fall,
         float32x4_t shapeEnv,
         float32x4_t levelEnv,
+        float32x4_t filterEnv,
+        float32x4_t resonance,
+        float32x4_t filterVpo,
         float32x4_t pan
       ) {
         mDetune.configure(detune);
+        mFilterMax.configure(filterEnv);
+        mFilterVpo.configure(filterVpo);
         mEnvCoeff.configure(rise, fall);
-        mAgcCoeff.configure(vdup_n_f32(globalConfig.samplePeriod), vget_low_f32(fall + rise));
+        mAgcCoeff.configure(vdup_n_f32(globalConfig.samplePeriod), vget_low_f32(fall));
         mShape = shape;
         mLevel = level;
         mShapeEnv = shapeEnv;
         mLevelEnv = levelEnv;
+        mResonance = util::simd::exp_n_scale(resonance, 0.70710678118f, 100.0f);
         mPan = pan;
       }
 
       util::four::Vpo mDetune;
+      util::four::Vpo mFilterMax;
+      util::four::Vpo mFilterVpo;
       env::four::Coefficients mEnvCoeff;
       env::two::Coefficients mAgcCoeff;
 
-      float32x4_t mShape;
-      float32x4_t mLevel;
-      float32x4_t mShapeEnv;
-      float32x4_t mLevelEnv;
-      float32x4_t mPan;
+      float32x4_t mShape = vdupq_n_f32(0);
+      float32x4_t mLevel = vdupq_n_f32(0);
+      float32x4_t mShapeEnv = vdupq_n_f32(0);
+      float32x4_t mLevelEnv = vdupq_n_f32(0);
+      float32x4_t mResonance = vdupq_n_f32(0);
+      float32x4_t mPan = vdupq_n_f32(0);
 
       inline float32x4_t cutoff(const float32x4_t env, const float32x4_t f0) const {
-        return f0 * env;
+        return mFilterMax.freqEnv(f0, env);
+      }
+
+      inline float32x4_t resonance() const {
+        return mResonance;
       }
 
       inline float32x4_t shape(const float32x4_t env) const {
-        return mShape + mShapeEnv * env;
+        return util::simd::clamp_unit(mShape + mShapeEnv * env);
       }
 
       inline float32x4_t level(const float32x4_t env) const {
-        return mLevel + mLevelEnv * env;
+        return util::simd::clamp_punit(mLevel + mLevelEnv * env);
       }
 
       inline float32x4_t pan(const float32x4_t offset) const {
-        return mPan + offset;
+        return util::simd::clamp_unit(mPan + offset);
       }
     };
 
@@ -131,7 +148,7 @@ namespace voice {
       }
 
       util::four::Vpo mVpo;
-      float32x4_t mPan;
+      float32x4_t mPan = vdupq_n_f32(0);
     };
 
     struct VoiceTrack {
@@ -144,18 +161,32 @@ namespace voice {
       ) {
         mVpo.track(gate, config.mVpo);
         mDetune.track(gate, shared.mDetune);
+        mFilterVpo.track(gate, shared.mFilterVpo);
         mPan = config.mPan;
         mEnvCoeff.track(gate, shared.mEnvCoeff);
       }
 
+      inline float32x4_t primaryDelta(const float32x4_t f0) const {
+        return mVpo.delta(f0);
+      }
+
+      inline float32x4_t secondaryDelta(const float32x4_t f0) const {
+        return mDetune.deltaOffset(f0, mVpo);
+      }
+
+      inline float32x4_t cutoff(const float32x4_t f0) const {
+        return util::simd::clamp_n(mFilterVpo.freq(f0), 1, globalConfig.sampleRate / 2);
+      }
+
       util::four::Vpo mVpo;
       util::four::Vpo mDetune;
-      float32x4_t mPan;
+      util::four::Vpo mFilterVpo;
+      float32x4_t mPan = vdupq_n_f32(0);
       env::four::Coefficients mEnvCoeff;
     };
 
     struct Pan {
-      inline float32x4x2_t process(
+      static inline float32x4x2_t process(
         const float32x4_t signal,
         const float32x4_t amount
       ) {
@@ -165,10 +196,10 @@ namespace voice {
         auto rightAmount = amount * half + half;
         auto leftAmount  = one - rightAmount;
 
-        float32x4x2_t output;
-        output.val[0] = signal * leftAmount;
-        output.val[1] = signal * rightAmount;
-        return output;
+        return {{
+          signal * leftAmount,
+          signal * rightAmount
+        }};
       }
     };
 
@@ -185,16 +216,12 @@ namespace voice {
 
         auto _sync = mSyncTrigger.read(sync);
 
-        auto t2p = osc::shape::TriangleToPulse {};
-        t2p.configure(shape);
+        const auto t2p = osc::shape::TriangleToPulse { shape };
 
-        auto primary = mPhase1.process(delta1, _sync);
-        primary      = t2p.process(primary);
-        primary      = primary * two - one;
-
+        auto primary   = mPhase1.process(delta1, _sync);
+        primary        = t2p.process(primary) * two - one;
         auto secondary = mPhase2.process(delta2, _sync);
-        secondary      = t2p.process(secondary);
-        secondary      = secondary * two - one;
+        secondary      = t2p.process(secondary) * two - one;
 
         auto mixScale = util::simd::invert(one + level);
         return (primary + secondary * level) * mixScale;
@@ -208,7 +235,7 @@ namespace voice {
     struct Voice {
       inline void track(
         const uint32x4_t gate,
-        const VoiceConfig &config,
+        const VoiceConfig& config,
         const SharedConfig& shared
       ) {
         mTracked.track(gate, config, shared);
@@ -221,30 +248,34 @@ namespace voice {
         const SharedConfig& shared
       ) {
         auto env = mEnvelope.process(gate, mTracked.mEnvCoeff);
+        auto pan = shared.pan(mTracked.mPan);
+
         mEnvLevel = env;
+        mEnvPanLevel = Pan::process(env, pan);
 
         mFilter.configure(
-          shared.cutoff(env, filterF0)
+          mTracked.cutoff(shared.cutoff(env, filterF0)),
+          shared.resonance()
         );
 
         auto mix = mOscillator.process(
-          mTracked.mVpo.delta(pitchF0),
-          mTracked.mDetune.deltaOffset(pitchF0, mTracked.mVpo),
+          mTracked.primaryDelta(pitchF0),
+          mTracked.secondaryDelta(pitchF0),
           shared.shape(env),
           shared.level(env),
           gate
         );
 
-        return mPan.process(
-          mFilter.process(mix * env),
-          shared.pan(mTracked.mPan)
-        );
+        auto filtered = mFilter.process(mix);
+        return Pan::process(filtered * env, pan);
       }
 
       float32x4_t mEnvLevel = vdupq_n_f32(0);
-      float32x4_t getEnvLevel() { return mEnvLevel; }
+      float32x4x2_t mEnvPanLevel = {{ vdupq_n_f32(0), vdupq_n_f32(0) }};
 
-      Pan mPan;
+      inline float32x4_t getEnvLevel() { return mEnvLevel; }
+      inline float32x4x2_t getEnvPanLevel() { return mEnvPanLevel; }
+
       Oscillator mOscillator;
       env::four::SlewEnvelope mEnvelope;
       filter::svf::four::Lowpass mFilter;
@@ -255,28 +286,44 @@ namespace voice {
   template <int GROUPS>
   struct MultiVoice {
     inline float32x2_t process(
-      const uint32x4_t* gates,
-      const four::VoiceConfig* configs,
+      const std::array<uint32x4_t, GROUPS>& gates,
+      const std::array<four::VoiceConfig, GROUPS>& configs,
       const float32x4_t pf0,
       const float32x4_t ff0,
       const float32x2_t gain,
       const uint32x2_t agcEnabled,
       const four::SharedConfig &shared
     ) {
+      float32x2_t envSum = vdup_n_f32(0);
       float32x2_t signal = vdup_n_f32(0);
       for (int i = 0; i < GROUPS; i++) {
-        mVoices[i].track(gates[i], configs[i], shared);
+        auto gate = gates[i];
+        auto config = configs[i];
+        four::Voice& v = voice(i);
 
-        auto out = mVoices[i].process(gates[i], pf0, ff0, shared);
+        v.track(gate, config, shared);
+
+        auto out = v.process(gate, pf0, ff0, shared);
         signal = vadd_f32(signal, util::simd::make_f32(
           util::simd::sumq_f32(out.val[0]),
           util::simd::sumq_f32(out.val[1])
         ));
+
+        auto envPan = v.getEnvPanLevel();
+        envSum = vadd_f32(envSum, util::simd::make_f32(
+          util::simd::sumq_f32(envPan.val[0]),
+          util::simd::sumq_f32(envPan.val[1])
+        ));
       }
 
-      auto agc = mAgcFollower.process(signal, shared.mAgcCoeff);
-      agc = vmax_f32(agc, vdup_n_f32(1));
-      agc = util::simd::invert2(agc);
+      signal = mDCBlocker.process(signal);
+
+      envSum = vmax_f32(envSum, vdup_n_f32(1));
+      auto agc = util::simd::invert2(envSum);
+
+      // auto agc = mAgcFollower.process(signal, shared.mAgcCoeff);
+      // agc = vmax_f32(agc, vdup_n_f32(1));
+      // agc = util::simd::invert2(agc);
       mAppliedAgc = agc;
 
       auto appliedGain = vbsl_f32(agcEnabled, vmul_f32(agc, gain), gain);
@@ -288,12 +335,17 @@ namespace voice {
       return util::toDecibels(vget_lane_f32(x, 0));
     }
 
-    inline float32x4_t envLevel(int group) {
-      return mVoices[group].getEnvLevel();
+    inline four::Voice& voice(int group) {
+      return mVoices[group % GROUPS];
+    }
+
+    inline float32x4_t envLevel(int g) {
+      return voice(g).getEnvLevel();
     }
 
     std::array<four::Voice, GROUPS> mVoices;
-    float32x2_t mAppliedAgc;
+    float32x2_t mAppliedAgc = vdup_n_f32(1);
     env::two::EnvFollower mAgcFollower;
+    filter::onepole::two::DCBlocker mDCBlocker;
   };
 }

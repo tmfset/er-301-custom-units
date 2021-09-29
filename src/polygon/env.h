@@ -9,8 +9,14 @@ namespace env {
   namespace four {
     inline float32x4_t slew_coeff(const float32x4_t time) {
       const auto sp = vdupq_n_f32(globalConfig.samplePeriod);
-      const auto timeI = util::simd::invert(vmaxq_f32(time, sp));
+      const auto timeI = util::simd::invert(vmaxq_f32(time, vdupq_n_f32(0.0005)));
       return util::simd::exp_f32(-sp * timeI);
+    }
+
+    inline float32x4_t rate_coeff(const float32x4_t time) {
+      const auto sp = vdupq_n_f32(globalConfig.samplePeriod);
+      const auto timeI = util::simd::invert(vmaxq_f32(time, sp));
+      return sp * timeI;
     }
 
     struct Coefficients {
@@ -34,6 +40,14 @@ namespace env {
         mFallCoeff.set(slew_coeff(fall));
       }
 
+      inline void configureRate(
+        const float32x4_t rise,
+        const float32x4_t fall
+      ) {
+        mRiseCoeff.set(rate_coeff(rise));
+        mFallCoeff.set(rate_coeff(fall));
+      }
+
       util::four::TrackAndHold mRiseCoeff { 0 };
       util::four::TrackAndHold mFallCoeff { 0 };
     };
@@ -43,15 +57,20 @@ namespace env {
         const uint32x4_t gate,
         const Coefficients& cf
       ) {
-        auto high = gate;
-        //auto reset  = vcgtq_f32(mValue, vdupq_n_f32(0.999));
-        //auto high   = mLatch.read(gate, reset);
+        //auto high = gate;
+        auto reset  = vcgtq_f32(mValue, vdupq_n_f32(0.632));
+        auto high   = mLatch.read(gate, reset);
 
         auto coeff  = cf.pick(high);
         auto target = vcvtq_n_f32_u32(high, 32);
 
-        mValue = target + coeff * (mValue - target);
-        //mValue = coeff * mValue + (one - coeff) * target;
+        // v = vc + t(1 - c)
+        // v = vc + t - tc
+        // v = t - tc + vc
+        // v = t - c(t - v)
+        mValue = target - coeff * (target - mValue);
+        //mValue = target + coeff * (mValue - target);
+        
         return mValue;
       }
 
@@ -72,6 +91,28 @@ namespace env {
         return mValue;
       }
 
+      float32x4_t mValue = vdupq_n_f32(0);
+    };
+
+    struct AttackDecay {
+      inline float32x4_t process(
+        const uint32x4_t gate,
+        const Coefficients& cf
+      ) {
+        auto target = vcvtq_n_f32_u32(mLatch.read(gate, vmvnq_u32(mRising)), 32);
+        auto rising   = vcgtq_f32(target, mValue);
+        mRising = rising;
+
+        auto distance = vabdq_f32(target, mValue);
+        auto limit    = cf.pick(rising);
+
+        auto delta   = vminq_f32(distance, limit);
+        mValue += vbslq_f32(rising, delta, -delta);;
+        return mValue * mValue * mValue;
+      }
+
+      util::four::Latch mLatch;
+      uint32x4_t mRising = vdupq_n_u32(0);
       float32x4_t mValue = vdupq_n_f32(0);
     };
   }

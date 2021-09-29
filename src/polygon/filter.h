@@ -14,21 +14,57 @@ namespace filter {
   // For reference, https://www.earlevel.com/main/2012/12/15/a-one-pole-filter/
   namespace onepole {
     namespace four {
-      struct Filter {
-        const float32x4_t npi2sp = vdupq_n_f32(-2.0f * M_PI * globalConfig.samplePeriod);
+      struct Lowpass {
+        const float32x4_t npi2 = vdupq_n_f32(-2.0f * M_PI);
+
+        inline Lowpass() {}
+        inline Lowpass(float f0) { setFrequency(vdupq_n_f32(f0)); }
 
         inline void setFrequency(float32x4_t f0) {
-          mCoeff = util::simd::exp_f32(f0 * npi2sp);
+          mB1 = util::simd::exp_f32(f0 * npi2);
+          mA0 = vdupq_n_f32(1.0f) - mB1;
         }
 
         inline float32x4_t process(const float32x4_t input) {
-          auto one = vdupq_n_f32(1.0f);
-          mZ1 = input * (one - mCoeff) + mZ1 * mCoeff;
+          mZ1 = input * mA0 + mZ1 * mB1;
           return mZ1;
         }
 
         float32x4_t mZ1 = vdupq_n_f32(0);
-        float32x4_t mCoeff;
+        float32x4_t mB1 = vdupq_n_f32(0);
+        float32x4_t mA0 = vdupq_n_f32(1);
+      };
+    }
+
+    namespace two {
+      struct Lowpass {
+        const float32x2_t npi2 = vdup_n_f32(-2.0f * M_PI);
+
+        inline Lowpass() {}
+        inline Lowpass(float f0) { setFrequency(vdup_n_f32(f0)); }
+
+        inline void setFrequency(float32x2_t f0) {
+          auto f = vmul_f32(f0, npi2);
+          mB1 = vget_low_f32(util::simd::exp_f32(vcombine_f32(f, f)));
+          mA0 = vsub_f32(vdup_n_f32(1.0f), mB1);
+        }
+
+        inline float32x2_t process(const float32x2_t input) {
+          mZ1 = vadd_f32(vmul_f32(input, mA0), vmul_f32(mZ1, mB1));
+          return mZ1;
+        }
+
+        float32x2_t mZ1 = vdup_n_f32(0);
+        float32x2_t mB1 = vdup_n_f32(0);
+        float32x2_t mA0 = vdup_n_f32(1);
+      };
+
+      struct DCBlocker {
+        inline float32x2_t process(const float32x2_t input) {
+          return vsub_f32(input, mFilter.process(input));
+        }
+
+        Lowpass mFilter { 10.0f / (float)globalConfig.sampleRate };
       };
     }
 
@@ -59,25 +95,24 @@ namespace filter {
   namespace svf {
     namespace four {
       struct Coefficients {
-        inline void configure(const float32x4_t f0) {
-          auto freq = vmaxq_f32(f0, vdupq_n_f32(1));
-          mK = util::simd::invert(vdupq_n_f32(0.70710678118f));
+        inline void configure(float32x4_t f0, float32x4_t q) {
+          mK = util::simd::invert(q);
 
-          auto g = util::simd::tan(freq * vdupq_n_f32(M_PI * globalConfig.samplePeriod));
+          auto g = util::simd::tan(f0 * vdupq_n_f32(M_PI * globalConfig.samplePeriod));
           mA1 = util::simd::invert(vmlaq_f32(vdupq_n_f32(1.0f), g, g + mK));
           mA2 = g * mA1;
           mA3 = g * mA2;
         }
 
-        float32x4_t mA1;
-        float32x4_t mA2;
-        float32x4_t mA3;
-        float32x4_t mK;
+        float32x4_t mA1 = vdupq_n_f32(0);
+        float32x4_t mA2 = vdupq_n_f32(0);
+        float32x4_t mA3 = vdupq_n_f32(0);
+        float32x4_t mK = vdupq_n_f32(0);
       };
 
       struct Lowpass {
-        inline void configure(const float32x4_t f0) {
-          mCf.configure(f0);
+        inline void configure(float32x4_t f0, float32x4_t q) {
+          mCf.configure(f0, q);
         }
 
         inline float32x4_t process(

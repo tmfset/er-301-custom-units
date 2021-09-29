@@ -46,7 +46,7 @@ namespace polygon {
 
         const Box world     = Box::lbwh(mWorldLeft, mWorldBottom, mWidth, mHeight);
         const Box leftPane  = world.divideLeft(0.3f).inner(0, 5);
-        const Box rightPane = world.divideRight(0.7f).inner(0, 0).padRight(4);
+        const Box rightPane = world.divideRight(0.7f).inner(0, 0).padRight(6);
 
         fb.vline(sColor(0), leftPane.centerX, leftPane.bottom, leftPane.top);
         fb.hline(sColor(0), leftPane.centerX - 2, leftPane.centerX + 2, leftPane.bottom);

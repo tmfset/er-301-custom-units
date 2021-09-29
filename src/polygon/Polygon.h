@@ -8,6 +8,7 @@
 #include <sstream>
 #include "util.h"
 #include "Observable.h"
+#include "filter.h"
 
 #define BUILDOPT_VERBOSE
 #define BUILDOPT_DEBUG_LEVEL 10
@@ -26,7 +27,7 @@ namespace polygon {
     public:
       Polygon() {
         for (int i = 0; i < GROUPS; i++) {
-          mGroups[i].init(*this, i);
+          group(i).init(*this, i);
         }
 
         addOutput(mOutLeft);
@@ -36,7 +37,13 @@ namespace polygon {
         addParameter(mAgc);
 
         addInput(mPitchF0);
-        addInput(mPeak);
+        addInput(mFilterF0);
+
+        addOption(mFilterTrack);
+        addParameter(mFilterVpo);
+        addParameter(mFilterEnv);
+        addParameter(mResonance);
+
         addParameter(mRise);
         addParameter(mFall);
 
@@ -73,8 +80,8 @@ namespace polygon {
         auto agcEnabled = vdup_n_u32(util::bcvt(isAgcEnabled()));
         auto vpoTracked = isVpoTracked();
 
-        auto pitchF0 = mPitchF0.buffer();
-        auto peak    = mPeak.buffer();
+        auto pitchF0  = mPitchF0.buffer();
+        auto filterF0 = mFilterF0.buffer();
 
         const auto rrConst = voice::RoundRobinConstants<GROUPS> {
           (int)mRRTotal.value(),
@@ -91,57 +98,62 @@ namespace polygon {
           vdupq_n_f32(mFall.value()),
           vdupq_n_f32(mShapeEnv.value()),
           vdupq_n_f32(mLevelEnv.value()),
+          vdupq_n_f32(mFilterEnv.value()),
+          vdupq_n_f32(mResonance.value()),
+          vdupq_n_f32(mFilterVpo.value()),
           vdupq_n_f32(mPanOffset.value())
         };
 
         const auto rrGate = mRRGate.buffer();
-        const auto rrManualGate = mManualRRGate;
+        const uint32_t rrManualGate = mManualRRGate;
         const auto gateThresh = mGateThresh.value();
 
         const auto panOffset = mPanOffset.value();
         const auto panWidth  = mPanWidth.value();
 
-        auto rrOffsetAll = vdupq_n_f32(0);
-
-        if (vpoTracked) {
-          markVpoOffset(mRoundRobin.mCurrent, mRRVpo.value());
-        } else {
-          rrOffsetAll = vdupq_n_f32(mRRVpo.value());
-        }
+        const auto rrVpo = mRRVpo.value();
+        const auto rrOffsetAll = vdupq_n_f32(vpoTracked ? 0 : rrVpo);
+        if (vpoTracked) markVpoOffset(mRoundRobin.mCurrent, rrVpo);
 
         mAgc.hardSet(mVoices.agcDb());
 
-        uint32x4_t manualGates[GROUPS];
-        voice::four::VoiceConfig configs[GROUPS];
+        std::array<uint32x4_t, GROUPS> manualGates;
+        std::array<voice::four::VoiceConfig, GROUPS> configs;
+
+        const bool releaseRequested = mReleaseManualGatesRequested;
+        if (releaseRequested) mManualRRGate = 0;
+
         for (int i = 0; i < GROUPS; i++) {
           Group &g = group(i);
 
           g.markEnvLevel(mVoices.envLevel(i));
 
           manualGates[i] = g.manualGate();
-          configs[i] = voice::four::VoiceConfig { rrOffsetAll + g.vpo(), g.pan(panOffset, panWidth) };
+          configs[i] = voice::four::VoiceConfig {
+            rrOffsetAll + g.vpo(),
+            g.pan(panOffset, panWidth)
+          };
 
-          if (mReleaseManualGatesRequested) {
-            mManualRRGate = 0;
-            g.clearManualGates();
-          }
+          if (releaseRequested) { g.clearManualGates(); }
         }
 
         mReleaseManualGatesRequested = false;
 
+        auto _gateThresh = vdupq_n_f32(gateThresh);
+
         for (int i = 0; i < FRAMELENGTH; i++) {
-          uint32x4_t _gates[GROUPS];
+          std::array<uint32x4_t, GROUPS> _gates;
           const uint32_t _rrGate = util::fcgt(rrGate[i], gateThresh) | rrManualGate;
           mRoundRobin.process(_rrGate, rrConst, _gates);
 
           for (int j = 0; j < GROUPS; j++) {
-            auto offset = j * LANES;
+            const auto offset = j * LANES;
             _gates[j] = _gates[j] | manualGates[j] | vcgtq_f32(
               util::simd::makeq_f32(
                 gates[offset + 0][i], gates[offset + 1][i],
                 gates[offset + 2][i], gates[offset + 3][i]
               ),
-              vdupq_n_f32(gateThresh)
+              _gateThresh
             );
           }
 
@@ -149,7 +161,7 @@ namespace polygon {
             _gates,
             configs,
             vdupq_n_f32(pitchF0[i]),
-            vdupq_n_f32(peak[i]),
+            vdupq_n_f32(filterF0[i]),
             gain,
             agcEnabled,
             sharedConfig
@@ -167,13 +179,19 @@ namespace polygon {
       od::Parameter mAgc        { "AGC" };
 
       od::Inlet     mPitchF0    { "Pitch Fundamental" };
-      od::Inlet     mPeak       { "Peak" };
+      od::Inlet     mFilterF0   { "Filter Fundamental" };
+
+      od::Option    mFilterTrack { "Filter Tracking" };
+      od::Parameter mFilterVpo   { "Filter V/Oct" };
+      od::Parameter mFilterEnv   { "Filter Env" };
+      od::Parameter mResonance   { "Resonance" };
+
       od::Parameter mRise       { "Rise" };
       od::Parameter mFall       { "Fall" };
 
       od::Inlet     mRRGate     { "RR Gate" };
       od::Parameter mRRVpo      { "RR V/Oct" };
-      od::Option    mRRVpoTrack { "RR V/Oct Track", 1 };
+      od::Option    mRRVpoTrack { "RR V/Oct Track", 2 };
       od::Parameter mRRCount    { "RR Count", 1 };
       od::Parameter mRRStride   { "RR Stride", 1 };
       od::Parameter mRRTotal    { "RR Total", VOICES };
@@ -238,6 +256,10 @@ namespace polygon {
       return mRRVpoTrack.value() == 1;
     }
 
+    bool isFilterTracked() {
+      return mFilterTrack.value() == 1;
+    }
+
     bool isAgcEnabled() {
       return mAgcEnabled.value() == 1;
     }
@@ -293,62 +315,62 @@ namespace polygon {
       class Group {
         public:
           inline void init(Polygon &obj, int group) {
-            for (int i = 0; i < LANES; i++) {
-              mVoices[i].init(obj, group, i);
+            for (int lane = 0; lane < LANES; lane++) {
+              voice(lane).init(obj, group, lane);
             }
           }
 
-          Voice& voice(int lane) {
+          inline Voice& voice(int lane) {
             return mVoices[lane % LANES];
           }
 
           inline float32x4_t vpo() {
             float _vpo[LANES];
-            for (int i = 0; i < LANES; i++) {
-              _vpo[i] = mVoices[i].vpo();
+            for (int lane = 0; lane < LANES; lane++) {
+              _vpo[lane] = voice(lane).vpo();
             }
             return vld1q_f32(_vpo);
           }
 
           inline float32x4_t pan(float offset, float width) {
             float _pan[LANES];
-            for (int i = 0; i < LANES; i++) {
-              _pan[i] = mVoices[i].pan(offset, width);
+            for (int lane = 0; lane < LANES; lane++) {
+              _pan[lane] = voice(lane).pan(offset, width);
             }
             return vld1q_f32(_pan);
           }
 
           inline uint32x4_t manualGate() {
             uint32_t _gates[LANES];
-            for (int i = 0; i < LANES; i++) {
-              _gates[i] = mVoices[i].manualGate();
+            for (int lane = 0; lane < LANES; lane++) {
+              _gates[lane] = voice(lane).manualGate();
             }
             return vld1q_u32(_gates);
           }
 
           inline float32_t getEnvLevel(int lane) {
-            return mVoices[lane].envLevel();
+            return voice(lane).envLevel();
           }
 
           inline void markEnvLevel(float32x4_t env) {
             float _env[LANES];
             vst1q_f32(_env, env);
-            for (int i = 0; i < LANES; i++) {
-              mVoices[i].markEnvLevel(_env[i]);
+            for (int lane = 0; lane < LANES; lane++) {
+              voice(lane).markEnvLevel(_env[lane]);
             }
           }
 
           inline void markManualGate(int lane) {
-            mVoices[lane].markManualGate();
+            voice(lane).markManualGate();
           }
 
           inline void markVpoOffset(int lane, float value) {
-            mVoices[lane].markVpoOffset(value);
+            voice(lane).markVpoOffset(value);
           }
 
           inline void clearManualGates() {
-            for (int i = 0; i < LANES; i++) {
-              mVoices[i].clearManualGate();
+            for (int lane = 0; lane < LANES; lane++) {
+              voice(lane).clearManualGate();
             }
           }
 
@@ -361,7 +383,7 @@ namespace polygon {
 
       std::array<Group, GROUPS> mGroups;
       voice::RoundRobin<GROUPS> mRoundRobin;
-      voice::RoundRobinConstants<GROUPS> mRoundRobinConst { GROUPS * 4, 1, 1 };
+      voice::RoundRobinConstants<GROUPS> mRoundRobinConst { VOICES, 1, 1 };
       voice::MultiVoice<GROUPS> mVoices;
 
       inline Group& group(int index) {

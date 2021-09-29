@@ -692,7 +692,7 @@ namespace util {
 
       inline float32x4_t value() const { return mValue; }
 
-      float32x4_t mValue;
+      float32x4_t mValue = vdupq_n_f32(0);
     };
 
     struct Latch {
@@ -726,6 +726,10 @@ namespace util {
 
       inline float32x4_t freq(const float32x4_t f0) const {
         return f0 * mScale.value();
+      }
+
+      inline float32x4_t freqEnv(const float32x4_t f0, const float32x4_t env) const {
+        return f0 * util::simd::lerp(vdupq_n_f32(1), mScale.value(), env);
       }
 
       inline float32x4_t delta(const float32x4_t f0) const {
