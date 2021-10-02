@@ -81,6 +81,8 @@ function Polygon:addVoiceControl(n, op)
 end
 
 function Polygon:onLoadGraph(channelCount)
+  self.isStereo = channelCount == 2
+
   local op = self:addObject("op", self.ctor())
 
   for i = 1, op:voices() do
@@ -123,10 +125,15 @@ function Polygon:onLoadGraph(channelCount)
   tie(op,  "Shape Env", senv, "Out")
   tie(op, "Filter Env", fenv, "Out")
 
-  local pan   = self:addParameterAdapterControl("pan")
-  local width = self:addParameterAdapterControl("width")
-  tie(op, "Pan Offset", pan,   "Out")
-  tie(op, "Pan Width",  width, "Out")
+  if self.isStereo then
+    local pan   = self:addParameterAdapterControl("pan")
+    local width = self:addParameterAdapterControl("width")
+    tie(op, "Pan Offset", pan,   "Out")
+    tie(op, "Pan Width",  width, "Out")
+  else
+    op:getParameter("Pan Offset"):hardSet(-1)
+    op:getParameter("Pan Width"):hardSet(0)
+  end
 
   for i = 1, channelCount do
     connect(op, "Out"..i, self, "Out"..i)
@@ -154,32 +161,24 @@ function Polygon.defaultDecibelMap()
 end
 
 function Polygon:onLoadViews()
-  local gateView = RoundRobinGate {
-    name    = "Gates",
-    polygon = self.objects.op,
-    branch  = self.branches.gate,
-    voices  = self.voices
+  local views = {
+    scope     = { "gate", "vpo", "pf0", "ff0", "shape", "detune", "rise", "fall" },
+    expanded  = { "gate", "vpo", "shape", "detune", "fall", "ff0", "output" },
+    collapsed = { "gate", "vpo" },
+
+    gate      = { "gate",   "wave1", "count", "stride", "total" },
+    vpo       = { "vpo",    "wave1", "pf0" },
+    shape     = { "shape",  "wave1", "senv" },
+    detune    = { "detune", "wave1", "level", "lenv" },
+    fall      = { "fall",   "wave1", "rise" },
+    ff0       = { "ff0",    "wave1", "fvpo", "fenv", "resonance" }
   }
 
-  local pitchView = RoundRobinPitch {
-    name    = "V/Oct",
-    polygon = self.objects.op,
-    branch  = self.branches.vpo,
-    tune    = self.objects.vpo:getParameter("Bias"),
-    voices  = self.voices,
-    biasMap = Encoder.getMap("cents")
-  }
-
-  gateView:attachFollower(pitchView)
-  pitchView:attachFollower(gateView)
-
-  return {
+  local controls = {
     wave1 = OutputScope {
       monitor = self,
       width   = 1 * app.SECTION_PLY
     },
-    gate    = gateView,
-    vpo     = pitchView,
     count   = GainBias {
       button        = "count",
       description   = "RR Count",
@@ -313,7 +312,7 @@ function Polygon:onLoadViews()
       biasMap       = Encoder.getMap("[-1,1]"),
       biasUnits     = app.unitNone,
       biasPrecision = 2,
-      initialBias   = -0.1
+      initialBias   = 0
     },
     senv   = GainBias {
       button        = "senv",
@@ -324,7 +323,7 @@ function Polygon:onLoadViews()
       biasMap       = Encoder.getMap("[-1,1]"),
       biasUnits     = app.unitNone,
       biasPrecision = 2,
-      initialBias   = -0.5
+      initialBias   = -0.2
     },
     fenv   = GainBias {
       button        = "fenv",
@@ -335,29 +334,7 @@ function Polygon:onLoadViews()
       biasMap       = Encoder.getMap("[-1,1]"),
       biasUnits     = app.unitNone,
       biasPrecision = 2,
-      initialBias   = 0.05
-    },
-    pan   = GainBias {
-      button        = "pan",
-      description   = "Pan Offset",
-      branch        = self.branches.pan,
-      gainbias      = self.objects.pan,
-      range         = self.objects.pan,
-      biasMap       = Encoder.getMap("[-1,1]"),
-      biasUnits     = app.unitNone,
-      biasPrecision = 2,
-      initialBias   = 0
-    },
-    width   = GainBias {
-      button        = "width",
-      description   = "Pan Width",
-      branch        = self.branches.width,
-      gainbias      = self.objects.width,
-      range         = self.objects.width,
-      biasMap       = Encoder.getMap("[-1,1]"),
-      biasUnits     = app.unitNone,
-      biasPrecision = 2,
-      initialBias   = 0
+      initialBias   = 0.2
     },
     output = OutputMeter {
       button       = "output",
@@ -368,27 +345,60 @@ function Polygon:onLoadViews()
       units        = app.unitDecibels,
       scaling      = app.linearScaling
     }
-  }, {
-    scope     = {
-      "gate", "vpo", "fvpo",
-      "count", "stride", "total",
-      "pf0", "ff0",
-      "shape", "detune", "level",
-      "rise", "fall",
-      "lenv", "senv", "fenv",
-      "pan", "width"
-    },
-    expanded  = { "gate", "vpo", "shape", "detune", "fall", "ff0", "output" },
-    collapsed = { "gate", "vpo" },
-
-    gate      = { "gate",   "wave1", "count", "stride", "total" },
-    vpo       = { "vpo",    "wave1", "pf0" },
-    shape     = { "shape",  "wave1", "senv" },
-    detune    = { "detune", "wave1", "level", "lenv" },
-    fall      = { "fall",   "wave1", "rise" },
-    ff0       = { "ff0",    "wave1", "fvpo", "fenv", "resonance" },
-    output    = { "output", "wave1", "pan", "width" }
   }
+
+  controls.gate = RoundRobinGate {
+    name    = "gate",
+    polygon = self.objects.op,
+    branch  = self.branches.gate,
+    voices  = self.voices
+  }
+
+  controls.vpo = RoundRobinPitch {
+    name    = "vpo",
+    polygon = self.objects.op,
+    branch  = self.branches.vpo,
+    tune    = self.objects.vpo:getParameter("Bias"),
+    voices  = self.voices,
+    biasMap = Encoder.getMap("cents")
+  }
+
+  controls.gate:attachFollower(controls.vpo)
+  controls.vpo:attachFollower(controls.gate)
+
+  if self.isStereo then
+    controls.pan = GainBias {
+      button        = "pan",
+      description   = "Pan Offset",
+      branch        = self.branches.pan,
+      gainbias      = self.objects.pan,
+      range         = self.objects.pan,
+      biasMap       = Encoder.getMap("[-1,1]"),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = 0
+    }
+
+    controls.width = GainBias {
+      button        = "width",
+      description   = "Pan Width",
+      branch        = self.branches.width,
+      gainbias      = self.objects.width,
+      range         = self.objects.width,
+      biasMap       = Encoder.getMap("[-1,1]"),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = 0.2
+    }
+
+    views.output = { "output", "wave1", "pan", "width" }
+    views.scope[#views.scope + 1] = "pan"
+    views.scope[#views.scope + 1] = "width"
+  else
+    views.output = { "output", "wave1" }
+  end
+
+  return controls, views
 end
 
 return Polygon

@@ -17,13 +17,14 @@ RoundRobinGate:include(Base)
 function RoundRobinGate:init(args)
   Base.init(self, args)
   self.polygon = args.polygon or app.logError("%s.init: missing polygon instance.", self)
+  self.branch = args.branch or app.logError("%s.init: missing branch.", self)
 
   local threshold = self.polygon:getParameter("Gate Threshold")
   local onReleaseFire = function () self.polygon:releaseManualGates() end
 
   self:addSubView(GateSubView {
     name          = "Round Robin",
-    branch        = args.branch,
+    branch        = self.branch,
     threshold     = threshold,
     onPressFire   = function () self.polygon:markRRManualGate() end,
     onReleaseFire = onReleaseFire

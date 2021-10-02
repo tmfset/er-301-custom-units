@@ -18,11 +18,13 @@ RoundRobinPitch:include(Base)
 function RoundRobinPitch:init(args)
   Base.init(self, args)
   self.polygon = args.polygon or app.logError("%s.init: missing polygon instance.", self)
+  self.branch = args.branch or app.logError("%s.init: missing branch.", self)
+
   local biasMap = args.biasMap or app.logError("%s.init: missing bias map.", self)
 
   self:addSubView(PitchTrackSubView {
     name   = "Round Robin",
-    branch = args.branch,
+    branch = self.branch,
     tune   = args.tune,
     option = self.polygon:getOption("RR V/Oct Track")
   })
