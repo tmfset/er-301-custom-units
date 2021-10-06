@@ -1,13 +1,13 @@
-local app = app
+local app     = app
 local polygon = require "polygon.libpolygon"
-local Class = require "Base.Class"
-local Base = require "Unit.ViewControl.EncoderControl"
+local Class   = require "Base.Class"
+local Base    = require "polygon.SplitViewControl"
 
 local PagedViewControl = Class {}
 PagedViewControl:include(Base)
 
 function PagedViewControl:init(args)
-  Base.init(self, args.name)
+  Base.init(self, args)
 
   self.subViews       = {}
   self.pages          = {}
@@ -17,7 +17,7 @@ function PagedViewControl:init(args)
 end
 
 function PagedViewControl:attachFollower(follower)
-  self.follower = follower;
+  self.follower = follower
 end
 
 function PagedViewControl:updateFollower(pageIndex)
@@ -41,41 +41,9 @@ function PagedViewControl:addSubView(subView)
   self.subGraphic:addChild(subView.graphic)
 end
 
-function PagedViewControl:currentSubView()
+function PagedViewControl:subView()
   local currentPage = self.subGraphic:currentPage()
   return self.subViews[currentPage + 1]
-end
-
-function PagedViewControl:onFocused()
-  self:currentSubView():onFocused()
-  Base.onFocused(self)
-end
-
-function PagedViewControl:onCursorEnter()
-  self:currentSubView():onCursorEnter()
-  Base.onCursorEnter(self)
-end
-
-function PagedViewControl:zeroPressed()
-  return self:currentSubView():zeroPressed()
-end
-
-function PagedViewControl:cancelReleased()
-  return self:currentSubView():cancelReleased()
-end
-
-function PagedViewControl:subReleased(i, shifted)
-  if shifted then return false end
-  return self:currentSubView():subReleased(i, shifted)
-end
-
-function PagedViewControl:subPressed(i, shifted)
-  if shifted then return false end
-  return self:currentSubView():subPressed(i)
-end
-
-function PagedViewControl:encoder(change, shifted)
-  return self:currentSubView():encoder(change, shifted)
 end
 
 function PagedViewControl:getFloatingMenuItems()
@@ -106,11 +74,6 @@ end
 function PagedViewControl:onFloatingMenuSelection(choice)
   self:updatePageIndex(self:getPageIndex(choice), true)
   self:focus()
-end
-
-function PagedViewControl:unfocusSubView()
-  self:currentSubView():setFocusedPosition(nil)
-  self:unfocus()
 end
 
 function PagedViewControl:updatePageIndex(pageIndex, propogate)
