@@ -2,16 +2,16 @@ local app     = app
 local Class   = require "Base.Class"
 local Encoder = require "Encoder"
 
-local Base           = require "polygon.SubView"
-local SubViewReadout = require "polygon.SubViewReadout"
-local SubViewChain   = require "polygon.SubViewChain"
+local Base       = require "polygon.SubView"
+local SubReadout = require "polygon.SubReadout"
+local SubChain   = require "polygon.SubChain"
 
 local col2 = app.BUTTON2_CENTER
 local col3 = app.BUTTON3_CENTER
 local col2h = col2 + (col3 - col2) / 2
 
-local PitchSubView = Class {}
-PitchSubView:include(Base)
+local SubPitchView = Class {}
+SubPitchView:include(Base)
 
 local overlay = (function ()
   local instructions = app.DrawingInstructions()
@@ -43,7 +43,7 @@ local overlay = (function ()
   return instructions
 end)()
 
-function PitchSubView:addDrawing()
+function SubPitchView:addDrawing()
   local drawing = app.Drawing(0, 0, 128, 64)
   drawing:add(overlay)
   self.graphic:addChild(drawing)
@@ -59,12 +59,12 @@ function PitchSubView:addDrawing()
   self.graphic:addChild(v)
 end
 
-function PitchSubView:init(args)
+function SubPitchView:init(args)
   Base.init(self, args)
 
   self:addDrawing()
 
-  SubViewChain {
+  SubChain {
     parent   = self,
     position = 1,
     name     = "empty",
@@ -73,7 +73,7 @@ function PitchSubView:init(args)
     row      = app.GRID5_LINE4
   }
 
-  SubViewReadout {
+  SubReadout {
     parent        = self,
     position      = 2,
     name          = "tune",
@@ -88,9 +88,9 @@ function PitchSubView:init(args)
   }
 end
 
-function PitchSubView:onFocused()
+function SubPitchView:onFocused()
   self:setFocusedPosition(2)
   Base.onFocused(self)
 end
 
-return PitchSubView
+return SubPitchView

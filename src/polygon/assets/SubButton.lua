@@ -1,14 +1,14 @@
 local app = app
 local Class = require "Base.Class"
-local Base = require "polygon.SubViewControl"
+local Base = require "polygon.SubControl"
 
-local SubViewButton = Class {}
-SubViewButton:include(Base)
+local SubButton = Class {}
+SubButton:include(Base)
 
-function SubViewButton:init(args)
+function SubButton:init(args)
   Base.init(self, args)
   self.onPress   = args.onPress or self.onPress
   self.onRelease = args.onRelease or self.onRelease
 end
 
-return SubViewButton
+return SubButton

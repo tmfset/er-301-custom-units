@@ -1,11 +1,11 @@
 local app   = app
 local Class = require "Base.Class"
-local Base  = require "polygon.SubViewControl"
+local Base  = require "polygon.SubControl"
 
-local SubViewToggle = Class {}
-SubViewToggle:include(Base)
+local SubToggle = Class {}
+SubToggle:include(Base)
 
-function SubViewToggle:init(args)
+function SubToggle:init(args)
   Base.init(self, args)
   self.option = args.option
   self.option:enableSerialization()
@@ -26,16 +26,16 @@ function SubViewToggle:init(args)
   self:addGraphic(self.indicator)
 end
 
-function SubViewToggle:onCursorEnter()
+function SubToggle:onCursorEnter()
   self:updateViewState()
   return Base.onCursorEnter(self)
 end
 
-function SubViewToggle:isOn()
+function SubToggle:isOn()
   return self.option:value() == self.valueOn
 end
 
-function SubViewToggle:toggle()
+function SubToggle:toggle()
   if self:isOn() then
     self.option:set(self.valueOff)
   else
@@ -43,7 +43,7 @@ function SubViewToggle:toggle()
   end
 end
 
-function SubViewToggle:updateViewState()
+function SubToggle:updateViewState()
   if self:isOn() then
     self.indicator:on()
   else
@@ -51,4 +51,4 @@ function SubViewToggle:updateViewState()
   end
 end
 
-return SubViewToggle
+return SubToggle

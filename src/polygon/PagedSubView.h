@@ -24,31 +24,45 @@ namespace polygon {
       }
 
     private:
-       void draw(od::FrameBuffer &fb) {
-         mFrame = (mFrame + 1) % 20;
-         const auto pad = 3.0f;
-         const auto size = 3.0f;
-         const auto center = mHeight / 2.0f;
+      void draw(od::FrameBuffer &fb) {
+        advanceFrame();
+        mPageSlew.process(mPage);
 
-         mPageSlew.process(mPage);
+        const int pageCount   = mChildren.size();
+        const int isMultiPage = pageCount > 1;
+        for (int i = 0; i < pageCount; i++) {
+          if (isMultiPage) drawPageIndicator(fb, WHITE, i);
+          mChildren[i]->setPosition(0, (mPageSlew.value() - i) * (mHeight + 1));
+        }
 
-         for (int i = 0; i < (int)mChildren.size(); i++) {
-           auto pageOffset = mPage - i;
+        od::Graphic::draw(fb);
+      }
 
-           if (pageOffset == 0 && (mFrame % 2) == 0) {
-             fb.fillCircle(WHITE, mWidth, center, size);
-           } else {
-             fb.circle(WHITE, mWidth, center + pageOffset * (size * 2.0f + pad), size);
-           }
+      inline void drawPageIndicator(od::FrameBuffer &fb, int color, int page) const {
+        const auto pad    = 3.0f;
+        const auto size   = 3.0f;
+        const auto center = mHeight / 2.0f;
 
-           mChildren[i]->setPosition(0, (mPageSlew.value() - i) * (mHeight + 1));
-         }
+        const auto offset    = mPage - page;
+        const auto isCurrent = offset == 0;
 
-         od::Graphic::draw(fb);
-       }
+        if (isCurrent && isEvenFrame()) {
+          fb.fillCircle(color, mWidth, center, size);
+        } else {
+          fb.circle(color, mWidth, center + offset * (size * 2.0f + pad), size);
+        }
+      }
 
-       int mPage = 0;
-       int mFrame = 0;
-       slew::Slew mPageSlew;
+      inline void advanceFrame() {
+        mFrame = (mFrame + 1) % 20;
+      }
+
+      inline bool isEvenFrame() const {
+        return (mFrame % 2) == 0;
+      }
+
+      int mPage = 0;
+      int mFrame = 0;
+      slew::Slew mPageSlew;
   };
 }

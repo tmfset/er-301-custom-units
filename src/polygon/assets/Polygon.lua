@@ -10,9 +10,10 @@ local GainBias    = require "Unit.ViewControl.GainBias"
 local Pitch       = require "Unit.ViewControl.Pitch"
 local OutputScope = require "Unit.ViewControl.OutputScope"
 
-local OutputMeter    = require "polygon.OutputMeter"
+local OutputMeter     = require "polygon.OutputMeter"
 local RoundRobinGate  = require "polygon.RoundRobinGate"
 local RoundRobinPitch = require "polygon.RoundRobinPitch"
+local TrackablePitch  = require "polygon.TrackablePitch"
 
 local Polygon = Class {}
 Polygon:include(Unit)
@@ -107,11 +108,11 @@ function Polygon:onLoadGraph(channelCount)
   tie(op, "RR Stride", stride, "Out")
   tie(op, "RR Total",  total,  "Out")
 
-  local fvpo     = self:addParameterAdapterControl("fvpo", 1)
+  local fvpo      = self:addParameterAdapterControl("fvpo", 1)
   local resonance = self:addParameterAdapterControl("resonance")
-  local detune   = self:addParameterAdapterControl("detune", 1)
-  local level    = self:addParameterAdapterControl("level")
-  local shape    = self:addParameterAdapterControl("shape")
+  local detune    = self:addParameterAdapterControl("detune", 1)
+  local level     = self:addParameterAdapterControl("level")
+  local shape     = self:addParameterAdapterControl("shape")
   tie(op, "Filter V/Oct", fvpo, "Out")
   tie(op, "Resonance", resonance, "Out")
   tie(op, "Detune", detune, "Out")
@@ -256,13 +257,21 @@ function Polygon:onLoadViews()
       biasUnits   = app.unitSecs,
       initialBias = 0.500
     },
-    fvpo   = Pitch {
-      button      = "fvpo",
+    fvpo = TrackablePitch {
+      name        = "fvpo",
       branch      = self.branches.fvpo,
       description = "Filter V/Oct",
       offset      = self.objects.fvpo,
-      range       = self.objects.fvpo
+      range       = self.objects.fvpo,
+      track       = self.objects.op:getOption("Filter Tracking")
     },
+    -- fvpo   = Pitch {
+    --   button      = "fvpo",
+    --   branch      = self.branches.fvpo,
+    --   description = "Filter V/Oct",
+    --   offset      = self.objects.fvpo,
+    --   range       = self.objects.fvpo
+    -- },
     resonance   = GainBias {
       button        = "res",
       description   = "Resonance",

@@ -77,8 +77,9 @@ namespace polygon {
         auto outLeft    = mOutLeft.buffer();
         auto outRight   = mOutRight.buffer();
         auto gain       = vdup_n_f32(mGain.value());
-        auto agcEnabled = vdup_n_u32(util::bcvt(isAgcEnabled()));
-        auto vpoTracked = isVpoTracked();
+
+        auto agcEnabled    = vdup_n_u32(util::bcvt(isAgcEnabled()));
+        auto vpoTracked    = isVpoTracked();
 
         auto pitchF0  = mPitchF0.buffer();
         auto filterF0 = mFilterF0.buffer();
@@ -101,7 +102,8 @@ namespace polygon {
           vdupq_n_f32(mFilterEnv.value()),
           vdupq_n_f32(mResonance.value()),
           vdupq_n_f32(mFilterVpo.value()),
-          vdupq_n_f32(mPanOffset.value())
+          vdupq_n_f32(mPanOffset.value()),
+          vdupq_n_u32(util::bcvt(isFilterTracked()))
         };
 
         const auto rrGate = mRRGate.buffer();
@@ -181,7 +183,7 @@ namespace polygon {
       od::Inlet     mPitchF0    { "Pitch Fundamental" };
       od::Inlet     mFilterF0   { "Filter Fundamental" };
 
-      od::Option    mFilterTrack { "Filter Tracking" };
+      od::Option    mFilterTrack { "Filter Tracking", 2 };
       od::Parameter mFilterVpo   { "Filter V/Oct" };
       od::Parameter mFilterEnv   { "Filter Env" };
       od::Parameter mResonance   { "Resonance" };
