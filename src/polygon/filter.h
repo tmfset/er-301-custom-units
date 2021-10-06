@@ -64,7 +64,7 @@ namespace filter {
           return vsub_f32(input, mFilter.process(input));
         }
 
-        Lowpass mFilter { 10.0f / (float)globalConfig.sampleRate };
+        Lowpass mFilter { 1.0f / (float)globalConfig.sampleRate };
       };
     }
 

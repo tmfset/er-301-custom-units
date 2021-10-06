@@ -64,6 +64,30 @@ namespace osc {
       float32x4_t mPhase = vdupq_n_f32(0);
     };
 
+    struct PhaseReverseSync {
+      inline float32x4_t process(
+        const float32x4_t delta,
+        const uint32x4_t sync
+      ) {
+        auto zero = vdupq_n_f32(0);
+        auto one = vdupq_n_f32(1);
+
+        auto reverse = mReverse;
+        reverse = vbslq_u32(sync, vmvnq_u32(reverse), reverse);
+
+        auto offset = vbslq_f32(reverse, -delta, delta);
+        auto p = mPhase + offset;
+        p = p - util::simd::floor(p - vbslq_f32(reverse, one, zero));
+
+        mReverse = reverse;
+        mPhase = p;
+        return p;
+      }
+
+      uint32x4_t  mReverse = vdupq_n_u32(0);
+      float32x4_t mPhase = vdupq_n_f32(0);
+    };
+
   }
 
   struct SubPhase {

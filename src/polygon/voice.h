@@ -233,12 +233,13 @@ namespace voice {
         secondary      = t2p.process(secondary) * two - one;
 
         auto mixScale = util::simd::invert(one + level);
-        return (primary + secondary * level) * mixScale;
+        auto mixed = (primary + secondary * level) * mixScale;
+        return mixed;
       }
 
       util::four::Trigger mSyncTrigger;
-      osc::four::Phase mPhase1;
-      osc::four::Phase mPhase2;
+      osc::four::PhaseReverseSync mPhase1;
+      osc::four::PhaseReverseSync mPhase2;
     };
 
     struct Voice {
