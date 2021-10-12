@@ -285,8 +285,21 @@ namespace util {
     }
 
     // Wrap [0, 1]
-    inline float32x4_t wrap(const float32x4_t x) {
-      return x - floor(x);
+    inline float32x4_t wrap(float32x4_t x) {
+      x = x - floor(x);
+      x = x + vdupq_n_f32(1);
+      x = x - floor(x);
+      return x;
+    }
+
+    inline float32x4x2_t mix(float32x4_t by) {
+      auto half = vdupq_n_f32(0.5);
+      auto one  = vdupq_n_f32(1);
+
+      auto rightAmount = by * half + half;
+      auto leftAmount  = one - rightAmount;
+
+      return {{ leftAmount, rightAmount }};
     }
 
     // tanh approximation (neon w/ division via newton's method)

@@ -26,7 +26,7 @@ function RoundRobinGate:init(args)
     name          = "Round Robin",
     branch        = self.branch,
     threshold     = threshold,
-    onPressFire   = function () self.polygon:markRRManualGate() end,
+    onPressFire   = function () self.polygon:markManualGate(0) end,
     onReleaseFire = onReleaseFire
   })
 
@@ -35,7 +35,7 @@ function RoundRobinGate:init(args)
       name          = "Voice "..i,
       branch        = voice.gateBranch,
       threshold     = threshold,
-      onPressFire   = function () self.polygon:markManualGate(i - 1) end,
+      onPressFire   = function () self.polygon:markManualGate(i) end,
       onReleaseFire = onReleaseFire
     })
   end

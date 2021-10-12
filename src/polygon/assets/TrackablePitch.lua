@@ -1,6 +1,7 @@
 local app     = app
 local Class   = require "Base.Class"
 local Encoder = require "Encoder"
+local Settings = require "Settings"
 
 local Base              = require "polygon.SplitViewControl"
 local SubViewPitchTrack = require "polygon.SubViewPitchTrack"
@@ -20,7 +21,12 @@ function TrackablePitch:init(args)
   self.branch = args.branch or app.logError("%s.init: missing branch.", self)
 
   local faderParam   = offset:getParameter("Offset") or offset:getParameter("Bias")
-  local readoutParam = range:getParameter("Center") or faderParam
+  local readoutParam
+  if Settings.get("unitControlReadoutSource") == "actual" then
+    readoutParam = range:getParameter("Center") or faderParam
+  else
+    readoutParam = faderParam
+  end
 
   self:addSubView(SubViewPitchTrack {
     name   = args.name,

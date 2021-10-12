@@ -19,7 +19,7 @@ local Polygon = Class {}
 Polygon:include(Unit)
 
 function Polygon:init(args)
-  self.ctor = args.ctor
+  self.ctor = args.ctor or app.logError("%s.init: missing ctor", self)
   Unit.init(self, args)
 end
 
@@ -71,14 +71,17 @@ function Polygon:addParameterAdapterBranch(name, obj, inlet)
   return self:addMonoBranch(name, pa, "In", pa, "Out")
 end
 
-function Polygon:addVoiceControl(n, op)
-  self.voices = self.voices or {}
-
-  self.voices[n] = {
+function Polygon:createVoiceControl(n, op)
+  return {
     gateBranch  = self:addMonitorBranch("gate"..n, op, "Gate"..n),
     pitchBranch = self:addParameterAdapterBranch("vpo"..n, op, "V/Oct"..n),
     pitchOffset = op:getParameter("V/Oct Offset"..n)
   }
+end
+
+function Polygon:addVoiceControl(n, op)
+  self.voices = self.voices or {}
+  self.voices[n] = self:createVoiceControl(n, op)
 end
 
 function Polygon:onLoadGraph(channelCount)
@@ -86,6 +89,7 @@ function Polygon:onLoadGraph(channelCount)
 
   local op = self:addObject("op", self.ctor())
 
+  self.rrVoice = self:createVoiceControl(0, op)
   for i = 1, op:voices() do
     self:addVoiceControl(i, op)
   end
@@ -99,8 +103,6 @@ function Polygon:onLoadGraph(channelCount)
   tie(op, "Rise", rise, "Out")
   tie(op, "Fall", fall, "Out")
 
-  local gate   = self:addMonitorBranch("gate", op, "RR Gate")
-  local vpo    = self:addParameterAdapterBranch("vpo", op, "RR V/Oct")
   local count  = self:addParameterAdapterControl("count")
   local stride = self:addParameterAdapterControl("stride")
   local total  = self:addParameterAdapterControl("total")
@@ -111,20 +113,23 @@ function Polygon:onLoadGraph(channelCount)
   local fvpo      = self:addParameterAdapterControl("fvpo", 1)
   local resonance = self:addParameterAdapterControl("resonance")
   local detune    = self:addParameterAdapterControl("detune", 1)
-  local level     = self:addParameterAdapterControl("level")
+  local mix       = self:addParameterAdapterControl("mix")
   local shape     = self:addParameterAdapterControl("shape")
   tie(op, "Filter V/Oct", fvpo, "Out")
-  tie(op, "Resonance", resonance, "Out")
-  tie(op, "Detune", detune, "Out")
-  tie(op, "Level",  level,  "Out")
-  tie(op, "Shape",  shape,  "Out")
+  tie(op, "Resonance",    resonance, "Out")
+  tie(op, "Detune",       detune, "Out")
+  tie(op, "Mix",          mix,  "Out")
+  tie(op, "Shape",        shape,  "Out")
 
-  local lenv = self:addParameterAdapterControl("lenv")
+  local menv = self:addParameterAdapterControl("menv")
   local senv = self:addParameterAdapterControl("senv")
   local fenv = self:addParameterAdapterControl("fenv")
-  tie(op,  "Level Env", lenv, "Out")
-  tie(op,  "Shape Env", senv, "Out")
+  tie(op, "Mix Env",    menv, "Out")
+  tie(op, "Shape Env",  senv, "Out")
   tie(op, "Filter Env", fenv, "Out")
+
+  local sync = self:addComparatorControl("sync", app.COMPARATOR_TOGGLE)
+  connect(sync, "Out", op, "Hard Sync")
 
   if self.isStereo then
     local pan   = self:addParameterAdapterControl("pan")
@@ -170,7 +175,7 @@ function Polygon:onLoadViews()
     gate      = { "gate",   "wave1", "count", "stride", "total" },
     vpo       = { "vpo",    "wave1", "pf0" },
     shape     = { "shape",  "wave1", "senv" },
-    detune    = { "detune", "wave1", "level", "lenv" },
+    detune    = { "detune", "wave1", "mix", "menv", "sync" },
     fall      = { "fall",   "wave1", "rise" },
     ff0       = { "ff0",    "wave1", "fvpo", "fenv", "resonance" }
   }
@@ -265,13 +270,6 @@ function Polygon:onLoadViews()
       range       = self.objects.fvpo,
       track       = self.objects.op:getOption("Filter Tracking")
     },
-    -- fvpo   = Pitch {
-    --   button      = "fvpo",
-    --   branch      = self.branches.fvpo,
-    --   description = "Filter V/Oct",
-    --   offset      = self.objects.fvpo,
-    --   range       = self.objects.fvpo
-    -- },
     resonance   = GainBias {
       button        = "res",
       description   = "Resonance",
@@ -290,16 +288,16 @@ function Polygon:onLoadViews()
       offset      = self.objects.detune,
       range       = self.objects.detune
     },
-    level   = GainBias {
-      button        = "subLvl",
-      description   = "Sub Level",
-      branch        = self.branches.level,
-      gainbias      = self.objects.level,
-      range         = self.objects.level,
-      biasMap       = Encoder.getMap("[0,1]"),
+    mix   = GainBias {
+      button        = "mix",
+      description   = "Osc Mix",
+      branch        = self.branches.mix,
+      gainbias      = self.objects.mix,
+      range         = self.objects.mix,
+      biasMap       = Encoder.getMap("[-1,1]"),
       biasUnits     = app.unitNone,
       biasPrecision = 2,
-      initialBias   = 1
+      initialBias   = 0
     },
     shape   = GainBias {
       button        = "shape",
@@ -312,16 +310,22 @@ function Polygon:onLoadViews()
       biasPrecision = 2,
       initialBias   = 0
     },
-    lenv   = GainBias {
-      button        = "lenv",
-      description   = "Level Env",
-      branch        = self.branches.lenv,
-      gainbias      = self.objects.lenv,
-      range         = self.objects.lenv,
+    menv   = GainBias {
+      button        = "menv",
+      description   = "Mix Env",
+      branch        = self.branches.menv,
+      gainbias      = self.objects.menv,
+      range         = self.objects.menv,
       biasMap       = Encoder.getMap("[-1,1]"),
       biasUnits     = app.unitNone,
       biasPrecision = 2,
       initialBias   = 0
+    },
+    sync = Gate {
+      button      = "sync",
+      description = "Hard Sync",
+      branch      = self.branches.sync,
+      comparator  = self.objects.sync
     },
     senv   = GainBias {
       button        = "senv",
@@ -359,15 +363,15 @@ function Polygon:onLoadViews()
   controls.gate = RoundRobinGate {
     name    = "gate",
     polygon = self.objects.op,
-    branch  = self.branches.gate,
+    branch  = self.rrVoice.gateBranch,
     voices  = self.voices
   }
 
   controls.vpo = RoundRobinPitch {
     name    = "vpo",
     polygon = self.objects.op,
-    branch  = self.branches.vpo,
-    tune    = self.objects.vpo:getParameter("Bias"),
+    branch  = self.rrVoice.pitchBranch,
+    tune    = self.rrVoice.pitchOffset,
     voices  = self.voices,
     biasMap = Encoder.getMap("cents")
   }

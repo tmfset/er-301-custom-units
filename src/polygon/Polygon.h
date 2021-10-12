@@ -26,6 +26,8 @@ namespace polygon {
   class Polygon : public Observable {
     public:
       Polygon() {
+        mRRControl.init(*this, 0);
+
         for (int i = 0; i < GROUPS; i++) {
           group(i).init(*this, i);
         }
@@ -47,17 +49,16 @@ namespace polygon {
         addParameter(mRise);
         addParameter(mFall);
 
-        addInput(mRRGate);
-        addParameter(mRRVpo);
         addOption(mRRVpoTrack);
         addParameter(mRRCount);
         addParameter(mRRStride);
         addParameter(mRRTotal);
         addParameter(mGateThresh);
 
+        addInput(mHardSync);
         addParameter(mDetune);
-        addParameter(mLevel);
-        addParameter(mLevelEnv);
+        addParameter(mMix);
+        addParameter(mMixEnv);
 
         addParameter(mShape);
         addParameter(mShapeEnv);
@@ -71,18 +72,19 @@ namespace polygon {
       void process() {
         float *gates[VOICES];
         for (int i = 0; i < VOICES; i++) {
-          gates[i] = voice(i).gateBuffer();
+          gates[i] = groupVoice(i).control().gateBuffer();
         }
 
         auto outLeft    = mOutLeft.buffer();
         auto outRight   = mOutRight.buffer();
         auto gain       = vdup_n_f32(mGain.value());
 
-        auto agcEnabled    = vdup_n_u32(util::bcvt(isAgcEnabled()));
-        auto vpoTracked    = isVpoTracked();
+        auto agcEnabled = vdup_n_u32(util::bcvt(isAgcEnabled()));
+        auto vpoTracked = isVpoTracked();
 
         auto pitchF0  = mPitchF0.buffer();
         auto filterF0 = mFilterF0.buffer();
+        auto hardSync = mHardSync.buffer();
 
         const auto rrConst = voice::RoundRobinConstants<GROUPS> {
           (int)mRRTotal.value(),
@@ -94,11 +96,11 @@ namespace polygon {
         const auto sharedConfig = voice::four::SharedConfig {
           vdupq_n_f32(mDetune.value()),
           vdupq_n_f32(mShape.value()),
-          vdupq_n_f32(mLevel.value()),
+          vdupq_n_f32(mMix.value()),
           vdupq_n_f32(mRise.value()),
           vdupq_n_f32(mFall.value()),
           vdupq_n_f32(mShapeEnv.value()),
-          vdupq_n_f32(mLevelEnv.value()),
+          vdupq_n_f32(mMixEnv.value()),
           vdupq_n_f32(mFilterEnv.value()),
           vdupq_n_f32(mResonance.value()),
           vdupq_n_f32(mFilterVpo.value()),
@@ -106,14 +108,14 @@ namespace polygon {
           vdupq_n_u32(util::bcvt(isFilterTracked()))
         };
 
-        const auto rrGate = mRRGate.buffer();
-        const uint32_t rrManualGate = mManualRRGate;
+        const auto rrGate = mRRControl.gateBuffer();
+        const auto rrManualGate = mRRControl.manualGate();
         const auto gateThresh = mGateThresh.value();
 
         const auto panOffset = mPanOffset.value();
         const auto panWidth  = mPanWidth.value();
 
-        const auto rrVpo = mRRVpo.value();
+        const auto rrVpo = mRRControl.vpo();
         const auto rrOffsetAll = vdupq_n_f32(vpoTracked ? 0 : rrVpo);
         if (vpoTracked) markVpoOffset(mRoundRobin.mCurrent, rrVpo);
 
@@ -123,7 +125,7 @@ namespace polygon {
         std::array<voice::four::VoiceConfig, GROUPS> configs;
 
         const bool releaseRequested = mReleaseManualGatesRequested;
-        if (releaseRequested) mManualRRGate = 0;
+        if (releaseRequested) mRRControl.clearManualGate();
 
         for (int i = 0; i < GROUPS; i++) {
           Group &g = group(i);
@@ -164,6 +166,7 @@ namespace polygon {
             configs,
             vdupq_n_f32(pitchF0[i]),
             vdupq_n_f32(filterF0[i]),
+            vcgtq_f32(vdupq_n_f32(hardSync[i]), vdupq_n_f32(0)),
             gain,
             agcEnabled,
             sharedConfig
@@ -191,17 +194,16 @@ namespace polygon {
       od::Parameter mRise       { "Rise" };
       od::Parameter mFall       { "Fall" };
 
-      od::Inlet     mRRGate     { "RR Gate" };
-      od::Parameter mRRVpo      { "RR V/Oct" };
       od::Option    mRRVpoTrack { "RR V/Oct Track", 2 };
       od::Parameter mRRCount    { "RR Count", 1 };
       od::Parameter mRRStride   { "RR Stride", 1 };
       od::Parameter mRRTotal    { "RR Total", VOICES };
       od::Parameter mGateThresh { "Gate Threshold", 0.1 };
 
-      od::Parameter mDetune    { "Detune" };
-      od::Parameter mLevel     { "Level" };
-      od::Parameter mLevelEnv  { "Level Env" };
+      od::Inlet     mHardSync { "Hard Sync" };
+      od::Parameter mDetune   { "Detune" };
+      od::Parameter mMix      { "Mix" };
+      od::Parameter mMixEnv   { "Mix Env" };
 
       od::Parameter mShape     { "Shape" };
       od::Parameter mShapeEnv  { "Shape Env" };
@@ -222,10 +224,6 @@ namespace polygon {
     int groups() { return GROUPS; }
     int voices() { return VOICES; }
 
-    od::Parameter* vpoRoundRobin() {
-      return &mRRVpo;
-    }
-
     od::Parameter* vpoDirect(int index) {
       return voice(index).vpoDirect();
     }
@@ -235,11 +233,7 @@ namespace polygon {
     }
 
     float envLevel(int voice) {
-      return this->voice(voice).envLevel();
-    }
-
-    void markRRManualGate() {
-      mManualRRGate = util::bcvt(true);
+      return groupVoice(voice).envLevel();
     }
 
     void markManualGate(int index) {
@@ -272,17 +266,12 @@ namespace polygon {
     }
 
     private:
-      class Voice {
+      class VoiceControl {
         public:
-          inline void init(Polygon &obj, int group, int lane) {
-            auto n = (group * LANES) + lane + 1;
-
-            auto panDegree = n % 2 ? -n : n + 1;
-            mPanSpace = panDegree / (float)obj.voices();
-
-            mGate       = new od::Inlet     { SSTR("Gate" << n) };
-            mVpoDirect  = new od::Parameter { SSTR("V/Oct" << n) };
-            mVpoOffset  = new od::Parameter { SSTR("V/Oct Offset" << n) };
+          inline void init(Polygon &obj, int id) {
+            mGate       = new od::Inlet     { SSTR("Gate" << id) };
+            mVpoDirect  = new od::Parameter { SSTR("V/Oct" << id) };
+            mVpoOffset  = new od::Parameter { SSTR("V/Oct Offset" << id) };
 
             obj.addInputFromHeap(mGate);
             obj.addParameterFromHeap(mVpoDirect);
@@ -290,16 +279,12 @@ namespace polygon {
           }
 
           inline float vpo() { return mVpoDirect->value() + mVpoOffset->value(); }
-          inline float pan(float offset, float width) { return offset + mPanSpace * width; }
-          inline float envLevel() { return mEnvLevel; }
           inline float* gateBuffer() { return mGate->buffer(); }
 
+          inline void markVpoOffset(float value) { mVpoOffset->hardSet(value); }
           inline void markManualGate()  { mManualGate = true; }
           inline void clearManualGate() { mManualGate = false; }
           inline uint32_t manualGate()  { return util::bcvt(mManualGate); }
-
-          inline void markVpoOffset(float value) { mVpoOffset->hardSet(value); }
-          inline void markEnvLevel(float value) { mEnvLevel = value; }
 
           inline od::Parameter* vpoDirect() { return mVpoDirect; }
           inline od::Parameter* vpoOffset() { return mVpoOffset; }
@@ -310,6 +295,25 @@ namespace polygon {
           od::Parameter *mVpoOffset = 0;
 
           bool mManualGate = false;
+      };
+
+      class Voice {
+        public:
+          inline void init(Polygon &obj, int id) {
+            auto panDegree = id % 2 ? -id : id + 1;
+            mPanSpace = panDegree / (float)obj.voices();
+            mControl.init(obj, id);
+          }
+
+          inline float pan(float offset, float width) { return offset + mPanSpace * width; }
+          inline float envLevel() { return mEnvLevel; }
+          inline void markEnvLevel(float value) { mEnvLevel = value; }
+
+          inline VoiceControl& control() { return mControl; }
+
+        private:
+          VoiceControl mControl;
+
           float mEnvLevel = 0;
           float mPanSpace = 0;
       };
@@ -318,7 +322,7 @@ namespace polygon {
         public:
           inline void init(Polygon &obj, int group) {
             for (int lane = 0; lane < LANES; lane++) {
-              voice(lane).init(obj, group, lane);
+              voice(lane).init(obj, (group * LANES) + lane + 1);
             }
           }
 
@@ -329,7 +333,7 @@ namespace polygon {
           inline float32x4_t vpo() {
             float _vpo[LANES];
             for (int lane = 0; lane < LANES; lane++) {
-              _vpo[lane] = voice(lane).vpo();
+              _vpo[lane] = voice(lane).control().vpo();
             }
             return vld1q_f32(_vpo);
           }
@@ -345,7 +349,7 @@ namespace polygon {
           inline uint32x4_t manualGate() {
             uint32_t _gates[LANES];
             for (int lane = 0; lane < LANES; lane++) {
-              _gates[lane] = voice(lane).manualGate();
+              _gates[lane] = voice(lane).control().manualGate();
             }
             return vld1q_u32(_gates);
           }
@@ -363,16 +367,16 @@ namespace polygon {
           }
 
           inline void markManualGate(int lane) {
-            voice(lane).markManualGate();
+            voice(lane).control().markManualGate();
           }
 
           inline void markVpoOffset(int lane, float value) {
-            voice(lane).markVpoOffset(value);
+            voice(lane).control().markVpoOffset(value);
           }
 
           inline void clearManualGates() {
             for (int lane = 0; lane < LANES; lane++) {
-              voice(lane).clearManualGate();
+              voice(lane).control().clearManualGate();
             }
           }
 
@@ -381,8 +385,8 @@ namespace polygon {
       };
 
       bool mReleaseManualGatesRequested = false;
-      uint32_t mManualRRGate = 0;
 
+      VoiceControl mRRControl;
       std::array<Group, GROUPS> mGroups;
       voice::RoundRobin<GROUPS> mRoundRobin;
       voice::RoundRobinConstants<GROUPS> mRoundRobinConst { VOICES, 1, 1 };
@@ -392,7 +396,12 @@ namespace polygon {
         return mGroups[index % GROUPS];
       }
 
-      inline Voice& voice(int index) {
+      inline VoiceControl& voice(int index) {
+        if (index == 0) return mRRControl;
+        return groupVoice(index - 1).control();
+      }
+
+      inline Voice& groupVoice(int index) {
         return group(index / LANES).voice(index % LANES);
       }
   };

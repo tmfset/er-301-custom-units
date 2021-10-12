@@ -67,7 +67,8 @@ namespace osc {
     struct PhaseReverseSync {
       inline float32x4_t process(
         const float32x4_t delta,
-        const uint32x4_t sync
+        const uint32x4_t sync,
+        const uint32x4_t hardSync
       ) {
         auto zero = vdupq_n_f32(0);
         auto one = vdupq_n_f32(1);
@@ -76,7 +77,8 @@ namespace osc {
         reverse = vbslq_u32(sync, vmvnq_u32(reverse), reverse);
 
         auto offset = vbslq_f32(reverse, -delta, delta);
-        auto p = mPhase + offset;
+        auto p = vbslq_f32(hardSync, zero, mPhase) + offset;
+        mWrap = vcgeq_f32(p, one) | vcleq_f32(p, zero);
         p = p - util::simd::floor(p - vbslq_f32(reverse, one, zero));
 
         mReverse = reverse;
@@ -84,8 +86,48 @@ namespace osc {
         return p;
       }
 
+      uint32x4_t mWrap = vdupq_n_u32(0);
       uint32x4_t  mReverse = vdupq_n_u32(0);
       float32x4_t mPhase = vdupq_n_f32(0);
+    };
+
+    struct DualPhaseReverseSync {
+
+      inline float32x4x2_t process(
+        const float32x4_t deltaA,
+        const float32x4_t deltaB,
+        const uint32x4_t syncReverse,
+        const uint32x4_t syncHard
+      ) {
+        float32x4x2_t p = {{ mPhase.val[0], mPhase.val[1] }};
+        auto reverse = mReverse;
+
+        reverse = vbslq_u32(syncReverse, vmvnq_u32(reverse), reverse);
+        p.val[0] = p.val[0] + vbslq_f32(reverse, -deltaA, deltaA);
+        p.val[1] = p.val[1] + vbslq_f32(reverse, -deltaB, deltaB);
+
+        auto one  = vdupq_n_f32(1);
+
+        auto hardSyncB    = vcltq_f32(deltaA, deltaB);
+        auto hardSyncFrom = vbslq_f32(hardSyncB, p.val[0], p.val[1]);
+        p.val[0] = util::simd::wrap(p.val[0]);
+        p.val[1] = util::simd::wrap(p.val[1]);
+        auto hardSyncTo   = vbslq_f32(hardSyncB, p.val[0], p.val[1]);
+
+        auto wrapSource = vabdq_f32(hardSyncTo, hardSyncFrom);
+        auto doHardSync = vcgeq_f32(wrapSource, one) & syncHard;
+
+        p.val[0] = vbslq_f32(doHardSync, hardSyncTo, p.val[0]);
+        p.val[1] = vbslq_f32(doHardSync, hardSyncTo, p.val[1]);
+
+        mPhase.val[0] = p.val[0];
+        mPhase.val[1] = p.val[1];
+        mReverse = reverse;
+        return p;
+      }
+
+      uint32x4_t    mReverse = vdupq_n_u32(0);
+      float32x4x2_t mPhase   = {{ vdupq_n_f32(0), vdupq_n_f32(0) }};
     };
 
   }

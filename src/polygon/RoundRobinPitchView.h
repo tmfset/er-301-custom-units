@@ -24,9 +24,8 @@ namespace polygon {
       }
 
       void setScale(od::DialMap &map) {
-        float min = fromCents(map.min());
+        //float min = fromCents(map.min());
         float max = fromCents(map.max());
-        float size = max - min;
         mScale = 1.0f / max;
       }
 
@@ -52,9 +51,10 @@ namespace polygon {
         fb.hline(sColor(0), leftPane.centerX - 2, leftPane.centerX + 2, leftPane.bottom);
         fb.hline(sColor(0), leftPane.centerX - 2, leftPane.centerX + 2, leftPane.top);
 
-        od::Parameter* vpoRoundRobin = mObservable.vpoRoundRobin();
-        const float rrTarget = vpoRoundRobin->target();
-        const float rrActual = vpoRoundRobin->value();
+        od::Parameter* vpoRRDirect = mObservable.vpoDirect(0);
+        od::Parameter* vpoRROffset = mObservable.vpoOffset(0);
+        const float rrTarget = vpoRRDirect->target() + vpoRROffset->target();
+        const float rrActual = vpoRRDirect->value() + vpoRROffset->value();
         const int rrTargetY = util::fhr(leftPane.centerY + scale(rrTarget, leftPane.height / 2.0f));
         const int rrActualY = util::fhr(leftPane.centerY + scale(rrActual, leftPane.height / 2.0f));
         fb.hline(sColor(0), leftPane.centerX - 4, leftPane.centerX + 4, rrActualY);
@@ -77,8 +77,8 @@ namespace polygon {
           fb.vline(sColor(i + 1), x0, y - 1, y);
           fb.vline(sColor(i + 1), x1, y, y + 1);
 
-          od::Parameter* vpoDirect = mObservable.vpoDirect(i);
-          od::Parameter* vpoOffset = mObservable.vpoOffset(i);
+          od::Parameter* vpoDirect = mObservable.vpoDirect(i + 1);
+          od::Parameter* vpoOffset = mObservable.vpoOffset(i + 1);
           const float target = vpoDirect->target() + vpoOffset->target();
           const float actual = vpoDirect->value() + vpoOffset->value();
 

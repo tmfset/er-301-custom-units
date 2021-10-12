@@ -79,11 +79,11 @@ namespace voice {
       inline SharedConfig(
         float32x4_t detune,
         float32x4_t shape,
-        float32x4_t level,
+        float32x4_t mix,
         float32x4_t rise,
         float32x4_t fall,
         float32x4_t shapeEnv,
-        float32x4_t levelEnv,
+        float32x4_t mixEnv,
         float32x4_t filterEnv,
         float32x4_t resonance,
         float32x4_t filterVpo,
@@ -96,9 +96,9 @@ namespace voice {
         mEnvCoeff.configure(rise, fall);
         mAgcCoeff.configure(vdup_n_f32(globalConfig.samplePeriod), vget_low_f32(fall));
         mShape = shape;
-        mLevel = level;
+        mMix = mix;
         mShapeEnv = shapeEnv;
-        mLevelEnv = levelEnv;
+        mMixEnv = mixEnv;
         mResonance = util::simd::exp_n_scale(resonance, 0.70710678118f, 100.0f);
         mPan = pan;
         mFilterTrack = filterTrack;
@@ -111,9 +111,9 @@ namespace voice {
       env::two::Coefficients mAgcCoeff;
 
       float32x4_t mShape       = vdupq_n_f32(0);
-      float32x4_t mLevel       = vdupq_n_f32(0);
+      float32x4_t mMix         = vdupq_n_f32(0);
       float32x4_t mShapeEnv    = vdupq_n_f32(0);
-      float32x4_t mLevelEnv    = vdupq_n_f32(0);
+      float32x4_t mMixEnv      = vdupq_n_f32(0);
       float32x4_t mResonance   = vdupq_n_f32(0);
       float32x4_t mPan         = vdupq_n_f32(0);
       uint32x4_t  mFilterTrack = vdupq_n_u32(0);
@@ -130,8 +130,8 @@ namespace voice {
         return util::simd::clamp_unit(mShape + mShapeEnv * env);
       }
 
-      inline float32x4_t level(const float32x4_t env) const {
-        return util::simd::clamp_punit(mLevel + mLevelEnv * env);
+      inline float32x4_t mix(const float32x4_t env) const {
+        return util::simd::clamp_unit(mMix + mMixEnv * env);
       }
 
       inline float32x4_t pan(const float32x4_t offset) const {
@@ -199,16 +199,8 @@ namespace voice {
         const float32x4_t signal,
         const float32x4_t amount
       ) {
-        auto half = vdupq_n_f32(0.5);
-        auto one  = vdupq_n_f32(1);
-
-        auto rightAmount = amount * half + half;
-        auto leftAmount  = one - rightAmount;
-
-        return {{
-          signal * leftAmount,
-          signal * rightAmount
-        }};
+        auto mix = util::simd::mix(amount);
+        return {{ signal * mix.val[0], signal * mix.val[1] }};
       }
     };
 
@@ -217,29 +209,27 @@ namespace voice {
         const float32x4_t delta1,
         const float32x4_t delta2,
         const float32x4_t shape,
-        const float32x4_t level,
-        const uint32x4_t sync
+        const float32x4_t mix,
+        const uint32x4_t gate,
+        const uint32x4_t hardSync
       ) {
-        auto one   = vdupq_n_f32(1);
-        auto two   = vdupq_n_f32(2);
+        auto one = vdupq_n_f32(1);
+        auto two = vdupq_n_f32(2);
 
-        auto _sync = mSyncTrigger.read(sync);
+        auto sync = mSyncTrigger.read(gate);
 
         const auto t2p = osc::shape::TriangleToPulse { shape };
 
-        auto primary   = mPhase1.process(delta1, _sync);
-        primary        = t2p.process(primary) * two - one;
-        auto secondary = mPhase2.process(delta2, _sync);
-        secondary      = t2p.process(secondary) * two - one;
+        auto p = mPhase.process(delta1, delta2, sync, hardSync);
+        auto m = util::simd::mix(mix);
+        p.val[0] = t2p.process(p.val[0]) * two - one;
+        p.val[1] = t2p.process(p.val[1]) * two - one;
 
-        auto mixScale = util::simd::invert(one + level);
-        auto mixed = (primary + secondary * level) * mixScale;
-        return mixed;
+        return p.val[0] * m.val[0] + p.val[1] * m.val[1];
       }
 
       util::four::Trigger mSyncTrigger;
-      osc::four::PhaseReverseSync mPhase1;
-      osc::four::PhaseReverseSync mPhase2;
+      osc::four::DualPhaseReverseSync mPhase;
     };
 
     struct Voice {
@@ -255,6 +245,7 @@ namespace voice {
         const uint32x4_t gate,
         const float32x4_t pitchF0,
         const float32x4_t filterF0,
+        const uint32x4_t hardSync,
         const SharedConfig& shared
       ) {
         auto env = mEnvelope.process(gate, mTracked.mEnvCoeff);
@@ -272,8 +263,9 @@ namespace voice {
           mTracked.primaryDelta(pitchF0),
           mTracked.secondaryDelta(pitchF0),
           shared.shape(env),
-          shared.level(env),
-          gate
+          shared.mix(env),
+          gate,
+          hardSync
         );
 
         auto filtered = mFilter.process(mix);
@@ -300,6 +292,7 @@ namespace voice {
       const std::array<four::VoiceConfig, GROUPS>& configs,
       const float32x4_t pf0,
       const float32x4_t ff0,
+      const uint32x4_t hardSync,
       const float32x2_t gain,
       const uint32x2_t agcEnabled,
       const four::SharedConfig &shared
@@ -313,7 +306,7 @@ namespace voice {
 
         v.track(gate, config, shared);
 
-        auto out = v.process(gate, pf0, ff0, shared);
+        auto out = v.process(gate, pf0, ff0, hardSync, shared);
         signal = vadd_f32(signal, util::simd::make_f32(
           util::simd::sumq_f32(out.val[0]),
           util::simd::sumq_f32(out.val[1])
