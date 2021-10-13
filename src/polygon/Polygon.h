@@ -117,7 +117,7 @@ namespace polygon {
 
         const auto rrVpo = mRRControl.vpo();
         const auto rrOffsetAll = vdupq_n_f32(vpoTracked ? 0 : rrVpo);
-        if (vpoTracked) markVpoOffset(mRoundRobin.mCurrent, rrVpo);
+        if (vpoTracked) markVpoOffset(mRoundRobin.mCurrent + 1, rrVpo);
 
         mAgc.hardSet(mVoices.agcDb());
 

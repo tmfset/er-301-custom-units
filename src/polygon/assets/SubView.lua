@@ -57,15 +57,19 @@ function SubView:getFocusedControl()
   if self.position then return self:getControl(self.position) end
 end
 
-function SubView:setFocusedPosition(position)
-  self.position = position
+function SubView:clearFocusedPosition()
+  self.viewControl:setSubCursorController(nil)
+end
 
-  local control = self:getFocusedControl()
-  local cursorController = nil
-  if control then
-    control:onFocus()
-    cursorController = control:getCursorController()
-  end
+function SubView:setFocusedPosition(position)
+  local newControl = self:getControl(position)
+  if not newControl then return end
+
+  local cursorController = newControl:getCursorController()
+  if not cursorController then return end
+
+  self.position = position
+  newControl:onFocus()
   self.viewControl:setSubCursorController(cursorController)
 end
 

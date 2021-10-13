@@ -61,7 +61,7 @@ function SplitViewControl:encoder(change, shifted)
 end
 
 function SplitViewControl:unfocusSubView()
-  self:subView():setFocusedPosition(nil)
+  self:subView():clearFocusedPosition()
   self:unfocus()
 end
 
