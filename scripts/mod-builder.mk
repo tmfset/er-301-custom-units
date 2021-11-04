@@ -2,15 +2,17 @@ include scripts/utils.mk
 
 LIBNAME ?= lib$(PKGNAME)
 SDKPATH ?= er-301
-src_dir = src/$(PKGNAME)
+mod_dir = src/mods/$(PKGNAME)
+common_dir = src/common/
 
-c_sources    := $(call rwildcard, $(src_dir), *.c)
-cpp_sources  := $(call rwildcard, $(src_dir), *.cpp)
-swig_sources := $(call rwildcard, $(src_dir), *.cpp.swig)
+c_sources    := $(call rwildcard, $(mod_dir), *.c)
+cpp_sources  := $(call rwildcard, $(mod_dir), *.cpp)
+swig_sources := $(call rwildcard, $(mod_dir), *.cpp.swig)
 
-assets      := $(call rwildcard, $(src_dir)/assets, *)
+assets      := $(call rwildcard, $(mod_dir)/assets, *)
 sources     := $(c_sources) $(cpp_sources) $(swig_sources)
-headers     := $(call rwildcard, $(src_dir), *.h)
+common      := $(call rwildcard, $(common_dir), *.h)
+headers     := $(call rwildcard, $(mod_dir), *.h) $(common)
 
 # Do you need any additional preprocess symbols?
 symbols = 
@@ -51,7 +53,7 @@ objects = $(addprefix $(out_dir)/,$(c_sources:%.c=%.o))
 objects += $(addprefix $(out_dir)/,$(cpp_sources:%.cpp=%.o))
 objects += $(swig_object)
 
-includes  = $(src_dir)
+includes  = $(mod_dir)
 includes += $(SDKPATH) $(SDKPATH)/arch/$(ARCH) $(SDKPATH)/emu
 
 ifeq ($(ARCH),am335x)

@@ -7,27 +7,27 @@ all: $(PROJECTS)
 asm: $(addsuffix -asm,$(PROJECTS))
 
 $(PROJECTS):
-	+$(MAKE) -f src/$@/mod.mk PKGNAME=$@
+	+$(MAKE) -f src/mods/$@/mod.mk PKGNAME=$@
 
 $(addsuffix -install,$(PROJECTS)): $(@:-install=)
 	$(eval PROJECT := $(@:-install=))
-	+$(MAKE) -f src/$(PROJECT)/mod.mk install PKGNAME=$(PROJECT)
+	+$(MAKE) -f src/mods/$(PROJECT)/mod.mk install PKGNAME=$(PROJECT)
 
 $(addsuffix -install-sd,$(PROJECTS)):
 	$(eval PROJECT := $(@:-install-sd=))
-	+$(MAKE) -f src/$(PROJECT)/mod.mk install-sd PKGNAME=$(PROJECT) ARCH=am335x PROFILE=release
+	+$(MAKE) -f src/mods/$(PROJECT)/mod.mk install-sd PKGNAME=$(PROJECT) ARCH=am335x PROFILE=release
 
 $(addsuffix -install-sd-testing,$(PROJECTS)):
 	$(eval PROJECT := $(@:-install-sd-testing=))
-	+$(MAKE) -f src/$(PROJECT)/mod.mk install-sd PKGNAME=$(PROJECT) ARCH=am335x PROFILE=testing
+	+$(MAKE) -f src/mods/$(PROJECT)/mod.mk install-sd PKGNAME=$(PROJECT) ARCH=am335x PROFILE=testing
 
 $(addsuffix -missing,$(PROJECTS)):
 	$(eval PROJECT := $(@:-missing=))
-	+$(MAKE) -f src/$(PROJECT)/mod.mk missing PKGNAME=$(PROJECT)
+	+$(MAKE) -f src/mods/$(PROJECT)/mod.mk missing PKGNAME=$(PROJECT)
 
 $(addsuffix -asm,$(PROJECTS)):
 	$(eval PROJECT := $(@:-asm=))
-	+$(MAKE) -f src/$(PROJECT)/mod.mk asm PKGNAME=$(PROJECT)
+	+$(MAKE) -f src/mods/$(PROJECT)/mod.mk asm PKGNAME=$(PROJECT)
 
 am335x-docker:
 	docker build docker/er-301-am335x-build-env/ -t er-301-am335x-build-env
