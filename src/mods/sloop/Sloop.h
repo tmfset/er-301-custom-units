@@ -150,7 +150,7 @@ namespace sloop {
       }
 
       inline int visibleMarks() {
-        return min(currentLength() + 1, marks.size());
+        return util::min(currentLength() + 1, marks.size());
       }
 
       inline int markAt(int step) {
@@ -159,7 +159,7 @@ namespace sloop {
 
       inline int wrappedStep(int step) {
         int v = visibleMarks() - 1;
-        return v <= 0 ? 0 : mod(step, v);
+        return v <= 0 ? 0 : util::mod(step, v);
       }
 
       inline int clampedStep(int step) {
@@ -286,11 +286,11 @@ namespace sloop {
       }
 
       inline float32x4_t read(const int* index, int channel) const {
-        return readSample(mpSample, index, channel);
+        return util::simd::readSample(mpSample, index, channel);
       }
 
       inline void write(const int* index, int channel, float32x4_t value) {
-        writeSample(mpSample, index, channel, value);
+        util::simd::writeSample(mpSample, index, channel, value);
       }
 
       inline int channels() const {
@@ -498,7 +498,7 @@ namespace sloop {
       };
 
       struct ProcessedLevels {
-        Complement input, shadow;
+        util::simd::Complement input, shadow;
         float32x4_t resetOut, feedback, through;
 
         inline ProcessedLevels(const ProcessedStep *steps, const Constants& constants) {
@@ -510,12 +510,12 @@ namespace sloop {
             shadowLevel[i]  = steps[i].shadowLevel;
           }
 
-          Complement record  { vld1q_f32(recordLevel), constants.one };
-          Complement overdub { vld1q_f32(overdubLevel), constants.one };
+          util::simd::Complement record  { vld1q_f32(recordLevel), constants.one };
+          util::simd::Complement overdub { vld1q_f32(overdubLevel), constants.one };
           float32x4_t max = vmaxq_f32(record.mValue, overdub.mValue);
 
-          input    = Complement { max, constants.one };
-          shadow   = Complement { vld1q_f32(shadowLevel), constants.one };
+          input    = util::simd::Complement { max, constants.one };
+          shadow   = util::simd::Complement { vld1q_f32(shadowLevel), constants.one };
           feedback = record.mComplement * input.ease(constants.feedback);
           through  = constants.through * input.mComplement;
           resetOut = vld1q_f32(reset);

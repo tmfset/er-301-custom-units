@@ -48,7 +48,7 @@ namespace lojik {
           vst1q_u32(_highReset, highReset);
 
           float _delta[4];
-          vst1q_f32(_delta, sp * invert(vmaxq_f32(_duration, sp)));
+          vst1q_f32(_delta, sp * util::simd::invert(vmaxq_f32(_duration, sp)));
 
           for (int j = 0; j < 4; j++) {
             _phase -= _delta[j];

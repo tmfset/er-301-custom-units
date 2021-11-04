@@ -129,7 +129,7 @@ namespace sloop {
         int step = 2;
         for (int i = 0; i < n; i++) {
           float stage = (delay / 2.0f) * (i / (float)(n - 1));
-          float fade  = powf((delay - moddst(s, stage, delay)) / (float)delay, intensity);
+          float fade  = powf((delay - util::moddst(s, stage, delay)) / (float)delay, intensity);
           float color = WHITE * fade;
           fb.text(color, x0 + offset, y0, isBefore ? "<" : ">", 10);
           offset += isBefore ? -step : step;

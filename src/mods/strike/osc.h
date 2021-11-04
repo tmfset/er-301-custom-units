@@ -125,7 +125,7 @@ namespace osc {
     }
 
     const float32x4_t cScale = util::simd::makeq_f32(1, 2, 3, 4);
-    util::Latch trigger;
+    util::Trigger trigger;
     float phase = 1.0f;
   };
 
@@ -275,7 +275,7 @@ namespace osc {
   struct Formant {
     Phase mOscPhase;
     float mEnvPhase = 1.0f;
-    util::Latch mSyncTrigger;
+    util::Trigger mSyncTrigger;
     const float32x4_t cScale = util::simd::makeq_f32(1, 2, 3, 4);
 
     inline float32x4_t process(

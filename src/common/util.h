@@ -1,5 +1,6 @@
 #pragma once
 
+#include <od/audio/Sample.h>
 #include <od/config.h>
 #include <math.h>
 #include <hal/constants.h>
@@ -610,26 +611,60 @@ namespace util {
       }
       return vld1q_f32(_out);
     }
+
+    inline float32x4_t readSample(od::Sample *sample, const int *index, int channel) {
+      float32x4_t out = vdupq_n_f32(0);
+      out = vsetq_lane_f32(sample->get(index[0], channel), out, 0);
+      out = vsetq_lane_f32(sample->get(index[1], channel), out, 1);
+      out = vsetq_lane_f32(sample->get(index[2], channel), out, 2);
+      out = vsetq_lane_f32(sample->get(index[3], channel), out, 3);
+      return out;
+    }
+
+    inline void writeSample(od::Sample *sample, const int *index, int channel, float32x4_t value) {
+      sample->set(index[0], channel, vgetq_lane_f32(value, 0));
+      sample->set(index[1], channel, vgetq_lane_f32(value, 1));
+      sample->set(index[2], channel, vgetq_lane_f32(value, 2));
+      sample->set(index[3], channel, vgetq_lane_f32(value, 3));
+    }
+
+    struct Complement {
+      float32x4_t mValue;
+      float32x4_t mComplement;
+
+      inline Complement() {}
+
+      inline Complement(float32x4_t value, float32x4_t one) {
+        mValue      = value;
+        mComplement = one - value;
+      }
+
+      inline float32x4_t lerp(const float32x4_t &from, const float32x4_t &to) const {
+        return vmlaq_f32(from * mValue, to, mComplement);
+      }
+
+      inline float32x4_t ease(const float32x4_t &from) const {
+        return vmlaq_f32(mComplement, from, mValue);
+      }
+    };
   }
 
-  inline float fmax(float a, float b) {
-    return a > b ? a : b;
-  }
+  inline int    max(  int a,   int b) { return a > b ? a : b; }
+  inline float fmax(float a, float b) { return a > b ? a : b; }
+  inline int    min(  int a,   int b) { return a < b ? a : b; }
+  inline float fmin(float a, float b) { return a < b ? a : b; }
 
-  inline float fmin(float a, float b) {
-    return a < b ? a : b;
-  }
+  inline int    clamp(  int v,  int _min,  int _max) { return min(max(v, _min), _max); }
+  inline float fclamp(float v, float min, float max) { return fmin(fmax(v, min), max); }
 
-  inline float fclamp(float v, float min, float max) {
-    return fmin(fmax(v, min), max);
-  }
+  inline float  funit(float v) { return fclamp(v, -1, 1); }
+  inline float fpunit(float v) { return fclamp(v, 0, 1); }
 
-  inline float funit(float v) {
-    return fclamp(v, -1, 1);
-  }
+  inline int mod(int a, int n) { return ((a % n) + n) % n; }
 
-  inline float fpunit(float v) {
-    return fclamp(v, 0, 1);
+  inline int moddst(int a, int b, int n) {
+    int m = mod(a - b, n);
+    return min(m, n - m);
   }
 
   inline int fhr(float v) {
@@ -655,10 +690,6 @@ namespace util {
 
   inline uint32_t fcgt(const float x, const float threshold) {
     return bcvt(x > threshold);
-  }
-
-  inline int clamp(int value, int min, int max) {
-    return value < min ? min : value > max ? max : value;
   }
 
   struct Trigger {

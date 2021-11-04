@@ -17,13 +17,13 @@ namespace lojik {
       float data(int i) { return mData[i] + mDrifts[i]; }
       int   current()   { return index(mStep, mShift); }
 
-      void setMax(uint32_t v)  { mData.resize(clamp(v, 1, REGISTER_MAX), 0.0f); mDrifts.resize(mData.size()); }
+      void setMax(uint32_t v)  { mData.resize(util::clamp(v, 1, REGISTER_MAX), 0.0f); mDrifts.resize(mData.size()); }
       void setStep(int v)      { mStep    = v; }
       void setShift(int v)     { mShift   = v; }
-      void setLimit(int l)     { mLimit   = clamp(l, 1, max()); }
+      void setLimit(int l)     { mLimit   = util::clamp(l, 1, max()); }
       void setStride(int s)    { mStride  = s; }
       void setScatter(float s) { mScatter = s; }
-      void setDrift(float d)   { mDrift   = fclamp(d, 0.0f, 10.f); }
+      void setDrift(float d)   { mDrift   = util::fclamp(d, 0.0f, 10.f); }
       void setGain(float g)    { mGain    = g; }
       void setBias(float b)    { mBias    = b; }
 
@@ -93,7 +93,7 @@ namespace lojik {
       }
 
       int index(int base, int offset) {
-        return mod(base + offset, mLimit);
+        return util::mod(base + offset, mLimit);
       }
 
       void setWindow(void (RegisterState::*f)(int)) {

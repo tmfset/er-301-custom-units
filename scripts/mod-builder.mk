@@ -53,7 +53,7 @@ objects = $(addprefix $(out_dir)/,$(c_sources:%.c=%.o))
 objects += $(addprefix $(out_dir)/,$(cpp_sources:%.cpp=%.o))
 objects += $(swig_object)
 
-includes  = $(mod_dir)
+includes  = $(mod_dir) $(common_dir)
 includes += $(SDKPATH) $(SDKPATH)/arch/$(ARCH) $(SDKPATH)/emu
 
 ifeq ($(ARCH),am335x)

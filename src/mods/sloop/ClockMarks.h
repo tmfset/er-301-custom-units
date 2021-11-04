@@ -1,5 +1,6 @@
 #pragma once
 
+#include <od/audio/Slices.h>
 #include <vector>
 #include <util.h>
 
@@ -12,8 +13,8 @@ namespace sloop {
       virtual ~ClockMarks() {}
 
       void set(int step, int position) {
-        int incSize = max(step + 1, size());
-        marks.resize(clamp(incSize, 0, MAX_CLOCK_MARKS));
+        int incSize = util::max(step + 1, size());
+        marks.resize(util::clamp(incSize, 0, MAX_CLOCK_MARKS));
         if (step < size()) marks[step] = position;
       }
 

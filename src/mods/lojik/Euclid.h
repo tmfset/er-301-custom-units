@@ -4,7 +4,7 @@
 #include <od/objects/Object.h>
 #include <hal/simd.h>
 #include <vector>
-#include <util.h>
+#include "util.h"
 #include <OneTime.h>
 #include <sense.h>
 
@@ -153,12 +153,12 @@ namespace lojik {
       int mCachedBeats = -1;
       bool mRegenerate = true;
 
-      int index(int base, int offset) { return mod(base + offset, mRythm.size()); }
+      int index(int base, int offset) { return util::mod(base + offset, mRythm.size()); }
       int current() { return index(mStep, getShift()); }
 
       void setRythm(int beats, int length) {
-        int cBeats  = clamp(beats, 0, mMax);
-        int cLength = clamp(length, 1, mMax);
+        int cBeats  = util::clamp(beats, 0, mMax);
+        int cLength = util::clamp(length, 1, mMax);
 
         if (mCachedBeats  != cBeats) mRegenerate = true;
         if (mRythm.size() != (size_t)cLength) mRegenerate = true;

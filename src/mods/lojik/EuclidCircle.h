@@ -32,7 +32,7 @@ namespace lojik {
         if (mpEuclid) {
           int length = mpEuclid->mLength.value();
           int step   = mpEuclid->getStep();
-          int shift  = mod(mpEuclid->getShift(), length);
+          int shift  = util::mod(mpEuclid->getShift(), length);
           if (length < 1) return;
 
           float width = M_PI * 2.0f / (float)length;

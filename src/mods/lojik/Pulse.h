@@ -61,7 +61,7 @@ namespace lojik {
           }
 
           p = p - vreinterpretq_f32_u32(vld1q_u32(_offset));
-          p = p - floor(p);
+          p = p - util::simd::floor(p);
           mPhase = vgetq_lane_f32(p, 3);
 
           auto final = vbslq_f32(vcltq_f32(p, loadWidth), negOne, one);
@@ -77,7 +77,7 @@ namespace lojik {
       od::Outlet mOut   { "Out" };
 #endif
     private:
-      const float32x4_t cScale = makeq_f32(1, 2, 3, 4);
+      const float32x4_t cScale = util::simd::makeq_f32(1, 2, 3, 4);
       float mPhase = 0.0f;
   };
 }
