@@ -44,7 +44,7 @@ namespace strike {
         const float *bend   = mBend.buffer();
 
         osc::shape::BendMode bendMode = static_cast<osc::shape::BendMode>(mBendMode.value());
-        const auto sense = vdupq_n_f32(getSense(mSense));
+        const auto sense = vdupq_n_f32(common::getSense(mSense));
 
         for (int i = 0; i < FRAMELENGTH; i += 4) {
           auto _in       = vcgtq_f32(vld1q_f32(in + i), sense);

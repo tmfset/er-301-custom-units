@@ -35,7 +35,7 @@ namespace lojik {
         float *arm    = mArm.buffer();
         float *out    = mOut.buffer();
 
-        const auto sense = vdupq_n_f32(getSense(mSense));
+        const auto sense = vdupq_n_f32(common::getSense(mSense));
         const auto zero = vdupq_n_f32(0);
 
         auto enable = mEnable;

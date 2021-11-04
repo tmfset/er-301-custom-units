@@ -23,7 +23,7 @@ namespace lojik {
         const float *in  = mIn.buffer();
         float *out = mOut.buffer();
 
-        const auto sense = getSense(mSense);
+        const auto sense = common::getSense(mSense);
 
         for (int i = 0; i < FRAMELENGTH; i += 4) {
           auto _not = vmvnq_u32(vcgtq_f32(vld1q_f32(in + i), vdupq_n_f32(sense)));

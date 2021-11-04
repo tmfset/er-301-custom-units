@@ -33,7 +33,7 @@ namespace lojik {
         float *chance = mChance.buffer();
         float *out    = mOut.buffer();
 
-        float32x4_t sense = vdupq_n_f32(getSense(mSense));
+        float32x4_t sense = vdupq_n_f32(common::getSense(mSense));
 
         int mode = mMode.value();
 

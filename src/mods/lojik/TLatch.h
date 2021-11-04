@@ -29,7 +29,7 @@ namespace lojik {
         float *reset    = mReset.buffer();
         float *out      = mOut.buffer();
 
-        auto sense = vdupq_n_f32(getSense(mSense));
+        auto sense = vdupq_n_f32(common::getSense(mSense));
         auto zero  = vdupq_n_f32(0.0f);
         auto sp    = vdupq_n_f32(globalConfig.samplePeriod);
 

@@ -8,7 +8,7 @@
 #define SENSE_LOW  0.1f
 #define SENSE_HIGH 0.0f
 
-namespace strike {
+namespace common {
   inline float getSense(od::Option &sense) {
     switch (sense.value()) {
       case INPUT_SENSE_LOW:  return SENSE_LOW;

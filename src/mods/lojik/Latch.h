@@ -26,7 +26,7 @@ namespace lojik {
         float *reset = mReset.buffer();
         float *out   = mOut.buffer();
 
-        float32x4_t sense = vdupq_n_f32(getSense(mSense));
+        float32x4_t sense = vdupq_n_f32(common::getSense(mSense));
         float32x4_t zero  = vdupq_n_f32(0.0f);
 
         for (int i = 0; i < FRAMELENGTH; i += 4) {

@@ -25,7 +25,7 @@ namespace lojik {
         const float *gate = mGate.buffer();
         float *out  = mOut.buffer();
 
-        const auto sense = getSense(mSense);
+        const auto sense = common::getSense(mSense);
 
         for (int i = 0; i < FRAMELENGTH; i += 4) {
           const auto _and = vandq_u32(
