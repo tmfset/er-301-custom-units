@@ -322,7 +322,7 @@ namespace voice {
       signal = mDCBlocker.process(signal);
 
       envSum = vmax_f32(envSum, vdup_n_f32(1));
-      auto agc = util::simd::invert2(envSum);
+      auto agc = util::two::invert(envSum);
       mAppliedAgc = agc;
 
       auto appliedGain = vbsl_f32(agcEnabled, vmul_f32(agc, gain), gain);

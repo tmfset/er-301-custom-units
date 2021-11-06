@@ -43,8 +43,11 @@ namespace slew {
         rise = util::fmax(rise, sp);
         fall = util::fmax(fall, sp);
 
-        mRiseCoeff = util::simd::exp2_f32(vdup_n_f32(-sp / rise));
-        mFallCoeff = util::simd::exp2_f32(vdup_n_f32(-sp / fall));
+        auto coeff = vcombine_f32(vdup_n_f32(-sp / rise), vdup_n_f32(-sp / fall));
+        coeff = util::simd::exp_f32(coeff);
+
+        mRiseCoeff = vget_low_f32(coeff);
+        mFallCoeff = vget_high_f32(coeff);
       }
 
       inline float32x2_t pick(uint32x2_t rise) const {

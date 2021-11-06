@@ -44,7 +44,7 @@ namespace filter {
         inline Lowpass(float f0) { setFrequency(vdup_n_f32(f0)); }
 
         inline void setFrequency(float32x2_t f0) {
-          mB1 = util::simd::exp2_f32(vmul_f32(f0, npi2sp));
+          mB1 = util::two::exp_f32(vmul_f32(f0, npi2sp));
           mA0 = vsub_f32(vdup_n_f32(1.0f), mB1);
         }
 
@@ -92,6 +92,29 @@ namespace filter {
   }
 
   namespace svf {
+    namespace two {
+      struct Coefficients {
+        inline void configure(
+          const float32x2_t f0,
+          const float32x2_t vpo,
+          const float32x2_t q
+        ) {
+          mK = util::two::invert(util::two::exp_ns_f32(q, 0.70710678118f, 1000.0f));
+
+          auto f = util::two::vpo_scale_limited(f0, vpo);
+          auto g = util::two::tan(f * vdup_n_f32(M_PI * globalConfig.samplePeriod));
+          mA1 = util::two::invert(vmla_f32(vdup_n_f32(1), g, vadd_f32(g, mK)));
+          mA2 = vmul_f32(g, mA1);
+          mA3 = vmul_f32(g, mA2);
+        }
+
+        float32x2_t mA1 = vdup_n_f32(0);
+        float32x2_t mA2 = vdup_n_f32(0);
+        float32x2_t mA3 = vdup_n_f32(0);
+        float32x2_t mK  = vdup_n_f32(0);
+      };
+    }
+
     namespace four {
       struct Coefficients {
         inline void configure(float32x4_t f0, float32x4_t q) {

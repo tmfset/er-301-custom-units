@@ -179,10 +179,6 @@ namespace util {
 #endif
     }
 
-    inline float32x2_t exp2_f32(float32x2_t x) {
-      return vget_low_f32(exp_f32(vcombine_f32(x, x)));
-    }
-
     inline float32x4_t pow_f32(float32x4_t x, float32x4_t m) {
       return exp_f32(m * log_f32(x));
     }
@@ -217,17 +213,6 @@ namespace util {
       inv *= vrecpsq_f32(x, inv);
       inv *= vrecpsq_f32(x, inv);
       inv *= vrecpsq_f32(x, inv);
-      return inv;
-    }
-
-    inline float32x2_t invert2(const float32x2_t x) {
-      float32x2_t inv;
-      // https://en.wikipedia.org/wiki/Division_algorithm#Newton.E2.80.93Raphson_division
-      inv = vrecpe_f32(x);
-      // iterate 3 times for 24 bits of precision
-      inv = vmul_f32(inv, vrecps_f32(x, inv));
-      inv = vmul_f32(inv, vrecps_f32(x, inv));
-      inv = vmul_f32(inv, vrecps_f32(x, inv));
       return inv;
     }
 
@@ -724,6 +709,62 @@ namespace util {
 
     uint32_t mState = 0;
   };
+
+  namespace two {
+    // Lerp imprecise. Does not guarantee output = to when by = 1
+    inline float32x2_t lerpi(float32x2_t from, float32x2_t to, float32x2_t by) {
+      return vadd_f32(from, vmul_f32(by, vsub_f32(to, from)));
+    }
+
+    // Lerp precise. Guarantees output = to when by = 1
+    inline float32x2_t lerpp(float32x2_t from, float32x2_t to, float32x2_t by) {
+      return vadd_f32(
+        vmul_f32(vsub_f32(vdup_n_f32(1), by), from),
+        vmul_f32(by, to)
+      );
+    }
+
+    inline float32x2_t exp_f32(float32x2_t x) {
+      return vget_low_f32(simd::exp_f32(vcombine_f32(x, x)));
+    }
+
+    inline float32x2_t exp_ns_f32(float32x2_t x, float min, float max) {
+      auto logMin = vdup_n_f32(logf(min));
+      auto logMax = vdup_n_f32(logf(max));
+      return exp_f32(lerpi(logMin, logMax, x));
+    }
+
+    inline float32x2_t tan(float32x2_t x) {
+      return vget_low_f32(simd::tan(vcombine_f32(x, x)));
+    }
+
+    inline float32x2_t fclamp(float32x2_t in, float32x2_t min, float32x2_t max) {
+      return vmin_f32(max, vmax_f32(min, in));
+    }
+
+    inline float32x2_t fclamp_n(float32x2_t in, float min, float max) {
+      return fclamp(in, vdup_n_f32(min), vdup_n_f32(max));
+    }
+
+    inline float32x2_t vpo_scale(float32x2_t f0, float32x2_t vpo) {
+      return f0 * exp_f32(vpo * vdup_n_f32(FULLSCALE_IN_VOLTS * logf(2.0f)));
+    }
+
+    inline float32x2_t vpo_scale_limited(float32x2_t f0, float32x2_t vpo) {
+      return fclamp_n(vpo_scale(f0, vpo), 0.001, globalConfig.sampleRate / 4);
+    }
+
+    // https://en.wikipedia.org/wiki/Division_algorithm#Newton.E2.80.93Raphson_division
+    // iterate 3 times for 24 bits of precision
+    inline float32x2_t invert(float32x2_t x) {
+      float32x2_t inv;
+      inv = vrecpe_f32(x);
+      inv = vmul_f32(inv, vrecps_f32(x, inv));
+      inv = vmul_f32(inv, vrecps_f32(x, inv));
+      inv = vmul_f32(inv, vrecps_f32(x, inv));
+      return inv;
+    }
+  }
 
   namespace four {
     struct TrackAndHold {
