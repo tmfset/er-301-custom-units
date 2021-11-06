@@ -179,6 +179,10 @@ namespace util {
 #endif
     }
 
+    inline float32x2_t exp2_f32(float32x2_t x) {
+      return vget_low_f32(exp_f32(vcombine_f32(x, x)));
+    }
+
     inline float32x4_t pow_f32(float32x4_t x, float32x4_t m) {
       return exp_f32(m * log_f32(x));
     }
@@ -445,6 +449,11 @@ namespace util {
 
     inline float32x4_t lerp(const float32x4_t from, const float32x4_t to, const float32x4_t by) {
       return vmlaq_f32(vmlsq_f32(from, from, by), to, by);
+    }
+
+    inline uint32x4_t vld1q_dup_cgtz(const float* p) {
+      auto zero = vdupq_n_f32(0);
+      return vcgtq_f32(vld1q_dup_f32(p), zero);
     }
 
     inline float32x4_t fcgt(const float32x4_t x, const float32x4_t v) {

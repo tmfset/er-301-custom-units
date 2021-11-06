@@ -1,35 +1,25 @@
 #pragma once
 
 #include <od/objects/Object.h>
-#include <vector>
 #include <sstream>
-#include <compressor.h>
+#include <slew.h>
+#include <filter.h>
 
 namespace strike {
   class Lift : public od::Object {
     public:
-      Lift(bool stereo) {
-        mChannelCount = stereo ? 2 : 1;
-
-        mFilters.reserve(mChannelCount);
-        for (int channel = 0; channel < mChannelCount; channel++) {
-          std::ostringstream inName;
-          inName << "In" << channel + 1;
-          addInputFromHeap(new od::Inlet { inName.str() });
-
-          std::ostringstream outName;
-          outName << "Out" << channel + 1;
-          addOutputFromHeap(new od::Outlet { outName.str() });
-
-          mFilters.push_back(filter::onepole::Filter {});
-        }
-
-        addOutput(mEnv);
-
+      Lift() {
         addInput(mGate);
+        addInput(mInLeft);
+        addInput(mInRight);
+
         addParameter(mRise);
         addParameter(mFall);
         addParameter(mHeight);
+
+        addOutput(mOutLeft);
+        addOutput(mOutRight);
+        addOutput(mEnv);
       }
 
       virtual ~Lift() { }
@@ -38,52 +28,52 @@ namespace strike {
       virtual void process();
 
       void processInternal() {
-        int cc = mChannelCount;
-        float *in[cc], *out[cc];
-        filter::onepole::Filter *filter[cc];
-        for (int channel = 0; channel < cc; channel++) {
-          in[channel]  = getInput(channel)->buffer();
-          out[channel] = getOutput(channel)->buffer();
-          filter[channel] = &mFilters.at(channel);
-        }
+        const float *gate = mGate.buffer();
+        const float *inLeft = mInLeft.buffer();
+        const float *inRight = mInRight.buffer();
 
+        float *outLeft = mOutLeft.buffer();
+        float *outRight = mOutRight.buffer();
         float *env = mEnv.buffer();
 
-        const float *gate = mGate.buffer();
+        const auto height = vdup_n_f32(mHeight.value());
 
-        const float rise  = mRise.value();
-        const float fall  = mFall.value();
-        const auto height = vdupq_n_f32(mHeight.value());
+        mSlew.setRiseFall(
+          mRise.value(),
+          mFall.value()
+        );
 
-        mSlew.setRiseFall(rise, fall);
-
-        for (int i = 0; i < FRAMELENGTH; i += 4) {
-          auto _gate = vld1q_f32(gate + i);
+        for (int i = 0; i < FRAMELENGTH; i++) {
+          auto _gate = vld1_dup_f32(gate + i);
           auto slew = mSlew.process(_gate);
-          vst1q_f32(env + i, slew);
+          env[i] = vget_lane_f32(slew, 0);
 
-          auto f0 = slew * height;
+          auto f0 = vmul_f32(slew, height);
+          mFilter.setFrequency(f0);
 
-          for (int c = 0; c < cc; c++) {
-            filter[c]->setFrequency(f0);
-            auto _in = vld1q_f32(in[c] + i) * slew;
-            vst1q_f32(out[c] + i, filter[c]->process(_in));
-          }
+          auto _in = util::simd::make_f32(inLeft[i], inRight[i]);
+          auto _out = mFilter.process(vmul_f32(_in, slew));
+
+          outLeft[i] = vget_lane_f32(_out, 0);
+          outRight[i] = vget_lane_f32(_out, 1);
         }
       }
 
-      od::Inlet mGate { "Gate" };
+      od::Inlet mGate    { "Gate" };
+      od::Inlet mInLeft  { "In1" };
+      od::Inlet mInRight { "In2" };
 
       od::Parameter mRise   { "Rise", 0.01 };
       od::Parameter mFall   { "Fall", 0.2 };
       od::Parameter mHeight { "Height", 1 };
 
-      od::Outlet mEnv { "Env" };
+      od::Outlet mOutLeft  { "Out1" };
+      od::Outlet mOutRight { "Out2" };
+      od::Outlet mEnv      { "Env" };
 #endif
 
     private:
-      int mChannelCount = 1;
-      compressor::Slew mSlew;
-      std::vector<filter::onepole::Filter> mFilters;
+      slew::two::Slew mSlew;
+      filter::onepole::two::Lowpass mFilter;
   };
 }

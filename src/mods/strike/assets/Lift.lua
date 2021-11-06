@@ -22,14 +22,12 @@ function Lift:init(args)
 end
 
 function Lift:onLoadGraph(channelCount)
-  local stereo = channelCount > 1
-
   local gate   = self:addComparatorControl("gate", app.COMPARATOR_GATE)
   local rise   = self:addParameterAdapterControl("rise")
   local fall   = self:addParameterAdapterControl("fall")
   local height = self:addParameterAdapterControl("height")
 
-  local op = self:addObject("op", strike.Lift(stereo))
+  local op = self:addObject("op", strike.Lift())
   tie(op, "Rise", rise, "Out")
   tie(op, "Fall", fall, "Out")
   tie(op, "Height", height, "Out")

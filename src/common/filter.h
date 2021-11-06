@@ -15,13 +15,13 @@ namespace filter {
   namespace onepole {
     namespace four {
       struct Lowpass {
-        const float32x4_t npi2 = vdupq_n_f32(-2.0f * M_PI);
+        const float32x4_t npi2sp = vdupq_n_f32(-2.0f * M_PI * globalConfig.samplePeriod);
 
         inline Lowpass() {}
         inline Lowpass(float f0) { setFrequency(vdupq_n_f32(f0)); }
 
         inline void setFrequency(float32x4_t f0) {
-          mB1 = util::simd::exp_f32(f0 * npi2);
+          mB1 = util::simd::exp_f32(f0 * npi2sp);
           mA0 = vdupq_n_f32(1.0f) - mB1;
         }
 
@@ -38,14 +38,13 @@ namespace filter {
 
     namespace two {
       struct Lowpass {
-        const float32x2_t npi2 = vdup_n_f32(-2.0f * M_PI);
+        const float32x2_t npi2sp = vdup_n_f32(-2.0f * M_PI * globalConfig.samplePeriod);
 
         inline Lowpass() {}
         inline Lowpass(float f0) { setFrequency(vdup_n_f32(f0)); }
 
         inline void setFrequency(float32x2_t f0) {
-          auto f = vmul_f32(f0, npi2);
-          mB1 = vget_low_f32(util::simd::exp_f32(vcombine_f32(f, f)));
+          mB1 = util::simd::exp2_f32(vmul_f32(f0, npi2sp));
           mA0 = vsub_f32(vdup_n_f32(1.0f), mB1);
         }
 
