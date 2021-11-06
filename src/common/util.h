@@ -647,6 +647,7 @@ namespace util {
   inline float fmax(float a, float b) { return a > b ? a : b; }
   inline int    min(  int a,   int b) { return a < b ? a : b; }
   inline float fmin(float a, float b) { return a < b ? a : b; }
+  inline float fcenter(float low, float high) { return high - ((high - low) / 2.0f); }
 
   inline int    clamp(  int v,  int _min,  int _max) { return min(max(v, _min), _max); }
   inline float fclamp(float v, float min, float max) { return fmin(fmax(v, min), max); }
@@ -711,6 +712,10 @@ namespace util {
   };
 
   namespace two {
+    inline float32x4_t dual(float32x2_t x) {
+      return vcombine_f32(x, x);
+    }
+
     // Lerp imprecise. Does not guarantee output = to when by = 1
     inline float32x2_t lerpi(float32x2_t from, float32x2_t to, float32x2_t by) {
       return vadd_f32(from, vmul_f32(by, vsub_f32(to, from)));
@@ -725,7 +730,7 @@ namespace util {
     }
 
     inline float32x2_t exp_f32(float32x2_t x) {
-      return vget_low_f32(simd::exp_f32(vcombine_f32(x, x)));
+      return vget_low_f32(simd::exp_f32(dual(x)));
     }
 
     inline float32x2_t exp_ns_f32(float32x2_t x, float min, float max) {
@@ -734,16 +739,48 @@ namespace util {
       return exp_f32(lerpi(logMin, logMax, x));
     }
 
+    inline float32x2_t tanh(float32x2_t x) {
+      return vget_low_f32(simd::tanh(dual(x)));
+    }
+
     inline float32x2_t tan(float32x2_t x) {
-      return vget_low_f32(simd::tan(vcombine_f32(x, x)));
+      return vget_low_f32(simd::tan(dual(x)));
     }
 
-    inline float32x2_t fclamp(float32x2_t in, float32x2_t min, float32x2_t max) {
-      return vmin_f32(max, vmax_f32(min, in));
+    inline float32x2_t twice(float32x2_t x) {
+      return vadd_f32(x, x);
     }
 
-    inline float32x2_t fclamp_n(float32x2_t in, float min, float max) {
-      return fclamp(in, vdup_n_f32(min), vdup_n_f32(max));
+    inline float32x2_t half(float32x2_t x) {
+      return vmul_f32(x, vdup_n_f32(0.5));
+    }
+
+    inline float32x2_t add3(float32x2_t a, float32x2_t b, float32x2_t c) {
+      return vadd_f32(a, vadd_f32(b, c));
+    }
+
+    inline float32x2_t favg(float32x2_t x, float32x2_t y) {
+      return half(vadd_f32(x, y));
+    }
+
+    inline float32x2_t fcenter(float32x2_t low, float32x2_t high) {
+      return vsub_f32(high, half(vsub_f32(high, low)));
+    }
+
+    inline float32x2_t fclamp(float32x2_t x, float32x2_t min, float32x2_t max) {
+      return vmin_f32(max, vmax_f32(min, x));
+    }
+
+    inline float32x2_t fclamp_n(float32x2_t x, float min, float max) {
+      return fclamp(x, vdup_n_f32(min), vdup_n_f32(max));
+    }
+
+    inline float32x2_t fclamp_unit(float32x2_t x) {
+      return fclamp_n(x, -1, 1);
+    }
+
+    inline float32x2_t fclamp_punit(float32x2_t x) {
+      return fclamp_n(x, 0, 1);
     }
 
     inline float32x2_t vpo_scale(float32x2_t f0, float32x2_t vpo) {
@@ -764,6 +801,39 @@ namespace util {
       inv = vmul_f32(inv, vrecps_f32(x, inv));
       return inv;
     }
+
+    struct ThreeWayMix {
+      inline ThreeWayMix(float min, float max, float center) :
+        mMin(vdup_n_f32(min)),
+        mMax(vdup_n_f32(max)),
+        mCenter(vdup_n_f32(center)) { }
+
+      inline void configure(float32x2_t mix) {
+        mix = fclamp(mix, mMin, mMax);
+        mSelect = vclt_f32(mix, mCenter);
+        mDegree = vmul_f32(vabd_f32(mix, mCenter), scale());
+      }
+
+      inline float32x2_t scale() const {
+        return vbsl_f32(mSelect, mScaleLow, mScaleHigh);
+      }
+
+      inline float32x2_t mix(float32x2_t bottom, float32x2_t middle, float32x2_t top) const {
+        auto out = vbsl_f32(mSelect, bottom, top);
+        return lerpi(middle, out, mDegree);
+      }
+
+      const float32x2_t mMin;
+      const float32x2_t mMax;
+      const float32x2_t mCenter;
+
+      const float32x4_t mScale     = simd::invert(vabdq_f32(dual(mCenter), vcombine_f32(mMin, mMax)));
+      const float32x2_t mScaleLow  = vget_low_f32(mScale);
+      const float32x2_t mScaleHigh = vget_high_f32(mScale);
+
+      float32x2_t mDegree = vdup_n_f32(1);
+      uint32x2_t  mSelect = vdup_n_u32(0);
+    };
   }
 
   namespace four {

@@ -94,24 +94,51 @@ namespace filter {
   namespace svf {
     namespace two {
       struct Coefficients {
-        inline void configure(
-          const float32x2_t f0,
-          const float32x2_t vpo,
-          const float32x2_t q
-        ) {
-          mK = util::two::invert(util::two::exp_ns_f32(q, 0.70710678118f, 1000.0f));
+        const float invRootTwo = 0.70710678118f;
+        const float minQ = invRootTwo;
+        const float maxQ = 1000.0f;
 
+        inline void configure(float32x2_t f0, float32x2_t vpo, float32x2_t q) {
           auto f = util::two::vpo_scale_limited(f0, vpo);
           auto g = util::two::tan(f * vdup_n_f32(M_PI * globalConfig.samplePeriod));
+
+          mK  = util::two::invert(util::two::exp_ns_f32(q, minQ, maxQ));
           mA1 = util::two::invert(vmla_f32(vdup_n_f32(1), g, vadd_f32(g, mK)));
           mA2 = vmul_f32(g, mA1);
           mA3 = vmul_f32(g, mA2);
         }
 
+        float32x2_t mK  = vdup_n_f32(0);
         float32x2_t mA1 = vdup_n_f32(0);
         float32x2_t mA2 = vdup_n_f32(0);
         float32x2_t mA3 = vdup_n_f32(0);
-        float32x2_t mK  = vdup_n_f32(0);
+      };
+
+      struct Filter {
+        inline void configure(float32x2_t f0, float32x2_t vpo, float32x2_t q) {
+          mCf.configure(f0, vpo, q);
+        }
+
+        inline void process(float32x2_t x) {
+          auto v3 = vsub_f32(x, mIc2);
+          auto v1 = vadd_f32(vmul_f32(mCf.mA1, mIc1), vmul_f32(mCf.mA2, v3));
+          auto v2 = util::two::add3(mIc2, vmul_f32(mCf.mA2, mIc1), vmul_f32(mCf.mA3, v3));
+
+          mIc1 = vsub_f32(util::two::twice(v1), mIc1);
+          mIc2 = vsub_f32(util::two::twice(v2), mIc2);
+
+          mLp = v2;
+          mBp = v1;
+          mHp = vsub_f32(x, vsub_f32(vmul_f32(mCf.mK, mBp), mLp));
+        }
+
+        Coefficients mCf;
+        float32x2_t mIc1 = vdup_n_f32(0);
+        float32x2_t mIc2 = vdup_n_f32(0);
+
+        float32x2_t mLp = vdup_n_f32(0);
+        float32x2_t mBp = vdup_n_f32(0);
+        float32x2_t mHp = vdup_n_f32(0);
       };
     }
 
