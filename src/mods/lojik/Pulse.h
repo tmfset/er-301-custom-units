@@ -77,7 +77,7 @@ namespace lojik {
       od::Outlet mOut   { "Out" };
 #endif
     private:
-      const float32x4_t cScale = util::simd::makeq_f32(1, 2, 3, 4);
+      const float32x4_t cScale = util::four::make(1, 2, 3, 4);
       float mPhase = 0.0f;
   };
 }

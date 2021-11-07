@@ -307,13 +307,13 @@ namespace voice {
         v.track(gate, config, shared);
 
         auto out = v.process(gate, pf0, ff0, hardSync, shared);
-        signal = vadd_f32(signal, util::simd::make_f32(
+        signal = vadd_f32(signal, util::two::make(
           util::simd::sumq_f32(out.val[0]),
           util::simd::sumq_f32(out.val[1])
         ));
 
         auto envPan = v.getEnvPanLevel();
-        envSum = vadd_f32(envSum, util::simd::make_f32(
+        envSum = vadd_f32(envSum, util::two::make(
           util::simd::sumq_f32(envPan.val[0]),
           util::simd::sumq_f32(envPan.val[1])
         ));

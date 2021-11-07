@@ -324,8 +324,8 @@ namespace filter {
           // the above matrix.
 
           const auto a1223 = cf.a1223();
-          const auto mt1 = vtrnq_f32(vdupq_n_f32(1), vdupq_n_f32(-1)).val[0];//util::simd::makeq_f32(1.0f, -1.0f, 1.0f, -1.0f);
-          const auto mt2 = vcombine_f32(vdup_n_f32(0), vdup_n_f32(1));//util::simd::makeq_f32(0.0f, 0.0f, 1.0f, 1.0f);
+          const auto mt1 = vtrnq_f32(vdupq_n_f32(1), vdupq_n_f32(-1)).val[0];
+          const auto mt2 = vcombine_f32(vdup_n_f32(0), vdup_n_f32(1));
 
           auto iceq = vld1_f32(mIceq);
 

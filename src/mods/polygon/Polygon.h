@@ -153,7 +153,7 @@ namespace polygon {
           for (int j = 0; j < GROUPS; j++) {
             const auto offset = j * LANES;
             _gates[j] = _gates[j] | manualGates[j] | vcgtq_f32(
-              util::simd::makeq_f32(
+              util::four::make(
                 gates[offset + 0][i], gates[offset + 1][i],
                 gates[offset + 2][i], gates[offset + 3][i]
               ),

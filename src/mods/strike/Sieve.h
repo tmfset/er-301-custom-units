@@ -47,7 +47,7 @@ namespace strike {
           mMixer.configure(vld1_dup_f32(mix + i));
           mFilter.configure(vld1_dup_f32(f0 + i), vld1_dup_f32(vpo + i), vld1_dup_f32(q + i));
 
-          auto _in = util::simd::make_f32(inLeft[i], inRight[i]);
+          auto _in = util::two::make(inLeft[i], inRight[i]);
           _in = vmul_f32(_in, vld1_dup_f32(gain + i));
 
           auto _out = mFilter.processAndMix(mMixer, _in);

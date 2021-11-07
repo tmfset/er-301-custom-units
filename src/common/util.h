@@ -448,22 +448,6 @@ namespace util {
       }
     }
 
-    inline float32x2_t make_f32(float a, float b) {
-      float x[2];
-      x[0] = a;
-      x[1] = b;
-      return vld1_f32(x);
-    }
-
-    inline float32x4_t makeq_f32(float a, float b, float c, float d) {
-      float _x[4];
-      _x[0] = a;
-      _x[1] = b;
-      _x[2] = c;
-      _x[3] = d;
-      return vld1q_f32(_x);
-    }
-
     inline float32x2_t padd_self(const float32x2_t v) {
       return vpadd_f32(v, v);
     }
@@ -689,6 +673,15 @@ namespace util {
   };
 
   namespace four {
+    inline float32x4_t make(float a, float b, float c, float d) {
+      float _x[4];
+      _x[0] = a;
+      _x[1] = b;
+      _x[2] = c;
+      _x[3] = d;
+      return vld1q_f32(_x);
+    }
+
     inline float32x4_t comp(float32x4_t x) {
       return vdupq_n_f32(1) - x;
     }

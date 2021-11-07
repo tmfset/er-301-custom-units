@@ -51,7 +51,7 @@ namespace strike {
           auto f0 = vmul_f32(slew, height);
           mFilter.setFrequency(f0);
 
-          auto _in = util::simd::make_f32(inLeft[i], inRight[i]);
+          auto _in = util::two::make(inLeft[i], inRight[i]);
           auto _out = mFilter.process(vmul_f32(_in, slew));
 
           outLeft[i] = vget_lane_f32(_out, 0);

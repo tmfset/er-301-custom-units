@@ -330,7 +330,7 @@ namespace osc {
       return p;
     }
 
-    const float32x4_t cScale = util::simd::makeq_f32(1, 2, 3, 4);
+    const float32x4_t cScale = util::four::make(1, 2, 3, 4);
     util::Trigger trigger;
     float phase = 1.0f;
   };
@@ -509,7 +509,7 @@ namespace osc {
     Phase mOscPhase;
     float mEnvPhase = 1.0f;
     util::Trigger mSyncTrigger;
-    const float32x4_t cScale = util::simd::makeq_f32(1, 2, 3, 4);
+    const float32x4_t cScale = util::four::make(1, 2, 3, 4);
 
     inline float32x4_t process(
       const float32x4_t f0,
