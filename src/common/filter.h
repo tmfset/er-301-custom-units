@@ -92,58 +92,22 @@ namespace filter {
   }
 
   namespace svf {
-    namespace two {
-      struct Coefficients {
-        const float invRootTwo = 0.70710678118f;
-        const float minQ = invRootTwo;
-        const float maxQ = 1000.0f;
-
-        inline void configure(float32x2_t f0, float32x2_t vpo, float32x2_t q) {
-          auto f = util::two::vpo_scale_limited(f0, vpo);
-          auto g = util::two::tan(f * vdup_n_f32(M_PI * globalConfig.samplePeriod));
-
-          mK  = util::two::invert(util::two::exp_ns_f32(q, minQ, maxQ));
-          mA1 = util::two::invert(vmla_f32(vdup_n_f32(1), g, vadd_f32(g, mK)));
-          mA2 = vmul_f32(g, mA1);
-          mA3 = vmul_f32(g, mA2);
-        }
-
-        float32x2_t mK  = vdup_n_f32(0);
-        float32x2_t mA1 = vdup_n_f32(0);
-        float32x2_t mA2 = vdup_n_f32(0);
-        float32x2_t mA3 = vdup_n_f32(0);
-      };
-
-      struct Filter {
-        inline void configure(float32x2_t f0, float32x2_t vpo, float32x2_t q) {
-          mCf.configure(f0, vpo, q);
-        }
-
-        inline void process(float32x2_t x) {
-          auto v3 = vsub_f32(x, mIc2);
-          auto v1 = vadd_f32(vmul_f32(mCf.mA1, mIc1), vmul_f32(mCf.mA2, v3));
-          auto v2 = util::two::add3(mIc2, vmul_f32(mCf.mA2, mIc1), vmul_f32(mCf.mA3, v3));
-
-          mIc1 = vsub_f32(util::two::twice(v1), mIc1);
-          mIc2 = vsub_f32(util::two::twice(v2), mIc2);
-
-          mLp = v2;
-          mBp = v1;
-          mHp = vsub_f32(x, vsub_f32(vmul_f32(mCf.mK, mBp), mLp));
-        }
-
-        Coefficients mCf;
-        float32x2_t mIc1 = vdup_n_f32(0);
-        float32x2_t mIc2 = vdup_n_f32(0);
-
-        float32x2_t mLp = vdup_n_f32(0);
-        float32x2_t mBp = vdup_n_f32(0);
-        float32x2_t mHp = vdup_n_f32(0);
-      };
-    }
+    const float invRootTwo = 0.70710678118f;
+    const float globalMinQ = logf(invRootTwo);
+    const float globalMaxQ = logf(1000.0f);
 
     namespace four {
+      const float32x4_t minQ = vdupq_n_f32(globalMinQ);
+      const float32x4_t maxQ = vdupq_n_f32(globalMaxQ);
+
       struct Coefficients {
+        inline void configure(float32x4_t f0, float32x4_t vpo, float32x4_t q) {
+          q = util::four::lerpi(minQ, maxQ, q);
+          q = util::simd::exp_f32(q);
+          f0 = util::four::vpo_scale(f0, vpo);
+          configure(f0, q);
+        }
+
         inline void configure(float32x4_t f0, float32x4_t q) {
           mK = util::simd::invert(q);
 
@@ -207,6 +171,69 @@ namespace filter {
 
         float32x4_t mIc1 = vdupq_n_f32(0);
         float32x4_t mIc2 = vdupq_n_f32(0);
+      };
+    }
+
+    namespace two {
+      struct Coefficients {
+        const float32x2_t minQ = vdup_n_f32(globalMinQ);
+        const float32x2_t maxQ = vdup_n_f32(globalMaxQ);
+
+        inline void configure(float32x2_t f0, float32x2_t vpo, float32x2_t q) {
+          q = util::two::lerpi(minQ, maxQ, q);
+
+          auto exp = vcombine_f32(q, util::two::fscale_vpo(vpo));
+          exp = util::simd::exp_f32(exp);
+
+          auto f = util::two::fclamp_freq(f0 * vget_high_f32(exp));
+          auto g = util::two::tan(f * vdup_n_f32(M_PI * globalConfig.samplePeriod));
+
+          mK  = util::two::invert(vget_low_f32(exp));
+          auto a = vadd_f32(vdup_n_f32(1), vmul_f32(g, vadd_f32(g, mK)));
+          mA1 = util::two::invert(a);
+          mA2 = vmul_f32(g, mA1);
+          mA3 = vmul_f32(g, mA2);
+        }
+
+        float32x2_t mK  = vdup_n_f32(0);
+        float32x2_t mA1 = vdup_n_f32(0);
+        float32x2_t mA2 = vdup_n_f32(0);
+        float32x2_t mA3 = vdup_n_f32(0);
+      };
+
+      struct Filter {
+        inline void configure(float32x2_t f0, float32x2_t vpo, float32x2_t q) {
+          mCf.configure(f0, vpo, q);
+        }
+
+        inline void process(float32x2_t x) {
+          auto ic12 = mIc12;
+          auto ic1 = vget_low_f32(ic12);
+          auto ic2 = vget_high_f32(ic12);
+
+          auto v3 = vsub_f32(x, ic2);
+          auto v1 = vadd_f32(vmul_f32(mCf.mA1, ic1), vmul_f32(mCf.mA2, v3));
+          auto v2 = util::two::add3(ic2, vmul_f32(mCf.mA2, ic1), vmul_f32(mCf.mA3, v3));
+
+          auto v12 = vcombine_f32(v1, v2);
+          mIc12 = util::simd::twice(v12) - ic12;
+
+          mLp = v2;
+          mBp = v1;
+          mHp = vsub_f32(x, vsub_f32(vmul_f32(mCf.mK, mBp), mLp));
+        }
+
+        inline float32x2_t processAndMix(const util::two::ThreeWayMix &mix, float32x2_t x) {
+          process(x);
+          return mix.mix(mLp, mBp, mHp);
+        }
+
+        Coefficients mCf;
+        float32x4_t mIc12 = vdupq_n_f32(0);
+
+        float32x2_t mLp = vdup_n_f32(0);
+        float32x2_t mBp = vdup_n_f32(0);
+        float32x2_t mHp = vdup_n_f32(0);
       };
     }
 

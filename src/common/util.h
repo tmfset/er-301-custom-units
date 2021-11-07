@@ -225,6 +225,12 @@ namespace util {
       return vld1q_f32(_x);
     }
 
+    inline float32x4_t sqrt_lim(float32x4_t x) {
+      auto sign = vcltq_f32(x, vdupq_n_f32(0));
+      x = sqrt(vabsq_f32(x));
+      return vbslq_f32(sign, vnegq_f32(x), x);
+    }
+
     inline float32x4_t cbrt(const float32x4_t x) {
       float _x[4];
       vst1q_f32(_x, x);
@@ -410,17 +416,19 @@ namespace util {
       return sin * invert(cos);
     }
 
+    #define LOG2 0.6931471805599453f
+    #define VPO_LOG_MAX FULLSCALE_IN_VOLTS * LOG2
+
     inline float32x4_t vpo_scalar(const float32x4_t vpo) {
       const auto sp = vdupq_n_f32(globalConfig.samplePeriod);
-      const float32x4_t vpoLogMax = vdupq_n_f32(FULLSCALE_IN_VOLTS * logf(2.0f));
-      return util::simd::exp_f32(vpo * vpoLogMax) * sp;
+      return util::simd::exp_f32(vpo * vdupq_n_f32(VPO_LOG_MAX)) * sp;
     }
 
     inline float32x4_t vpo_scale(
       const float32x4_t vpo,
       const float32x4_t f0
     ) {
-      const float32x4_t vpoLogMax = vdupq_n_f32(FULLSCALE_IN_VOLTS * logf(2.0f));
+      const float32x4_t vpoLogMax = vdupq_n_f32(VPO_LOG_MAX);
       return clamp_n(f0 * util::simd::exp_f32(vpo * vpoLogMax), 0.001, globalConfig.sampleRate / 4);
     }
 
@@ -428,8 +436,7 @@ namespace util {
       const float32x4_t vpo,
       const float32x4_t f0
     ) {
-      const float32x4_t vpoLogMax = vdupq_n_f32(FULLSCALE_IN_VOLTS * logf(2.0f));
-      return f0 * util::simd::exp_f32(vpo * vpoLogMax);
+      return f0 * util::simd::exp_f32(vpo * vdupq_n_f32(VPO_LOG_MAX));
     }
 
     inline float32x4_t lerp(const float32x4_t from, const float32x4_t to, const float32x4_t by) {
@@ -711,9 +718,72 @@ namespace util {
     uint32_t mState = 0;
   };
 
+  namespace four {
+    inline float32x4_t comp(float32x4_t x) {
+      return vdupq_n_f32(1) - x;
+    }
+
+    // Lerp imprecise. Does not guarantee output = to when by = 1
+    inline float32x4_t lerpi(float32x4_t from, float32x4_t to, float32x4_t by) {
+      return from + by * (to - from);
+    }
+
+    // Lerp precise. Guarantees output = to when by = 1
+    inline float32x4_t lerpp(float32x4_t from, float32x4_t to, float32x4_t by) {
+      return comp(by) * from + by * to;
+    }
+
+    inline float32x4_t fclamp(float32x4_t x, float32x4_t min, float32x4_t max) {
+      return vminq_f32(max, vmaxq_f32(min, x));
+    }
+
+    inline float32x4_t fclamp_n(float32x4_t x, float min, float max) {
+      return fclamp(x, vdupq_n_f32(min), vdupq_n_f32(max));
+    }
+
+    inline float32x4_t fclamp_unit(float32x4_t x) {
+      return fclamp_n(x, -1, 1);
+    }
+
+    inline float32x4_t fclamp_punit(float32x4_t x) {
+      return fclamp_n(x, 0, 1);
+    }
+
+    inline float32x4_t fclamp_freq(float32x4_t x) {
+      return fclamp_n(x, 0.001, globalConfig.sampleRate / 4);
+    }
+
+    inline float32x4_t fscale_vpo(float32x4_t vpo) {
+      return vpo * vdupq_n_f32(VPO_LOG_MAX);
+    }
+
+    inline float32x4_t vpo_scale(float32x4_t f0, float32x4_t vpo) {
+      return f0 * simd::exp_f32(vpo * vdupq_n_f32(VPO_LOG_MAX));
+    }
+
+    inline float32x4_t vpo_scale_limited(float32x4_t f0, float32x4_t vpo) {
+      return fclamp_freq(vpo_scale(f0, vpo));
+    }
+  }
+
   namespace two {
+    inline float32x2_t make(float a, float b) {
+      float x[2];
+      x[0] = a;
+      x[1] = b;
+      return vld1_f32(x);
+    }
+
     inline float32x4_t dual(float32x2_t x) {
       return vcombine_f32(x, x);
+    }
+
+    inline float32x2_t padd(float32x4_t x) {
+      return vadd_f32(vget_low_f32(x), vget_high_f32(x));
+    }
+
+    inline float32x2_t comp(float32x2_t x) {
+      return vsub_f32(vdup_n_f32(1), x);
     }
 
     // Lerp imprecise. Does not guarantee output = to when by = 1
@@ -723,17 +793,14 @@ namespace util {
 
     // Lerp precise. Guarantees output = to when by = 1
     inline float32x2_t lerpp(float32x2_t from, float32x2_t to, float32x2_t by) {
-      return vadd_f32(
-        vmul_f32(vsub_f32(vdup_n_f32(1), by), from),
-        vmul_f32(by, to)
-      );
+      return vadd_f32(vmul_f32(comp(by), from), vmul_f32(by, to));
     }
 
     inline float32x2_t exp_f32(float32x2_t x) {
       return vget_low_f32(simd::exp_f32(dual(x)));
     }
 
-    inline float32x2_t exp_ns_f32(float32x2_t x, float min, float max) {
+    inline float32x2_t exp_ns_f32(float32x2_t x, const float min, const float max) {
       auto logMin = vdup_n_f32(logf(min));
       auto logMax = vdup_n_f32(logf(max));
       return exp_f32(lerpi(logMin, logMax, x));
@@ -745,6 +812,19 @@ namespace util {
 
     inline float32x2_t tan(float32x2_t x) {
       return vget_low_f32(simd::tan(dual(x)));
+    }
+
+    inline float32x2_t sqrt(float32x2_t x) {
+      return make(
+        sqrtf(vget_lane_f32(x, 0)),
+        sqrtf(vget_lane_f32(x, 1))
+      );
+    }
+
+    inline float32x2_t sqrt_lim(float32x2_t x) {
+      auto sign = vclt_f32(x, vdup_n_f32(0));
+      x = sqrt(vabs_f32(x));
+      return vbsl_f32(sign, vneg_f32(x), x);
     }
 
     inline float32x2_t twice(float32x2_t x) {
@@ -783,12 +863,20 @@ namespace util {
       return fclamp_n(x, 0, 1);
     }
 
+    inline float32x2_t fclamp_freq(float32x2_t x) {
+      return fclamp_n(x, 0.001, globalConfig.sampleRate / 4);
+    }
+
+    inline float32x2_t fscale_vpo(float32x2_t vpo) {
+      return vmul_f32(vpo, vdup_n_f32(VPO_LOG_MAX));
+    }
+
     inline float32x2_t vpo_scale(float32x2_t f0, float32x2_t vpo) {
-      return f0 * exp_f32(vpo * vdup_n_f32(FULLSCALE_IN_VOLTS * logf(2.0f)));
+      return f0 * exp_f32(vpo * vdup_n_f32(VPO_LOG_MAX));
     }
 
     inline float32x2_t vpo_scale_limited(float32x2_t f0, float32x2_t vpo) {
-      return fclamp_n(vpo_scale(f0, vpo), 0.001, globalConfig.sampleRate / 4);
+      return fclamp_freq(vpo_scale(f0, vpo));
     }
 
     // https://en.wikipedia.org/wiki/Division_algorithm#Newton.E2.80.93Raphson_division
@@ -820,7 +908,7 @@ namespace util {
 
       inline float32x2_t mix(float32x2_t bottom, float32x2_t middle, float32x2_t top) const {
         auto out = vbsl_f32(mSelect, bottom, top);
-        return lerpi(middle, out, mDegree);
+        return lerpp(middle, out, mDegree);
       }
 
       const float32x2_t mMin;

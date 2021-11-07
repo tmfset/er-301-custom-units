@@ -19,22 +19,20 @@ function Sieve:init(args)
 end
 
 function Sieve:onLoadGraph(channelCount)
-  local stereo = channelCount > 1
-
   local vpo   = self:addConstantOffsetControl("vpo")
   local f0    = self:addGainBiasControl("f0")
   local q     = self:addGainBiasControl("q")
   local gain  = self:addGainBiasControl("gain")
   local mix   = self:addGainBiasControl("mix")
 
-  local op = self:addObject("op", strike.Sieve(stereo))
+  local op = self:addObject("op", strike.Sieve())
   connect(vpo,  "Out", op, "V/Oct")
   connect(f0,   "Out", op, "Fundamental")
   connect(q,    "Out", op, "Resonance")
   connect(gain, "Out", op, "Gain")
   connect(mix,  "Out", op, "Mix")
 
-  for i = 1, stereo and 2 or 1 do
+  for i = 1, channelCount do
     connect(self, "In"..i, op, "In"..i)
     connect(op, "Out"..i, self, "Out"..i)
   end
