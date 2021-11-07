@@ -56,7 +56,7 @@ namespace osc {
         auto zero = vdupq_n_f32(0);
 
         auto p = vbslq_f32(sync, zero, mPhase + delta);
-        mPhase = p - util::simd::floor(p);
+        mPhase = p - util::four::floor(p);
 
         return mPhase;
       }
@@ -79,7 +79,7 @@ namespace osc {
         auto offset = vbslq_f32(reverse, -delta, delta);
         auto p = vbslq_f32(hardSync, zero, mPhase) + offset;
         mWrap = vcgeq_f32(p, one) | vcleq_f32(p, zero);
-        p = p - util::simd::floor(p - vbslq_f32(reverse, one, zero));
+        p = p - util::four::floor(p - vbslq_f32(reverse, one, zero));
 
         mReverse = reverse;
         mPhase = p;
@@ -110,8 +110,8 @@ namespace osc {
 
         auto hardSyncB    = vcltq_f32(deltaA, deltaB);
         auto hardSyncFrom = vbslq_f32(hardSyncB, p.val[0], p.val[1]);
-        p.val[0] = util::simd::wrap(p.val[0]);
-        p.val[1] = util::simd::wrap(p.val[1]);
+        p.val[0] = util::four::wrap(p.val[0]);
+        p.val[1] = util::four::wrap(p.val[1]);
         auto hardSyncTo   = vbslq_f32(hardSyncB, p.val[0], p.val[1]);
 
         auto wrapSource = vabdq_f32(hardSyncTo, hardSyncFrom);
@@ -170,8 +170,8 @@ namespace osc {
         _offsetSub[i] = _oSub;
       }
 
-      mPhaseOneV = util::simd::wrap(vld1q_f32(_one) - vld1q_f32(_offsetOne));
-      mPhaseSubV = util::simd::wrap(vld1q_f32(_sub) - vld1q_f32(_offsetSub));
+      mPhaseOneV = util::four::wrap(vld1q_f32(_one) - vld1q_f32(_offsetOne));
+      mPhaseSubV = util::four::wrap(vld1q_f32(_sub) - vld1q_f32(_offsetSub));
     }
 
     const float32x4_t one() const { return mPhaseOneV; }
@@ -232,9 +232,9 @@ namespace osc {
       mPhaseTwo = _cpTwo;
       mPhaseSub = _cpSub;
 
-      mPhaseOneV = util::simd::wrap(vld1q_f32(_one) - vld1q_f32(_offsetOne));
-      mPhaseTwoV = util::simd::wrap(vld1q_f32(_two) - vld1q_f32(_offsetTwo));
-      mPhaseSubV = util::simd::wrap(vld1q_f32(_sub) - vld1q_f32(_offsetSub));
+      mPhaseOneV = util::four::wrap(vld1q_f32(_one) - vld1q_f32(_offsetOne));
+      mPhaseTwoV = util::four::wrap(vld1q_f32(_two) - vld1q_f32(_offsetTwo));
+      mPhaseSubV = util::four::wrap(vld1q_f32(_sub) - vld1q_f32(_offsetSub));
     }
 
     const float32x4_t one() const { return mPhaseOneV; }
@@ -269,7 +269,7 @@ namespace osc {
 
       p = p - vreinterpretq_f32_u32(vld1q_u32(_offset));
       auto isLoop = util::simd::cgtqz_f32(loop);
-      p = vmlsq_f32(p, isLoop, util::simd::floor(p));
+      p = vmlsq_f32(p, isLoop, util::four::floor(p));
       p = vminq_f32(p, vdupq_n_f32(1));
       phase = vgetq_lane_f32(p, 3);
       return p;
@@ -292,7 +292,7 @@ namespace osc {
       }
 
       auto o = vreinterpretq_f32_u32(vld1q_u32(_offset));
-      p = p - (util::simd::floor(p) + o);
+      p = p - (util::four::floor(p) + o);
       phase = vgetq_lane_f32(p, 3);
       return p;
     }
@@ -325,7 +325,7 @@ namespace osc {
 
       auto o = vreinterpretq_f32_u32(vld1q_u32(_offset));
       p = vmaxq_f32(p + o, vdupq_n_f32(0));
-      p = p - util::simd::floor(p);
+      p = p - util::four::floor(p);
       phase = vgetq_lane_f32(p, 3);
       return p;
     }

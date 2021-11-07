@@ -61,7 +61,7 @@ namespace lojik {
           }
 
           p = p - vreinterpretq_f32_u32(vld1q_u32(_offset));
-          p = p - util::simd::floor(p);
+          p = p - util::four::floor(p);
           mPhase = vgetq_lane_f32(p, 3);
 
           auto final = vbslq_f32(vcltq_f32(p, loadWidth), negOne, one);

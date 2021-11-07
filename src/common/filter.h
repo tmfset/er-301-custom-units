@@ -216,7 +216,7 @@ namespace filter {
           auto v2 = util::two::add3(ic2, vmul_f32(mCf.mA2, ic1), vmul_f32(mCf.mA3, v3));
 
           auto v12 = vcombine_f32(v1, v2);
-          mIc12 = util::simd::twice(v12) - ic12;
+          mIc12 = util::four::twice(v12) - ic12;
 
           mLp = v2;
           mBp = v1;
@@ -272,7 +272,7 @@ namespace filter {
       public:
         inline void update(const float32x4_t m) {
           const auto half = vdupq_n_f32(0.5);
-          vst1q_f32(mDst, util::simd::twice(vabdq_f32(m, half)));
+          vst1q_f32(mDst, util::four::twice(vabdq_f32(m, half)));
           vst1q_f32(mClm, vcvtq_n_f32_u32(vcltq_f32(m, half), 32));
         }
 

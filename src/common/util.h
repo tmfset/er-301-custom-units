@@ -249,22 +249,6 @@ namespace util {
       return vld1q_f32(_x);
     }
 
-    inline float32x4_t twice(const float32x4_t x) {
-      return x + x;
-    }
-
-    inline float32x4_t floor(const float32x4_t x) {
-      return vcvtq_f32_s32(vcvtq_s32_f32(x));
-    }
-
-    // Wrap [0, 1]
-    inline float32x4_t wrap(float32x4_t x) {
-      x = x - floor(x);
-      x = x + vdupq_n_f32(1);
-      x = x - floor(x);
-      return x;
-    }
-
     inline float32x4x2_t mix(float32x4_t by) {
       auto half = vdupq_n_f32(0.5);
       auto one  = vdupq_n_f32(1);
@@ -661,6 +645,22 @@ namespace util {
 
     inline float32x4_t comp(float32x4_t x) {
       return vdupq_n_f32(1) - x;
+    }
+
+    inline float32x4_t twice(const float32x4_t x) {
+      return x + x;
+    }
+
+    inline float32x4_t floor(const float32x4_t x) {
+      return vcvtq_f32_s32(vcvtq_s32_f32(x));
+    }
+
+    // Wrap [0, 1]
+    inline float32x4_t wrap(float32x4_t x) {
+      x = x - floor(x);
+      x = x + vdupq_n_f32(1);
+      x = x - floor(x);
+      return x;
     }
 
     // Lerp imprecise. Does not guarantee output = to when by = 1
