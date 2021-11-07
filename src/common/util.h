@@ -249,29 +249,6 @@ namespace util {
       return vld1q_f32(_x);
     }
 
-    inline float32x4_t lnot(const float32x4_t x) {
-      return vdupq_n_f32(1) - x;
-    }
-
-    inline float32x4_t clamp_n_low_base(const float32x4_t in, float min) {
-      auto m = vdupq_n_f32(min);
-      return vmaxq_f32(in + m, m);
-    }
-
-    inline float32x4_t clamp_n(const float32x4_t in, float min, float max) {
-      auto _min = vdupq_n_f32(min);
-      auto _max = vdupq_n_f32(max);
-      return vminq_f32(_max, vmaxq_f32(_min, in));
-    }
-
-    inline float32x4_t clamp_unit(const float32x4_t x) {
-      return vminq_f32(vdupq_n_f32(1), vmaxq_f32(vdupq_n_f32(-1), x));
-    }
-
-    inline float32x4_t clamp_punit(const float32x4_t x) {
-      return vminq_f32(vdupq_n_f32(1), vmaxq_f32(vdupq_n_f32(0), x));
-    }
-
     inline float32x4_t twice(const float32x4_t x) {
       return x + x;
     }

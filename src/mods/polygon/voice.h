@@ -127,15 +127,15 @@ namespace voice {
       }
 
       inline float32x4_t shape(const float32x4_t env) const {
-        return util::simd::clamp_unit(mShape + mShapeEnv * env);
+        return util::four::fclamp_unit(mShape + mShapeEnv * env);
       }
 
       inline float32x4_t mix(const float32x4_t env) const {
-        return util::simd::clamp_unit(mMix + mMixEnv * env);
+        return util::four::fclamp_unit(mMix + mMixEnv * env);
       }
 
       inline float32x4_t pan(const float32x4_t offset) const {
-        return util::simd::clamp_unit(mPan + offset);
+        return util::four::fclamp_unit(mPan + offset);
       }
     };
 
@@ -179,7 +179,7 @@ namespace voice {
       }
 
       inline float32x4_t cutoff(const float32x4_t f0) const {
-        return util::simd::clamp_n(
+        return util::four::fclamp_n(
           mFilterVpo.freq(mFilterTrack.freq(f0)),
           1,
           globalConfig.sampleRate / 2

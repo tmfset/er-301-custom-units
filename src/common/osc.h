@@ -345,12 +345,12 @@ namespace osc {
       float32x4_t mUp, mDown;
 
       inline Bend(const float32x4_t up, const float32x4_t down) {
-        mUp = util::simd::clamp_unit(up);
-        mDown = util::simd::clamp_unit(down);
+        mUp = util::four::fclamp_unit(up);
+        mDown = util::four::fclamp_unit(down);
       }
 
       inline Bend(const BendMode mode, const float32x4_t bend) {
-        auto b = util::simd::clamp_unit(bend);
+        auto b = util::four::fclamp_unit(bend);
         mUp = b;
         mDown = mode == BEND_NORMAL ? b : vnegq_f32(b);
       }
