@@ -244,8 +244,8 @@ namespace filter {
           const float32x4_t f0,
           const float32x4_t _q
         ) {
-          auto f = util::simd::vpo_scale(vpo, f0);
-          auto q = util::simd::exp_n_scale(_q, 0.70710678118f, 1000.0f);
+          auto f = util::four::vpo_scale_limited(f0, vpo);
+          auto q = util::four::exp_ns_f32(_q, 0.70710678118f, 1000.0f);
 
           const auto g = util::simd::tan(f * vdupq_n_f32(M_PI * globalConfig.samplePeriod));
           const auto k = util::simd::invert(q);
@@ -371,7 +371,7 @@ namespace filter {
           auto lpLvl = vmlaq_f32(bpLvl, dst, lowpass());
           auto hpLvl = vmlaq_f32(bpLvl, dst, highpass());
 
-          return util::simd::lerp(hpLvl, lpLvl, clm);
+          return util::four::lerpi(hpLvl, lpLvl, clm);
         }
 
       private:
@@ -459,8 +459,8 @@ namespace filter {
           const float32x4_t _q,
           const Type t
         ) {
-          auto f = util::simd::vpo_scale(vpo, f0);
-          auto q = util::simd::exp_n_scale(_q, 0.70710678118f, 500.0f);
+          auto f = util::four::vpo_scale_limited(f0, vpo);
+          auto q = util::four::exp_ns_f32(_q, 0.70710678118f, 500.0f);
 
           auto theta = f * vdupq_n_f32(2.0f * M_PI * globalConfig.samplePeriod);
           float32x4_t sinTheta, cosTheta;

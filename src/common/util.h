@@ -419,30 +419,6 @@ namespace util {
     #define LOG2 0.6931471805599453f
     #define VPO_LOG_MAX FULLSCALE_IN_VOLTS * LOG2
 
-    inline float32x4_t vpo_scalar(const float32x4_t vpo) {
-      const auto sp = vdupq_n_f32(globalConfig.samplePeriod);
-      return util::simd::exp_f32(vpo * vdupq_n_f32(VPO_LOG_MAX)) * sp;
-    }
-
-    inline float32x4_t vpo_scale(
-      const float32x4_t vpo,
-      const float32x4_t f0
-    ) {
-      const float32x4_t vpoLogMax = vdupq_n_f32(VPO_LOG_MAX);
-      return clamp_n(f0 * util::simd::exp_f32(vpo * vpoLogMax), 0.001, globalConfig.sampleRate / 4);
-    }
-
-    inline float32x4_t vpo_scale_no_clamp(
-      const float32x4_t vpo,
-      const float32x4_t f0
-    ) {
-      return f0 * util::simd::exp_f32(vpo * vdupq_n_f32(VPO_LOG_MAX));
-    }
-
-    inline float32x4_t lerp(const float32x4_t from, const float32x4_t to, const float32x4_t by) {
-      return vmlaq_f32(vmlsq_f32(from, from, by), to, by);
-    }
-
     inline uint32x4_t vld1q_dup_cgtz(const float* p) {
       auto zero = vdupq_n_f32(0);
       return vcgtq_f32(vld1q_dup_f32(p), zero);
@@ -470,12 +446,6 @@ namespace util {
       for (int i = 0; i < 4; i++) {
         out[i] = _h[i];
       }
-    }
-
-    inline float32x4_t exp_n_scale(const float32x4_t x, float min, float max) {
-      auto logMin = vdupq_n_f32(logf(min));
-      auto logMax = vdupq_n_f32(logf(max));
-      return exp_f32(lerp(logMin, logMax, x));
     }
 
     inline float32x2_t make_f32(float a, float b) {
@@ -733,6 +703,12 @@ namespace util {
       return comp(by) * from + by * to;
     }
 
+    inline float32x4_t exp_ns_f32(float32x4_t x, const float min, const float max) {
+      auto logMin = vdupq_n_f32(logf(min));
+      auto logMax = vdupq_n_f32(logf(max));
+      return simd::exp_f32(lerpi(logMin, logMax, x));
+    }
+
     inline float32x4_t fclamp(float32x4_t x, float32x4_t min, float32x4_t max) {
       return vminq_f32(max, vmaxq_f32(min, x));
     }
@@ -981,7 +957,7 @@ namespace util {
       }
 
       inline float32x4_t freqEnv(const float32x4_t f0, const float32x4_t env) const {
-        return f0 * util::simd::lerp(vdupq_n_f32(1), mScale.value(), env);
+        return f0 * util::four::lerpi(vdupq_n_f32(1), mScale.value(), env);
       }
 
       inline float32x4_t delta(const float32x4_t f0) const {

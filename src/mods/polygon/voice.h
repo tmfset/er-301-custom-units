@@ -99,7 +99,7 @@ namespace voice {
         mMix = mix;
         mShapeEnv = shapeEnv;
         mMixEnv = mixEnv;
-        mResonance = util::simd::exp_n_scale(resonance, 0.70710678118f, 100.0f);
+        mResonance = util::four::exp_ns_f32(resonance, 0.70710678118f, 100.0f);
         mPan = pan;
         mFilterTrack = filterTrack;
       }

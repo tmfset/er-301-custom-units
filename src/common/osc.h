@@ -27,7 +27,7 @@ namespace osc {
       }
 
       static inline Frequency vpoWidth(const float32x4_t vpo, const float32x4_t f0, const float32x4_t w) {
-        return freqWidth(util::simd::vpo_scale(vpo, f0), w);
+        return freqWidth(util::four::vpo_scale_limited(f0, vpo), w);
       }
 
       static inline Frequency freqWidth(const float32x4_t f, const float32x4_t w) {
@@ -422,7 +422,7 @@ namespace osc {
       }
 
       auto bent = vbslq_f32(inverted, one - shaped, shaped);
-      return util::simd::lerp(linear, bent, amount);
+      return util::four::lerpi(linear, bent, amount);
     }
 
     inline float32x4_t triangle(
@@ -522,12 +522,12 @@ namespace osc {
       auto sp = vdupq_n_f32(globalConfig.samplePeriod);
       auto one = vdupq_n_f32(1);
 
-      auto freq = util::simd::vpo_scale(vpo, f0);
+      auto freq = util::four::vpo_scale_limited(f0, vpo);
       auto pDelta = freq * sp;
       auto pulse = mOscPhase.oscillator(pDelta, sync);
 
       auto formantBase = vbslq_f32(fixed, freq, f0);
-      auto delta = util::simd::vpo_scale_no_clamp(formant, formantBase) * sp;
+      auto delta = util::four::vpo_scale(formantBase, formant) * sp;
       auto phase = vdupq_n_f32(mEnvPhase) + delta * cScale;
       auto width = vminq_f32(one - sp, vmaxq_f32(barrel, sp));
 
@@ -575,7 +575,7 @@ namespace osc {
       auto one = vdupq_n_f32(1);
 
       auto width = vminq_f32(one - sp, vmaxq_f32(_width, sp));
-      auto freq = util::simd::vpo_scale(vpo, f0);
+      auto freq = util::four::vpo_scale_limited(f0, vpo);
       auto phase = mPhase.oscillatorSoftSync(freq * sp, sync, width);
 
       auto falling    = vcgtq_f32(phase, width);
