@@ -338,8 +338,8 @@ namespace filter {
             auto t4 = vtrnq_f32(vdupq_n_f32(xs[i]), t3).val[1];
 
             auto vp  = vmlaq_f32(vmulq_f32(t1, t3), t2, t4);
-            auto v1  = util::simd::padd_self(vget_low_f32(vp));
-            auto v2  = util::simd::padd_self(vget_high_f32(vp));
+            auto v1  = util::two::padds(vget_low_f32(vp));
+            auto v2  = util::two::padds(vget_high_f32(vp));
             auto v12 = vtrn_f32(v1, v2).val[0];
 
             iceq = vsub_f32(vadd_f32(v12, v12), iceq);

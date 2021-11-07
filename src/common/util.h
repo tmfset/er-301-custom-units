@@ -363,45 +363,6 @@ namespace util {
       }
     }
 
-    inline float32x2_t padd_self(const float32x2_t v) {
-      return vpadd_f32(v, v);
-    }
-
-    // See: rtocq_f32
-    // A partial version. Same principle, but optimized for two rows using the
-    // rem value to fill in the ends.
-    inline void rtocq_p_f32(
-      float32x4_t* out,
-      const float32x4_t a,
-      const float32x4_t b,
-      const float32x2_t rem
-    ) {
-      float32x4x2_t ab = vzipq_f32(a, b);
-
-      out[0] = vcombine_f32( vget_low_f32(ab.val[0]), rem);
-      out[1] = vcombine_f32(vget_high_f32(ab.val[0]), rem);
-      out[2] = vcombine_f32( vget_low_f32(ab.val[1]), rem);
-      out[3] = vcombine_f32(vget_high_f32(ab.val[1]), rem);
-    }
-
-    // Consider the four input vectors as rows in a matrix and create four new
-    // vectors from the columns of that matrix.
-    inline void rtocq_f32_ptr(
-      float *ptr,
-      const float32x4_t a,
-      const float32x4_t b,
-      const float32x4_t c,
-      const float32x4_t d
-    ) {
-      float32x4x2_t ab = vzipq_f32(a, b);
-      float32x4x2_t cd = vzipq_f32(c, d);
-
-      vst1q_f32(ptr + 0,  vcombine_f32( vget_low_f32(ab.val[0]),  vget_low_f32(cd.val[0])));
-      vst1q_f32(ptr + 4,  vcombine_f32(vget_high_f32(ab.val[0]), vget_high_f32(cd.val[0])));
-      vst1q_f32(ptr + 8,  vcombine_f32( vget_low_f32(ab.val[1]),  vget_low_f32(cd.val[1])));
-      vst1q_f32(ptr + 12, vcombine_f32(vget_high_f32(ab.val[1]), vget_high_f32(cd.val[1])));
-    }
-
     inline void print_f(float x) {
       logRaw("%f\n", x);
     }
@@ -453,16 +414,6 @@ namespace util {
         vget_lane_f32(x, 0),
         vget_lane_f32(x, 1)
       );
-    }
-
-    inline float32x4_t vtnh(uint32_t *track, float base, float32x4_t other) {
-      float _out[4], _other[4];
-      vst1q_f32(_other, other);
-      for (int i = 0; i < 4; i++) {
-        if (track[i]) { base = _other[i]; }
-        _out[i] = base;
-      }
-      return vld1q_f32(_out);
     }
 
     inline float32x4_t readSample(od::Sample *sample, const int *index, int channel) {
@@ -726,6 +677,10 @@ namespace util {
 
     inline float32x2_t padd(float32x4_t x) {
       return vadd_f32(vget_low_f32(x), vget_high_f32(x));
+    }
+
+    inline float32x2_t padds(float32x2_t x) {
+      return vpadd_f32(x, x);
     }
 
     inline float32x2_t comp(float32x2_t x) {
