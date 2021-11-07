@@ -205,17 +205,6 @@ namespace util {
       return pow_f32(vdupq_n_f32(10), x * vdupq_n_f32(0.05));
     }
 
-    inline float32x4_t invert(const float32x4_t x) {
-      float32x4_t inv;
-      // https://en.wikipedia.org/wiki/Division_algorithm#Newton.E2.80.93Raphson_division
-      inv = vrecpeq_f32(x);
-      // iterate 3 times for 24 bits of precision
-      inv *= vrecpsq_f32(x, inv);
-      inv *= vrecpsq_f32(x, inv);
-      inv *= vrecpsq_f32(x, inv);
-      return inv;
-    }
-
     inline float32x4_t sqrt(const float32x4_t x) {
       float _x[4];
       vst1q_f32(_x, x);
@@ -257,35 +246,6 @@ namespace util {
       auto leftAmount  = one - rightAmount;
 
       return {{ leftAmount, rightAmount }};
-    }
-
-    // tanh approximation (neon w/ division via newton's method)
-    // https://varietyofsound.wordpress.com/2011/02/14/efficient-tanh-computation-using-lamberts-continued-fraction/
-    inline float32x4_t tanh(const float32x4_t in) {
-      auto x  = in;
-      auto x2 = x * x;
-
-      float32x4_t a;
-      a = vmlaq_f32(vdupq_n_f32(17325), x2, x2 + vdupq_n_f32(378));
-      a = vmlaq_f32(vdupq_n_f32(135135), x2, a) * x;
-
-      float32x4_t b;
-      b = vmlaq_f32(vdupq_n_f32(3150), x2, vdupq_n_f32(28));
-      b = vmlaq_f32(vdupq_n_f32(62370), x2, b);
-      b = vmlaq_f32(vdupq_n_f32(135135), x2, b);
-
-      return a * invert(b);
-    }
-
-    inline float32x4_t atan(const float32x4_t in) {
-      auto one = vdupq_n_f32(1);
-      auto c1 = vdupq_n_f32(0.2447);
-      auto c2 = vdupq_n_f32(0.0663);
-
-      auto piOver4 = vdupq_n_f32(M_PI_4);
-      auto xabs = vabdq_f32(in, vdupq_n_f32(0));
-      return piOver4 * in - in * (xabs - one) * (c1 + c2 * xabs);
-      //return M_PI_4*x - x*(fabs(x) - 1)*(0.2447 + 0.0663*fabs(x));
     }
 
     inline void sincos_f32(float32x4_t x, float32x4_t *ysin, float32x4_t *ycos) {
@@ -369,12 +329,6 @@ namespace util {
       *ysin = vbslq_f32(sign_mask_sin, vnegq_f32(ys), ys);
       *ycos = vbslq_f32(sign_mask_cos, yc, vnegq_f32(yc));
 #endif
-    }
-
-    inline float32x4_t tan(const float32x4_t f) {
-      float32x4_t sin, cos;
-      sincos_f32(f, &sin, &cos);
-      return sin * invert(cos);
     }
 
     #define LOG2 0.6931471805599453f
@@ -710,6 +664,51 @@ namespace util {
     inline float32x4_t vpo_scale_limited(float32x4_t f0, float32x4_t vpo) {
       return fclamp_freq(vpo_scale(f0, vpo));
     }
+
+    // https://en.wikipedia.org/wiki/Division_algorithm#Newton.E2.80.93Raphson_division
+    // iterate 3 times for 24 bits of precision
+    inline float32x4_t invert(const float32x4_t x) {
+      float32x4_t inv;
+      inv = vrecpeq_f32(x);
+      inv *= vrecpsq_f32(x, inv);
+      inv *= vrecpsq_f32(x, inv);
+      inv *= vrecpsq_f32(x, inv);
+      return inv;
+    }
+
+    inline float32x4_t tan(const float32x4_t f) {
+      float32x4_t sin, cos;
+      simd::sincos_f32(f, &sin, &cos);
+      return sin * invert(cos);
+    }
+
+    // tanh approximation (neon w/ division via newton's method)
+    // https://varietyofsound.wordpress.com/2011/02/14/efficient-tanh-computation-using-lamberts-continued-fraction/
+    inline float32x4_t tanh(const float32x4_t in) {
+      auto x  = in;
+      auto x2 = x * x;
+
+      float32x4_t a;
+      a = vmlaq_f32(vdupq_n_f32(17325), x2, x2 + vdupq_n_f32(378));
+      a = vmlaq_f32(vdupq_n_f32(135135), x2, a) * x;
+
+      float32x4_t b;
+      b = vmlaq_f32(vdupq_n_f32(3150), x2, vdupq_n_f32(28));
+      b = vmlaq_f32(vdupq_n_f32(62370), x2, b);
+      b = vmlaq_f32(vdupq_n_f32(135135), x2, b);
+
+      return a * four::invert(b);
+    }
+
+    inline float32x4_t atan(const float32x4_t in) {
+      auto one = vdupq_n_f32(1);
+      auto c1 = vdupq_n_f32(0.2447);
+      auto c2 = vdupq_n_f32(0.0663);
+
+      auto piOver4 = vdupq_n_f32(M_PI_4);
+      auto xabs = vabdq_f32(in, vdupq_n_f32(0));
+      return piOver4 * in - in * (xabs - one) * (c1 + c2 * xabs);
+    }
   }
 
   namespace two {
@@ -753,11 +752,11 @@ namespace util {
     }
 
     inline float32x2_t tanh(float32x2_t x) {
-      return vget_low_f32(simd::tanh(dual(x)));
+      return vget_low_f32(four::tanh(dual(x)));
     }
 
     inline float32x2_t tan(float32x2_t x) {
-      return vget_low_f32(simd::tan(dual(x)));
+      return vget_low_f32(four::tan(dual(x)));
     }
 
     inline float32x2_t sqrt(float32x2_t x) {
@@ -818,7 +817,7 @@ namespace util {
     }
 
     inline float32x2_t vpo_scale(float32x2_t f0, float32x2_t vpo) {
-      return f0 * exp_f32(vpo * vdup_n_f32(VPO_LOG_MAX));
+      return vmul_f32(f0, exp_f32(vmul_f32(vpo, vdup_n_f32(VPO_LOG_MAX))));
     }
 
     inline float32x2_t vpo_scale_limited(float32x2_t f0, float32x2_t vpo) {
@@ -861,7 +860,7 @@ namespace util {
       const float32x2_t mMax;
       const float32x2_t mCenter;
 
-      const float32x4_t mScale     = simd::invert(vabdq_f32(dual(mCenter), vcombine_f32(mMin, mMax)));
+      const float32x4_t mScale     = four::invert(vabdq_f32(dual(mCenter), vcombine_f32(mMin, mMax)));
       const float32x2_t mScaleLow  = vget_low_f32(mScale);
       const float32x2_t mScaleHigh = vget_high_f32(mScale);
 

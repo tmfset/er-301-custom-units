@@ -16,13 +16,13 @@ namespace osc {
         auto m = vdupq_n_f32(0.001);
         auto r = vmaxq_f32(_r, m);
         auto f = vmaxq_f32(_f, m);
-        auto pI = util::simd::invert(r + f);
+        auto pI = util::four::invert(r + f);
         return Frequency { pI * sp, pI * r };
       }
 
       static inline Frequency periodWidth(const float32x4_t p, const float32x4_t w) {
         auto sp = vdupq_n_f32(globalConfig.samplePeriod);
-        auto pI = util::simd::invert(vmaxq_f32(p, sp));
+        auto pI = util::four::invert(vmaxq_f32(p, sp));
         return Frequency { pI * sp, w };
       }
 
@@ -308,7 +308,7 @@ namespace osc {
       auto rising     = vcltq_f32(p, width);
       auto distance   = vabdq_f32(p, width);
       auto length     = vbslq_f32(rising, width, one - width);
-      auto proportion = vminq_f32(distance * util::simd::invert(length), one);
+      auto proportion = vminq_f32(distance * util::four::invert(length), one);
 
       auto direction  = vbslq_f32(rising, vdupq_n_f32(1), vdupq_n_f32(-1));
       auto syncDelta  = (distance + proportion * (one - length)) * direction;
@@ -391,7 +391,7 @@ namespace osc {
 
       auto distance = vabdq_f32(phase, width);
       auto length   = vbslq_f32(rising, width, one - width);
-      auto linearc  = distance * util::simd::invert(length);
+      auto linearc  = distance * util::four::invert(length);
       auto linear   = one - linearc;
 
       auto x = vbslq_f32(inverted, linearc, linear);
@@ -437,7 +437,7 @@ namespace osc {
       auto distance = vabdq_f32(phase, width);
       auto length   = vbslq_f32(rising, width, one - width);
 
-      return one - distance * util::simd::invert(length);
+      return one - distance * util::four::invert(length);
     }
 
     inline float32x4_t pulse(
@@ -534,7 +534,7 @@ namespace osc {
       auto falling    = vcgtq_f32(phase, width);
       auto distance   = vabdq_f32(phase, width);
       auto length     = one - width;
-      auto proportion = vminq_f32(distance * util::simd::invert(length), one);
+      auto proportion = vminq_f32(distance * util::four::invert(length), one);
       auto syncDelta  = distance + proportion * width;
 
       uint32_t _sync[4];
@@ -558,7 +558,7 @@ namespace osc {
       falling    = vcgtq_f32(phase, width);
       distance   = vabdq_f32(phase, width);
       length     = vbslq_f32(falling, one - width, width);
-      return one - distance * util::simd::invert(length);
+      return one - distance * util::four::invert(length);
     }
   };
 
@@ -581,7 +581,7 @@ namespace osc {
       auto falling    = vcgtq_f32(phase, width);
       auto distance   = vabdq_f32(phase, width);
       auto length     = vbslq_f32(falling, one - width, width);
-      return one - distance * util::simd::invert(length);
+      return one - distance * util::four::invert(length);
     }
   };
 

@@ -65,7 +65,7 @@ namespace strike {
           const auto g = vld1q_f32(gain + i);
           for (int c = 0; c < cc; c++) {
             filter[c]->process(cf, vld1q_f32(in[c] + i) * g);
-            vst1q_f32(out[c] + i, util::simd::tanh(filter[c]->mode(mode)));
+            vst1q_f32(out[c] + i, util::four::tanh(filter[c]->mode(mode)));
           }
         }
       }

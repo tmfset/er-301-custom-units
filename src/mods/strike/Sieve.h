@@ -62,7 +62,7 @@ namespace strike {
           // }
 
           // if (i % 2 == 1) {
-          //   auto lim = util::simd::tanh(vcombine_f32(last, _out));
+          //   auto lim = util::four::tanh(vcombine_f32(last, _out));
           //    outLeft[i - 1] = vgetq_lane_f32(lim, 0);
           //   outRight[i - 1] = vgetq_lane_f32(lim, 1);
           //    outLeft[i]     = vgetq_lane_f32(lim, 2);

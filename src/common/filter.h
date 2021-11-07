@@ -109,10 +109,10 @@ namespace filter {
         }
 
         inline void configure(float32x4_t f0, float32x4_t q) {
-          mK = util::simd::invert(q);
+          mK = util::four::invert(q);
 
-          auto g = util::simd::tan(f0 * vdupq_n_f32(M_PI * globalConfig.samplePeriod));
-          mA1 = util::simd::invert(vmlaq_f32(vdupq_n_f32(1.0f), g, g + mK));
+          auto g = util::four::tan(f0 * vdupq_n_f32(M_PI * globalConfig.samplePeriod));
+          mA1 = util::four::invert(vmlaq_f32(vdupq_n_f32(1.0f), g, g + mK));
           mA2 = g * mA1;
           mA3 = g * mA2;
         }
@@ -185,8 +185,8 @@ namespace filter {
           auto exp = vcombine_f32(q, util::two::fscale_vpo(vpo));
           exp = util::simd::exp_f32(exp);
 
-          auto f = util::two::fclamp_freq(f0 * vget_high_f32(exp));
-          auto g = util::two::tan(f * vdup_n_f32(M_PI * globalConfig.samplePeriod));
+          auto f = util::two::fclamp_freq(vmul_f32(f0, vget_high_f32(exp)));
+          auto g = util::two::tan(vmul_f32(f, vdup_n_f32(M_PI * globalConfig.samplePeriod)));
 
           mK  = util::two::invert(vget_low_f32(exp));
           auto a = vadd_f32(vdup_n_f32(1), vmul_f32(g, vadd_f32(g, mK)));
@@ -247,11 +247,11 @@ namespace filter {
           auto f = util::four::vpo_scale_limited(f0, vpo);
           auto q = util::four::exp_ns_f32(_q, 0.70710678118f, 1000.0f);
 
-          const auto g = util::simd::tan(f * vdupq_n_f32(M_PI * globalConfig.samplePeriod));
-          const auto k = util::simd::invert(q);
+          const auto g = util::four::tan(f * vdupq_n_f32(M_PI * globalConfig.samplePeriod));
+          const auto k = util::four::invert(q);
           vst1q_f32(mK, k);
 
-          const auto a1 = util::simd::invert(vmlaq_f32(vdupq_n_f32(1.0f), g, g + k));
+          const auto a1 = util::four::invert(vmlaq_f32(vdupq_n_f32(1.0f), g, g + k));
           const auto a2 = g * a1;
           const auto a3 = g * a2;
           vst1q_f32(mA1223 + 0, a1);
@@ -406,7 +406,7 @@ namespace filter {
           mB2 = mB0;
 
           auto a = sinTheta * k;
-          mA0I = util::simd::invert(one + a);
+          mA0I = util::four::invert(one + a);
           mA1 = vdupq_n_f32(-2) * cosTheta;
           mA2 = one - a;
         }
@@ -466,7 +466,7 @@ namespace filter {
           float32x4_t sinTheta, cosTheta;
           util::simd::sincos_f32(theta, &sinTheta, &cosTheta);
 
-          auto qI = util::simd::invert(q);
+          auto qI = util::four::invert(q);
 
           auto one  = vdupq_n_f32(1.0f);
           auto sh = sinTheta * vdupq_n_f32(0.5f);
@@ -476,7 +476,7 @@ namespace filter {
           auto a2 = one - alpha;
           writeA(a1, a2);
 
-          auto a0I = util::simd::invert(a0);
+          auto a0I = util::four::invert(a0);
           vst1q_f32(mAI, a0I);
 
           float32x4_t c, ch;

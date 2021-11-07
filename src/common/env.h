@@ -9,13 +9,13 @@ namespace env {
   namespace four {
     inline float32x4_t slew_coeff(const float32x4_t time) {
       const auto sp = vdupq_n_f32(globalConfig.samplePeriod);
-      const auto timeI = util::simd::invert(vmaxq_f32(time, vdupq_n_f32(0.0005)));
+      const auto timeI = util::four::invert(vmaxq_f32(time, vdupq_n_f32(0.0005)));
       return util::simd::exp_f32(-sp * timeI);
     }
 
     inline float32x4_t rate_coeff(const float32x4_t time) {
       const auto sp = vdupq_n_f32(globalConfig.samplePeriod);
-      const auto timeI = util::simd::invert(vmaxq_f32(time, sp));
+      const auto timeI = util::four::invert(vmaxq_f32(time, sp));
       return sp * timeI;
     }
 
@@ -120,7 +120,7 @@ namespace env {
   namespace two {
     inline float32x2_t slew_coeff(const float32x2_t time) {
       const auto sp = vdupq_n_f32(globalConfig.samplePeriod);
-      const auto timeI = util::simd::invert(vmaxq_f32(vcombine_f32(time, time), sp));
+      const auto timeI = util::four::invert(vmaxq_f32(vcombine_f32(time, time), sp));
       return vget_low_f32(util::simd::exp_f32(-sp * timeI));
     }
 

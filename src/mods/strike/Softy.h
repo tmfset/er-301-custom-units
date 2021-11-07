@@ -43,7 +43,7 @@ namespace strike {
           );
 
           auto g = vld1q_f32(gain + i);
-          auto w = util::simd::atan(o + o - vdupq_n_f32(1));
+          auto w = util::four::atan(o + o - vdupq_n_f32(1));
 
           vst1q_f32(out + i, w * g * adjust);
         }
