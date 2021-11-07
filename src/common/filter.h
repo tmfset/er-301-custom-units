@@ -560,11 +560,11 @@ namespace filter {
             auto _b = b.val[i];
             auto _a = a.val[i];
 
-            mStages[0] = util::simd::pushq_f32(mStages[0], xs[i]);
+            mStages[0] = util::four::push(mStages[0], xs[i]);
 
             for (int j = 1; j < STAGES; j++) {
               auto terms = _ai * ((mStages[j - 1] * _b) - (mStages[j] * _a));
-              mStages[j] = util::simd::pushq_f32(mStages[j], util::simd::sumq_f32(terms));
+              mStages[j] = util::four::push(mStages[j], util::four::sum_lanes(terms));
             }
           }
         }

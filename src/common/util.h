@@ -367,23 +367,6 @@ namespace util {
       return vpadd_f32(v, v);
     }
 
-    // Add all lanes together.
-    inline float sumq_f32(const float32x4_t v) {
-      auto pair = vpadd_f32(vget_low_f32(v), vget_high_f32(v));
-      pair = vpadd_f32(pair, pair);
-      return vget_lane_f32(pair, 0);
-    }
-
-    // Reverse the lane order.
-    inline float32x4_t revq_f32(const float32x4_t v) {
-      auto pair = vrev64q_f32(v);
-      return vcombine_f32(vget_high_f32(pair), vget_low_f32(pair));
-    }
-
-    inline float32x4_t pushq_f32(const float32x4_t v, const float n) {
-      return vsetq_lane_f32(n, vextq_f32(v, v, 1), 3);
-    }
-
     // See: rtocq_f32
     // A partial version. Same principle, but optimized for two rows using the
     // rem value to fill in the ends.
@@ -603,6 +586,24 @@ namespace util {
 
     inline float32x4_t twice(const float32x4_t x) {
       return x + x;
+    }
+
+    // Add all lanes together.
+    inline float sum_lanes(const float32x4_t v) {
+      auto pair = vpadd_f32(vget_low_f32(v), vget_high_f32(v));
+      pair = vpadd_f32(pair, pair);
+      return vget_lane_f32(pair, 0);
+    }
+
+    // Reverse the lane order.
+    inline float32x4_t reverse(const float32x4_t v) {
+      auto pair = vrev64q_f32(v);
+      return vcombine_f32(vget_high_f32(pair), vget_low_f32(pair));
+    }
+
+    // Push a new value into the last lane.
+    inline float32x4_t push(const float32x4_t v, const float n) {
+      return vsetq_lane_f32(n, vextq_f32(v, v, 1), 3);
     }
 
     inline float32x4_t floor(const float32x4_t x) {
