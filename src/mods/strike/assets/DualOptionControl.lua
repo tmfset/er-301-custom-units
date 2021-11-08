@@ -1,7 +1,5 @@
 local app = app
 local strike = require "strike.libstrike"
-local Drawings = require "Drawings"
-local Utils = require "Utils"
 local Class = require "Base.Class"
 local ViewControl = require "Unit.ViewControl"
 

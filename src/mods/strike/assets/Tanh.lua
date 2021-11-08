@@ -3,11 +3,11 @@ local strike = require "strike.libstrike"
 local Class = require "Base.Class"
 local GainBias = require "Unit.ViewControl.GainBias"
 local Unit = require "Unit"
-local Common = require "strike.Common"
+local UnitShared = require "shared.UnitShared"
 
 local Tanh = Class {}
 Tanh:include(Unit)
-Tanh:include(Common)
+Tanh:include(UnitShared)
 
 function Tanh:init(args)
   args.title = "Tanh"

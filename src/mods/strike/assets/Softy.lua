@@ -3,15 +3,14 @@ local strike = require "strike.libstrike"
 local Class = require "Base.Class"
 local Unit = require "Unit"
 local Encoder = require "Encoder"
-local GainBias = require "Unit.ViewControl.GainBias"
 local Gate = require "Unit.ViewControl.Gate"
 local Pitch = require "Unit.ViewControl.Pitch"
 local GainBias = require "Unit.ViewControl.GainBias"
-local Common = require "strike.Common"
+local UnitShared = require "shared.UnitShared"
 
 local Softy = Class {}
 Softy:include(Unit)
-Softy:include(Common)
+Softy:include(UnitShared)
 
 function Softy:init(args)
   args.title = "Softy"

@@ -1,5 +1,4 @@
 local app = app
-local strike = require "strike.libstrike"
 local Class = require "Base.Class"
 local Base = require "Unit.ViewControl.EncoderControl"
 local Encoder = require "Encoder"

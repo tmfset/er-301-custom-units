@@ -5,14 +5,13 @@ local Encoder = require "Encoder"
 local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
 local Gate = require "Unit.ViewControl.Gate"
-local OutputScope = require "Unit.ViewControl.OutputScope"
 local OptionControl = require "Unit.MenuControl.OptionControl"
 local Pitch = require "Unit.ViewControl.Pitch"
-local Common = require "strike.Common"
+local UnitShared = require "shared.UnitShared"
 
 local Formant = Class {}
 Formant:include(Unit)
-Formant:include(Common)
+Formant:include(UnitShared)
 
 function Formant:init(args)
   args.title = "Formant"
@@ -21,8 +20,6 @@ function Formant:init(args)
 end
 
 function Formant:onLoadGraph(channelCount)
-  local stereo = channelCount > 1
-
   local tune     = self:addConstantOffsetControl("tune")
   local freq     = self:addGainBiasControl("freq")
   local sync     = self:addComparatorControl("sync", app.COMPARATOR_TRIGGER_ON_RISE)

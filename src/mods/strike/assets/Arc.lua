@@ -5,14 +5,12 @@ local Encoder = require "Encoder"
 local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
 local Gate = require "Unit.ViewControl.Gate"
-local OutputScope = require "Unit.ViewControl.OutputScope"
 local OptionControl = require "Unit.MenuControl.OptionControl"
-local Pitch = require "Unit.ViewControl.Pitch"
-local Common = require "strike.Common"
+local UnitShared = require "shared.UnitShared"
 
 local Arc = Class {}
 Arc:include(Unit)
-Arc:include(Common)
+Arc:include(UnitShared)
 
 function Arc:init(args)
   args.title = "Arc"
@@ -66,8 +64,8 @@ end
 
 function Arc:onLoadViews()
   return {
-    eof = self:branchControlView("eof"),
-    eor = self:branchControlView("eor"),
+    eof = self:branchView("eof"),
+    eor = self:branchView("eor"),
     rise = GainBias {
       button      = "rise",
       branch      = self.branches.rise,

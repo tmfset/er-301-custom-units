@@ -5,12 +5,11 @@ local Encoder = require "Encoder"
 local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
 local Pitch = require "Unit.ViewControl.Pitch"
-local MOptionControl = require "Unit.MenuControl.OptionControl"
-local Common = require "strike.Common"
+local UnitShared = require "shared.UnitShared"
 
 local Sieve = Class {}
 Sieve:include(Unit)
-Sieve:include(Common)
+Sieve:include(UnitShared)
 
 function Sieve:init(args)
   args.title = "Sieve"

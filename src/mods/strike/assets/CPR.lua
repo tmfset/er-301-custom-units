@@ -4,19 +4,14 @@ local Class = require "Base.Class"
 local Encoder = require "Encoder"
 local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
-local Fader = require "Unit.ViewControl.Fader"
-local Gate = require "Unit.ViewControl.Gate"
-local OutputScope = require "Unit.ViewControl.OutputScope"
-local OptionControl = require "Unit.MenuControl.OptionControl"
-local Pitch = require "Unit.ViewControl.Pitch"
 local SidechainMeter = require "strike.SidechainMeter"
 local OutputMeter = require "strike.OutputMeter"
 local CompressorScope = require "strike.CompressorScope"
-local Common = require "strike.Common"
+local UnitShared = require "shared.UnitShared"
 
 local CPR = Class {}
 CPR:include(Unit)
-CPR:include(Common)
+CPR:include(UnitShared)
 
 function CPR:init(args)
   args.title = "CPR"
@@ -68,9 +63,9 @@ function CPR:onLoadViews()
       biasPrecision = 2,
       initialBias   = 0.5
     },
-    sidechain = self:branchControlView("sidechain"),
-    active    = self:branchControlView("active"),
-    reduction = self:branchControlView("reduction"),
+    sidechain = self:branchView("sidechain"),
+    active    = self:branchView("active"),
+    reduction = self:branchView("reduction"),
     output = OutputMeter {
       button       = "output",
       description  = "Output Gain",

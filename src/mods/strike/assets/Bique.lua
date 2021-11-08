@@ -5,13 +5,12 @@ local Encoder = require "Encoder"
 local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
 local Pitch = require "Unit.ViewControl.Pitch"
-local MOptionControl = require "Unit.MenuControl.OptionControl"
 local DualOptionControl = require "strike.DualOptionControl"
-local Common = require "strike.Common"
+local UnitShared = require "shared.UnitShared"
 
 local Bique = Class {}
 Bique:include(Unit)
-Bique:include(Common)
+Bique:include(UnitShared)
 
 function Bique:init(args)
   args.title = "Bique"

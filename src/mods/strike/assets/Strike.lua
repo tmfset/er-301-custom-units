@@ -5,13 +5,12 @@ local Encoder = require "Encoder"
 local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
 local Gate = require "Unit.ViewControl.Gate"
-local OutputScope = require "Unit.ViewControl.OutputScope"
 local OptionControl = require "Unit.MenuControl.OptionControl"
-local Common = require "strike.Common"
+local UnitShared = require "shared.UnitShared"
 
 local Strike = Class {}
 Strike:include(Unit)
-Strike:include(Common)
+Strike:include(UnitShared)
 
 function Strike:init(args)
   args.title = "Strike"
@@ -59,9 +58,9 @@ end
 
 function Strike:onLoadViews()
   return {
-    eof = self:branchControlView("eof"),
-    eor = self:branchControlView("eor"),
-    env = self:branchControlView("env"),
+    eof = self:branchView("eof"),
+    eor = self:branchView("eor"),
+    env = self:branchView("env"),
     trig = Gate {
       button      = "trig",
       description = "Trigger",

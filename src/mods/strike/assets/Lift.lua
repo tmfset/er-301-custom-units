@@ -5,15 +5,11 @@ local Encoder = require "Encoder"
 local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
 local Gate = require "Unit.ViewControl.Gate"
-local OutputScope = require "Unit.ViewControl.OutputScope"
-local OptionControl = require "Unit.MenuControl.OptionControl"
-local Pitch = require "Unit.ViewControl.Pitch"
-local BranchControl = require "strike.BranchControl"
-local Common = require "strike.Common"
+local UnitShared = require "shared.UnitShared"
 
 local Lift = Class {}
 Lift:include(Unit)
-Lift:include(Common)
+Lift:include(UnitShared)
 
 function Lift:init(args)
   args.title = "Lift"
@@ -43,7 +39,7 @@ end
 
 function Lift:onLoadViews()
   return {
-    env = self:branchControlView("env"),
+    env = self:branchView("env"),
     gate = Gate {
       button      = "gate",
       description = "Gate",
