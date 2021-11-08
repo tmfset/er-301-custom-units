@@ -92,15 +92,15 @@ namespace filter {
   }
 
   namespace svf {
-    const float invRootTwo = 0.70710678118f;
-    const float globalMinQ = logf(invRootTwo);
-    const float globalMaxQ = logf(1000.0f);
+    #define INV_ROOT_TWO 0.70710678118f
+    #define GLOBAL_MIN_Q logf(INV_ROOT_TWO)
+    #define GLOBAL_MAX_Q logf(1000.0f)
 
     namespace four {
-      const float32x4_t minQ = vdupq_n_f32(globalMinQ);
-      const float32x4_t maxQ = vdupq_n_f32(globalMaxQ);
-
       struct Coefficients {
+        const float32x4_t minQ = vdupq_n_f32(GLOBAL_MIN_Q);
+        const float32x4_t maxQ = vdupq_n_f32(GLOBAL_MAX_Q);
+
         inline void configure(float32x4_t f0, float32x4_t vpo, float32x4_t q) {
           q = util::four::lerpi(minQ, maxQ, q);
           q = util::simd::exp_f32(q);
@@ -176,8 +176,8 @@ namespace filter {
 
     namespace two {
       struct Coefficients {
-        const float32x2_t minQ = vdup_n_f32(globalMinQ);
-        const float32x2_t maxQ = vdup_n_f32(globalMaxQ);
+        const float32x2_t minQ = vdup_n_f32(GLOBAL_MIN_Q);
+        const float32x2_t maxQ = vdup_n_f32(GLOBAL_MAX_Q);
 
         inline void configure(float32x2_t f0, float32x2_t vpo, float32x2_t q) {
           q = util::two::lerpi(minQ, maxQ, q);

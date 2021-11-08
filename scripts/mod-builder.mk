@@ -2,20 +2,27 @@ include scripts/utils.mk
 
 LIBNAME ?= lib$(PKGNAME)
 SDKPATH ?= er-301
-mod_dir = src/mods/$(PKGNAME)
-common_dir = src/common/
 
-c_sources    := $(call rwildcard, $(mod_dir), *.c)
-cpp_sources  := $(call rwildcard, $(mod_dir), *.cpp)
-swig_sources := $(call rwildcard, $(mod_dir), *.cpp.swig)
+# Common code to all mods
+common_dir        = src/common
+common_assets_dir = $(common_dir)/assets
+common_assets    := $(call rwildcard, $(common_assets_dir), *)
+common_h_sources := $(call rwildcard, $(common_dir), *.h)
+common_headers   := $(common_h_sources)
 
-assets      := $(call rwildcard, $(mod_dir)/assets, *)
-sources     := $(c_sources) $(cpp_sources) $(swig_sources)
-common      := $(call rwildcard, $(common_dir), *.h)
-headers     := $(call rwildcard, $(mod_dir), *.h) $(common)
+# Mod specific code
+mod_dir           = src/mods/$(PKGNAME)
+mod_assets_dir    = $(mod_dir)/assets
+mod_assets       := $(call rwildcard, $(mod_assets_dir), *)
+mod_c_sources    := $(call rwildcard, $(mod_dir), *.c)
+mod_cpp_sources  := $(call rwildcard, $(mod_dir), *.cpp)
+mod_swig_sources := $(call rwildcard, $(mod_dir), *.cpp.swig)
+mod_h_sources    := $(call rwildcard, $(mod_dir), *.h)
+mod_sources      := $(mod_c_sources) $(mod_cpp_sources) $(mod_swig_sources)
+mod_headers      := $(mod_h_sources)
 
-# Do you need any additional preprocess symbols?
-symbols = 
+headers := $(mod_headers) $(common_headers)
+assets  := $(mod_assets) $(common_assets)
 
 # Determine ARCH if it's not provided...
 # linux | darwin | am335x
@@ -34,27 +41,21 @@ endif
 # testing | release | debug
 PROFILE ?= testing
 
-out_dir = $(PROFILE)/$(ARCH)
-lib_file = $(out_dir)/$(LIBNAME).so
-package_file = $(out_dir)/$(PKGNAME)-$(PKGVERSION).pkg
+out_dir      = $(PROFILE)/$(ARCH)
+lib_file     = $(out_dir)/$(LIBNAME).so
+package_dir  = $(out_dir)/$(PKGNAME)-$(PKGVERSION)
+package_file = $(package_dir).pkg
 
-swig_interface = $(filter %.cpp.swig,$(sources))
-swig_wrapper = $(addprefix $(out_dir)/,$(swig_interface:%.cpp.swig=%_swig.cpp))
-swig_object = $(swig_wrapper:%.cpp=%.o)
+swig_wrapper = $(addprefix $(out_dir)/,$(mod_swig_sources:%.cpp.swig=%_swig.cpp))
+swig_object  = $(swig_wrapper:%.cpp=%.o)
 
-c_sources = $(filter %.c,$(sources))
-cpp_sources = $(filter %.cpp,$(sources))
-
-assembly = $(addprefix $(out_dir)/,$(c_sources:%.c=%.s))
-assembly += $(addprefix $(out_dir)/,$(cpp_sources:%.cpp=%.s))
+assembly  = $(addprefix $(out_dir)/,$(mod_c_sources:%.c=%.s))
+assembly += $(addprefix $(out_dir)/,$(mod_cpp_sources:%.cpp=%.s))
 assembly += $(swig_wrapper:%.cpp=%.s)
 
-objects = $(addprefix $(out_dir)/,$(c_sources:%.c=%.o))
-objects += $(addprefix $(out_dir)/,$(cpp_sources:%.cpp=%.o))
+objects  = $(addprefix $(out_dir)/,$(mod_c_sources:%.c=%.o))
+objects += $(addprefix $(out_dir)/,$(mod_cpp_sources:%.cpp=%.o))
 objects += $(swig_object)
-
-includes  = $(mod_dir) $(common_dir)
-includes += $(SDKPATH) $(SDKPATH)/arch/$(ARCH) $(SDKPATH)/emu
 
 ifeq ($(ARCH),am335x)
   CFLAGS.am335x = -mcpu=cortex-a8 -mfpu=neon -mfloat-abi=hard -mabi=aapcs -Dfar= -D__DYNAMIC_REENT__
@@ -79,21 +80,27 @@ ifeq ($(ARCH),darwin)
 endif
 
 CFLAGS.common = -Wall -ffunction-sections -fdata-sections
-CFLAGS.speed = -O3 -ftree-vectorize -ffast-math
-CFLAGS.size = -Os
+CFLAGS.speed  = -O3 -ftree-vectorize -ffast-math
+CFLAGS.size   = -Os
 
 CFLAGS.release = $(CFLAGS.speed) -Wno-unused
 CFLAGS.testing = $(CFLAGS.speed) -DBUILDOPT_TESTING
-CFLAGS.debug = -g -DBUILDOPT_TESTING
+CFLAGS.debug   = -g -DBUILDOPT_TESTING
+
+# Do you need any additional preprocess symbols?
+symbols =
+
+includes  = $(mod_dir) $(common_dir)
+includes += $(SDKPATH) $(SDKPATH)/arch/$(ARCH) $(SDKPATH)/emu
 
 CFLAGS += $(CFLAGS.common) $(CFLAGS.$(ARCH)) $(CFLAGS.$(PROFILE))
-CFLAGS += $(addprefix -I,$(includes)) 
+CFLAGS += $(addprefix -I,$(includes))
 CFLAGS += $(addprefix -D,$(symbols))
 
 # swig-specific flags
-SWIGFLAGS = -lua -no-old-metatable-bindings -nomoduleglobal -small -fvirtual
-SWIGFLAGS += $(addprefix -I,$(includes)) 
-CFLAGS.swig = $(CFLAGS.common) $(CFLAGS.$(ARCH)) $(CFLAGS.size)
+SWIGFLAGS    = -lua -no-old-metatable-bindings -nomoduleglobal -small -fvirtual
+SWIGFLAGS   += $(addprefix -I,$(includes)) 
+CFLAGS.swig  = $(CFLAGS.common) $(CFLAGS.$(ARCH)) $(CFLAGS.size)
 CFLAGS.swig += $(addprefix -I,$(includes)) -I$(SDKPATH)/libs/lua54
 CFLAGS.swig += $(addprefix -D,$(symbols))
 
@@ -114,10 +121,21 @@ $(lib_file): $(objects)
 	@echo [LINK $@]
 	@$(CC) $(CFLAGS) -o $@ $(objects) $(LFLAGS)
 
-$(package_file): $(lib_file) $(assets)
+$(package_dir): $(lib_file) $(assets)
+	@echo [STAGE $@]
+	@rm -fr $@
+	@mkdir -p $@
+	@cp $(lib_file) $@/
+	@rsync -ru $(mod_assets_dir)/ $@/
+	@rsync -ru $(common_assets_dir)/ $@/
+
+.PHONY: $(package_dir)
+
+$(package_file): $(package_dir)
 	@echo [ZIP $@]
 	@rm -f $@
-	@$(ZIP) -j $@ $(lib_file) $(assets)
+	@pwd
+	@cd $<; $(ZIP) -r ../$(@F) ./
 
 list: $(package_file)
 	@unzip -l $(package_file)
@@ -174,9 +192,9 @@ ifeq ($(ARCH),am335x)
 # Warning: This assumes that the firmware has been compiled in the SDK source tree already. 
 #
 
-all_imports_file = $(out_dir)/imports.txt
+all_imports_file     = $(out_dir)/imports.txt
 missing_imports_file = $(out_dir)/missing.txt
-app_exports_file = $(SDKPATH)/$(PROFILE)/$(ARCH)/app/exports.sym
+app_exports_file     = $(SDKPATH)/$(PROFILE)/$(ARCH)/app/exports.sym
 
 $(all_imports_file): $(lib_file)
 	@echo $(describe_env) NM $<

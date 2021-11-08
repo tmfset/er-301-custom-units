@@ -2,6 +2,8 @@
 
 PROJECTS = lojik sloop strike polygon
 
+docker_image = tomjfiset/er-301-am335x-build-env:1.1.0
+
 all: $(PROJECTS)
 
 asm: $(addsuffix -asm,$(PROJECTS))
@@ -29,31 +31,35 @@ $(addsuffix -asm,$(PROJECTS)):
 	$(eval PROJECT := $(@:-asm=))
 	+$(MAKE) -f src/mods/$(PROJECT)/mod.mk asm PKGNAME=$(PROJECT)
 
+$(addsuffix -list,$(PROJECTS)):
+	$(eval PROJECT := $(@:-list=))
+	+$(MAKE) -f src/mods/$(PROJECT)/mod.mk list PKGNAME=$(PROJECT)
+
 am335x-docker:
 	docker build docker/er-301-am335x-build-env/ -t er-301-am335x-build-env
 
 release:
-	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units tomjfiset/er-301-am335x-build-env:1.0.0 \
+	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units $(docker_image) \
 		make -j all ARCH=am335x PROFILE=release
 
 testing:
-	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units tomjfiset/er-301-am335x-build-env:1.0.0 \
+	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units $(docker_image) \
 		make -j all ARCH=am335x PROFILE=testing
 
 release-asm:
-	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units tomjfiset/er-301-am335x-build-env:1.0.0 \
+	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units $(docker_image) \
 		make -j asm ARCH=am335x PROFILE=release
 
 er-301-docker:
-	docker run --privileged -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units/er-301 tomjfiset/er-301-am335x-build-env:1.0.0 \
+	docker run --privileged -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units/er-301 $(docker_image) \
 		make -j ARCH=am335x PROFILE=release
 
 er-301-docker-testing:
-	docker run --privileged -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units/er-301 tomjfiset/er-301-am335x-build-env:1.0.0 \
+	docker run --privileged -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units/er-301 $(docker_image) \
 		make -j ARCH=am335x PROFILE=testing
 
 release-missing:
-	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units tomjfiset/er-301-am335x-build-env:1.0.0 \
+	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units $(docker_image) \
 		make -j strike-missing ARCH=am335x PROFILE=release
 
 clean:
