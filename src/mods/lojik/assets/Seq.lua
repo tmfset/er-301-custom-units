@@ -10,11 +10,13 @@ local FlagSelect = require "Unit.MenuControl.FlagSelect"
 local PitchCircle = require "core.Quantizer.PitchCircle"
 local GainBias = require "Unit.ViewControl.GainBias"
 local OutputScope = require "Unit.ViewControl.OutputScope"
-local Common = require "lojik.Common"
+local UnitShared = require "shared.UnitShared"
+local RegisterShared = require "lojik.RegisterShared"
 
 local Seq = Class {}
 Seq:include(Unit)
-Seq:include(Common)
+Seq:include(UnitShared)
+Seq:include(RegisterShared)
 
 function Seq:init(args)
   args.title = "Seq"

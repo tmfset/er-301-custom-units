@@ -4,11 +4,11 @@ local Class = require "Base.Class"
 local Encoder = require "Encoder"
 local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
-local Common = require "lojik.Common"
+local UnitShared = require "shared.UnitShared"
 
 local Pick = Class {}
 Pick:include(Unit)
-Pick:include(Common)
+Pick:include(UnitShared)
 
 function Pick:init(args)
   args.title = "Pick"

@@ -3,11 +3,11 @@ local lojik = require "lojik.liblojik"
 local Class = require "Base.Class"
 local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
-local Common = require "lojik.Common"
+local UnitShared = require "shared.UnitShared"
 
 local TLatch = Class {}
 TLatch:include(Unit)
-TLatch:include(Common)
+TLatch:include(UnitShared)
 
 function TLatch:init(args)
   args.title = "TLatch"

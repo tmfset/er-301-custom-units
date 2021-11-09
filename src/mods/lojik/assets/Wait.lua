@@ -3,12 +3,11 @@ local lojik = require "lojik.liblojik"
 local Class = require "Base.Class"
 local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
-local OptionControl = require "Unit.MenuControl.OptionControl"
-local Common = require "lojik.Common"
+local UnitShared = require "shared.UnitShared"
 
 local Wait = Class {}
 Wait:include(Unit)
-Wait:include(Common)
+Wait:include(UnitShared)
 
 function Wait:init(args)
   args.title = "Wait"

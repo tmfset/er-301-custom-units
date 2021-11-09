@@ -6,16 +6,17 @@ local Unit = require "Unit"
 local Encoder = require "Encoder"
 local GainBias = require "Unit.ViewControl.GainBias"
 local PitchCircle = require "core.Quantizer.PitchCircle"
-local Common = require "lojik.Common"
 local MenuHeader = require "Unit.MenuControl.Header"
 local Task = require "Unit.MenuControl.Task"
-local OptionControl = require "Unit.MenuControl.OptionControl"
 local FlagSelect = require "Unit.MenuControl.FlagSelect"
 local OutputScope = require "Unit.ViewControl.OutputScope"
+local UnitShared = require "shared.UnitShared"
+local RegisterShared = require "lojik.RegisterShared"
 
 local Turing = Class {}
 Turing:include(Unit)
-Turing:include(Common)
+Turing:include(UnitShared)
+Turing:include(RegisterShared)
 
 function Turing:init(args)
   args.title = "Turing"

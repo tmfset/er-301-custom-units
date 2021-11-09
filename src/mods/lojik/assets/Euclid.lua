@@ -6,11 +6,11 @@ local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
 local FlagSelect = require "Unit.MenuControl.FlagSelect"
 local OptionControl = require "Unit.MenuControl.OptionControl"
-local Common = require "lojik.Common"
+local UnitShared = require "shared.UnitShared"
 
 local Euclid = Class {}
 Euclid:include(Unit)
-Euclid:include(Common)
+Euclid:include(UnitShared)
 
 function Euclid:init(args)
   args.title = "Euclid"

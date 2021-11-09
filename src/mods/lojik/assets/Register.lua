@@ -8,11 +8,13 @@ local MenuHeader = require "Unit.MenuControl.Header"
 local Task = require "Unit.MenuControl.Task"
 local FlagSelect = require "Unit.MenuControl.FlagSelect"
 local OutputScope = require "Unit.ViewControl.OutputScope"
-local Common = require "lojik.Common"
+local UnitShared = require "shared.UnitShared"
+local RegisterShared = require "lojik.RegisterShared"
 
 local Register = Class {}
 Register:include(Unit)
-Register:include(Common)
+Register:include(UnitShared)
+Register:include(RegisterShared)
 
 function Register:init(args)
   args.title = "Register"

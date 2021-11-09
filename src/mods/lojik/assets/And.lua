@@ -2,11 +2,11 @@ local app = app
 local lojik = require "lojik.liblojik"
 local Class = require "Base.Class"
 local Unit = require "Unit"
-local Common = require "lojik.Common"
+local UnitShared = require "shared.UnitShared"
 
 local And = Class {}
 And:include(Unit)
-And:include(Common)
+And:include(UnitShared)
 
 function And:init(args)
   args.title = "And"

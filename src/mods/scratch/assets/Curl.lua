@@ -4,11 +4,11 @@ local Class = require "Base.Class"
 local Unit = require "Unit"
 local Encoder = require "Encoder"
 local GainBias = require "Unit.ViewControl.GainBias"
-local Common = require "lojik.Common"
+local UnitShared = require "shared.UnitShared"
 
 local Curl = Class {}
 Curl:include(Unit)
-Curl:include(Common)
+Curl:include(UnitShared)
 
 function Curl:init(args)
   args.title = "Curl"

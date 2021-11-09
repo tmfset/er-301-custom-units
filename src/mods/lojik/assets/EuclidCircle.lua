@@ -3,7 +3,7 @@ local lojik = require "lojik.liblojik"
 local Class = require "Base.Class"
 local Base = require "Unit.ViewControl.EncoderControl"
 local Encoder = require "Encoder"
-local Common = require "lojik.Common"
+local UnitShared = require "shared.UnitShared"
 
 local ply = app.SECTION_PLY
 local line1 = app.GRID5_LINE1
@@ -22,7 +22,7 @@ local EuclidCircle = Class {
   canMove = true
 }
 EuclidCircle:include(Base)
-EuclidCircle:include(Common)
+EuclidCircle:include(UnitShared)
 
 function EuclidCircle:init(args)
   local description = args.description or app.logError("%s.init: description is missing.", self)

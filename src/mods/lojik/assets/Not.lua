@@ -1,11 +1,11 @@
 local lojik = require "lojik.liblojik"
 local Class = require "Base.Class"
 local Unit = require "Unit"
-local Common = require "lojik.Common"
+local UnitShared = require "shared.UnitShared"
 
 local Not = Class {}
 Not:include(Unit)
-Not:include(Common)
+Not:include(UnitShared)
 
 function Not:init(args)
   args.title = "Not"

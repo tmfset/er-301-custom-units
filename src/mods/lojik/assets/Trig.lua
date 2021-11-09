@@ -1,11 +1,11 @@
 local lojik = require "lojik.liblojik"
 local Class = require "Base.Class"
 local Unit = require "Unit"
-local Common = require "lojik.Common"
+local UnitShared = require "shared.UnitShared"
 
 local Trig = Class {}
 Trig:include(Unit)
-Trig:include(Common)
+Trig:include(UnitShared)
 
 function Trig:init(args)
   args.title = "Trig"

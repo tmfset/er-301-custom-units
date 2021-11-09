@@ -1,5 +1,7 @@
 local app = app
+local Gate = require "Unit.ViewControl.Gate"
 local Branch = require "shared.controls.Branch"
+local OptionControl = require "Unit.MenuControl.OptionControl"
 
 local UnitControls = {}
 
@@ -46,6 +48,13 @@ function UnitControls.addMonitorBranch(self, name, obj, outlet)
   self:addMonoBranch(name, monitor, "In", monitor, "Out")
 end
 
+function UnitControls.intMap(min, max)
+  local map = app.LinearDialMap(min,max)
+    map:setSteps(2, 1, 0.25, 0.25)
+    map:setRounding(1)
+    return map
+end
+
 function UnitControls.linMap(min, max, superCoarse, coarse, fine, superFine)
   local map = app.LinearDialMap(min, max)
   map:setSteps(superCoarse, coarse, fine, superFine)
@@ -57,6 +66,23 @@ function UnitControls.defaultDecibelMap()
   map:setZero(0)
   map:setSteps(6, 1, 0.1, 0.01);
   return map
+end
+
+function UnitControls.senseOptionControl(op)
+  return OptionControl {
+    description = "Input Sense",
+    option      = op:getOption("Sense"),
+    choices     = { "low", "high" }
+  }
+end
+
+function UnitControls.gateView(self, name, description)
+  return Gate {
+    button      = name,
+    description = description,
+    branch      = self.branches[name],
+    comparator  = self.objects[name]
+  }
 end
 
 function UnitControls.branchView(self, name)

@@ -5,11 +5,11 @@ local Unit = require "Unit"
 local Encoder = require "Encoder"
 local Pitch = require "Unit.ViewControl.Pitch"
 local GainBias = require "Unit.ViewControl.GainBias"
-local Common = require "lojik.Common"
+local UnitShared = require "shared.UnitShared"
 
 local Pulse = Class {}
 Pulse:include(Unit)
-Pulse:include(Common)
+Pulse:include(UnitShared)
 
 function Pulse:init(args)
   args.title = "Pulse"

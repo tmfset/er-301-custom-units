@@ -5,11 +5,11 @@ local Encoder = require "Encoder"
 local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
 local OptionControl = require "Unit.MenuControl.OptionControl"
-local Common = require "lojik.Common"
+local UnitShared = require "shared.UnitShared"
 
 local Chance = Class {}
 Chance:include(Unit)
-Chance:include(Common)
+Chance:include(UnitShared)
 
 function Chance:init(args)
   args.title = "Chance"
