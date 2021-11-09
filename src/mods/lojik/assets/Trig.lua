@@ -1,7 +1,7 @@
 local lojik = require "lojik.liblojik"
 local Class = require "Base.Class"
 local Unit = require "Unit"
-local UnitShared = require "shared.UnitShared"
+local UnitShared = require "common.assets.UnitShared"
 
 local Trig = Class {}
 Trig:include(Unit)

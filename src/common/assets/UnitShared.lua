@@ -1,6 +1,6 @@
 local app = app
 local Gate = require "Unit.ViewControl.Gate"
-local Branch = require "shared.controls.Branch"
+local Branch = require "common.assets.controls.Branch"
 local OptionControl = require "Unit.MenuControl.OptionControl"
 
 local UnitControls = {}

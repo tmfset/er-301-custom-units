@@ -3,7 +3,7 @@ local strike = require "strike.libstrike"
 local Class = require "Base.Class"
 local GainBias = require "Unit.ViewControl.GainBias"
 local Unit = require "Unit"
-local UnitShared = require "shared.UnitShared"
+local UnitShared = require "common.assets.UnitShared"
 
 local Tanh = Class {}
 Tanh:include(Unit)

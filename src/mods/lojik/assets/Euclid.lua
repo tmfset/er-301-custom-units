@@ -6,7 +6,7 @@ local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
 local FlagSelect = require "Unit.MenuControl.FlagSelect"
 local OptionControl = require "Unit.MenuControl.OptionControl"
-local UnitShared = require "shared.UnitShared"
+local UnitShared = require "common.assets.UnitShared"
 
 local Euclid = Class {}
 Euclid:include(Unit)

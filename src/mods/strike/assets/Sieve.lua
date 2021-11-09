@@ -5,7 +5,7 @@ local Encoder = require "Encoder"
 local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
 local Pitch = require "Unit.ViewControl.Pitch"
-local UnitShared = require "shared.UnitShared"
+local UnitShared = require "common.assets.UnitShared"
 
 local Sieve = Class {}
 Sieve:include(Unit)

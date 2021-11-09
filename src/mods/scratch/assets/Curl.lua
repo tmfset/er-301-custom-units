@@ -4,7 +4,7 @@ local Class = require "Base.Class"
 local Unit = require "Unit"
 local Encoder = require "Encoder"
 local GainBias = require "Unit.ViewControl.GainBias"
-local UnitShared = require "shared.UnitShared"
+local UnitShared = require "common.assets.UnitShared"
 
 local Curl = Class {}
 Curl:include(Unit)

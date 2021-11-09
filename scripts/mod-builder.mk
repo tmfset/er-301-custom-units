@@ -4,11 +4,12 @@ LIBNAME ?= lib$(PKGNAME)
 SDKPATH ?= er-301
 
 # Common code to all mods
-common_dir        = src/common
-common_assets_dir = $(common_dir)/assets
-common_assets    := $(call rwildcard, $(common_assets_dir), *)
-common_h_sources := $(call rwildcard, $(common_dir), *.h)
-common_headers   := $(common_h_sources)
+common_dir          = src/common
+common_assets_dir   = $(common_dir)/assets
+common_assets      := $(call rwildcard, $(common_assets_dir), *)
+common_c_sources   := $(call rwildcard, $(common_dir), *.c)
+common_cpp_sources := $(call rwildcard, $(common_dir), *.cpp)
+common_headers     := $(call rwildcard, $(common_dir), *.h)
 
 # Mod specific code
 mod_dir           = src/mods/$(PKGNAME)
@@ -17,12 +18,13 @@ mod_assets       := $(call rwildcard, $(mod_assets_dir), *)
 mod_c_sources    := $(call rwildcard, $(mod_dir), *.c)
 mod_cpp_sources  := $(call rwildcard, $(mod_dir), *.cpp)
 mod_swig_sources := $(call rwildcard, $(mod_dir), *.cpp.swig)
-mod_h_sources    := $(call rwildcard, $(mod_dir), *.h)
-mod_sources      := $(mod_c_sources) $(mod_cpp_sources) $(mod_swig_sources)
-mod_headers      := $(mod_h_sources)
+mod_headers      := $(call rwildcard, $(mod_dir), *.h)
 
-headers := $(mod_headers) $(common_headers)
-assets  := $(mod_assets) $(common_assets)
+swig_sources := $(mod_swig_sources)
+c_sources    := $(mod_c_sources) $(common_c_sources)
+cpp_sources  := $(mod_cpp_sources) $(common_cpp_sources)
+headers      := $(mod_headers) $(common_headers)
+assets       := $(mod_assets) $(common_assets)
 
 # Determine ARCH if it's not provided...
 # linux | darwin | am335x
@@ -46,15 +48,15 @@ lib_file     = $(out_dir)/$(LIBNAME).so
 package_dir  = $(out_dir)/$(PKGNAME)-$(PKGVERSION)
 package_file = $(package_dir).pkg
 
-swig_wrapper = $(addprefix $(out_dir)/,$(mod_swig_sources:%.cpp.swig=%_swig.cpp))
+swig_wrapper = $(addprefix $(out_dir)/,$(swig_sources:%.cpp.swig=%_swig.cpp))
 swig_object  = $(swig_wrapper:%.cpp=%.o)
 
-assembly  = $(addprefix $(out_dir)/,$(mod_c_sources:%.c=%.s))
-assembly += $(addprefix $(out_dir)/,$(mod_cpp_sources:%.cpp=%.s))
+assembly  = $(addprefix $(out_dir)/,$(c_sources:%.c=%.s))
+assembly += $(addprefix $(out_dir)/,$(cpp_sources:%.cpp=%.s))
 assembly += $(swig_wrapper:%.cpp=%.s)
 
-objects  = $(addprefix $(out_dir)/,$(mod_c_sources:%.c=%.o))
-objects += $(addprefix $(out_dir)/,$(mod_cpp_sources:%.cpp=%.o))
+objects  = $(addprefix $(out_dir)/,$(c_sources:%.c=%.o))
+objects += $(addprefix $(out_dir)/,$(cpp_sources:%.cpp=%.o))
 objects += $(swig_object)
 
 ifeq ($(ARCH),am335x)
@@ -128,6 +130,8 @@ $(package_dir): $(lib_file) $(assets)
 	@cp $(lib_file) $@/
 	@rsync -ru $(mod_assets_dir)/ $@/
 	@rsync -ru $(common_assets_dir)/ $@/
+	@find $@ -type f -name "*.lua" -print0 | xargs -0 sed -i.bak 's/common\.assets/$(PKGNAME)/g'
+	@find $@ -type f -name "*.bak" -print0 | xargs -0 rm
 
 .PHONY: $(package_dir)
 

@@ -6,7 +6,7 @@ local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
 local Gate = require "Unit.ViewControl.Gate"
 local OptionControl = require "Unit.MenuControl.OptionControl"
-local UnitShared = require "shared.UnitShared"
+local UnitShared = require "common.assets.UnitShared"
 
 local Arc = Class {}
 Arc:include(Unit)

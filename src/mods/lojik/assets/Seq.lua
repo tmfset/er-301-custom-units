@@ -10,7 +10,7 @@ local FlagSelect = require "Unit.MenuControl.FlagSelect"
 local PitchCircle = require "core.Quantizer.PitchCircle"
 local GainBias = require "Unit.ViewControl.GainBias"
 local OutputScope = require "Unit.ViewControl.OutputScope"
-local UnitShared = require "shared.UnitShared"
+local UnitShared = require "common.assets.UnitShared"
 local RegisterShared = require "lojik.RegisterShared"
 
 local Seq = Class {}

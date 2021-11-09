@@ -6,7 +6,7 @@ local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
 local Pitch = require "Unit.ViewControl.Pitch"
 local DualOptionControl = require "strike.DualOptionControl"
-local UnitShared = require "shared.UnitShared"
+local UnitShared = require "common.assets.UnitShared"
 
 local Bique = Class {}
 Bique:include(Unit)

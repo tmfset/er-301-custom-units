@@ -8,7 +8,7 @@ local MenuHeader = require "Unit.MenuControl.Header"
 local Task = require "Unit.MenuControl.Task"
 local FlagSelect = require "Unit.MenuControl.FlagSelect"
 local OutputScope = require "Unit.ViewControl.OutputScope"
-local UnitShared = require "shared.UnitShared"
+local UnitShared = require "common.assets.UnitShared"
 local RegisterShared = require "lojik.RegisterShared"
 
 local Register = Class {}

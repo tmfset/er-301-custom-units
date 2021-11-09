@@ -3,7 +3,7 @@ local lojik = require "lojik.liblojik"
 local Class = require "Base.Class"
 local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"
-local UnitShared = require "shared.UnitShared"
+local UnitShared = require "common.assets.UnitShared"
 
 local TLatch = Class {}
 TLatch:include(Unit)

@@ -2,7 +2,7 @@ local app = app
 local lojik = require "lojik.liblojik"
 local Class = require "Base.Class"
 local Unit = require "Unit"
-local UnitShared = require "shared.UnitShared"
+local UnitShared = require "common.assets.UnitShared"
 
 local Latch = Class {}
 Latch:include(Unit)

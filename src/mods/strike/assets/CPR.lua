@@ -7,7 +7,7 @@ local GainBias = require "Unit.ViewControl.GainBias"
 local SidechainMeter = require "strike.SidechainMeter"
 local OutputMeter = require "strike.OutputMeter"
 local CompressorScope = require "strike.CompressorScope"
-local UnitShared = require "shared.UnitShared"
+local UnitShared = require "common.assets.UnitShared"
 
 local CPR = Class {}
 CPR:include(Unit)

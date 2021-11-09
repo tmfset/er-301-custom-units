@@ -3,7 +3,7 @@ local lojik = require "lojik.liblojik"
 local Class = require "Base.Class"
 local Base = require "Unit.ViewControl.EncoderControl"
 local Encoder = require "Encoder"
-local UnitShared = require "shared.UnitShared"
+local UnitShared = require "common.assets.UnitShared"
 
 local ply = app.SECTION_PLY
 local line1 = app.GRID5_LINE1
