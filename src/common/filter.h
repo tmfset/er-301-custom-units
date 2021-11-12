@@ -91,36 +91,47 @@ namespace filter {
     };
   }
 
+  // Reference:
+  //   https://www.cytomic.com/files/dsp/SvfLinearTrapOptimised2.pdf
+  //   https://github.com/FredAntonCorvest/Common-DSP
   namespace svf {
     #define INV_ROOT_TWO 0.70710678118f
     #define GLOBAL_MIN_Q logf(INV_ROOT_TWO)
     #define GLOBAL_MAX_Q logf(1000.0f)
+    #define PI_SP M_PI * globalConfig.samplePeriod
 
     namespace four {
       struct Coefficients {
-        const float32x4_t minQ = vdupq_n_f32(GLOBAL_MIN_Q);
-        const float32x4_t maxQ = vdupq_n_f32(GLOBAL_MAX_Q);
+        inline Coefficients() {}
+
+        inline Coefficients(float32x4_t f0, float32x4_t vpo, float32x4_t q) {
+          configure(f0, vpo, q);
+        }
 
         inline void configure(float32x4_t f0, float32x4_t vpo, float32x4_t q) {
-          q = util::four::lerpi(minQ, maxQ, q);
-          q = util::simd::exp_f32(q);
-          f0 = util::four::vpo_scale(f0, vpo);
+          q = util::four::lerpi(vdupq_n_f32(GLOBAL_MIN_Q), vdupq_n_f32(GLOBAL_MAX_Q), q);
+          q = util::simd::fast_exp_f32(q);
+          f0 = util::four::vpo_scale_limited(f0, vpo);
           configure(f0, q);
         }
 
         inline void configure(float32x4_t f0, float32x4_t q) {
-          mK = util::four::invert(q);
+          auto k = util::four::invert(q);
 
-          auto g = util::four::tan(f0 * vdupq_n_f32(M_PI * globalConfig.samplePeriod));
-          mA1 = util::four::invert(vmlaq_f32(vdupq_n_f32(1.0f), g, g + mK));
-          mA2 = g * mA1;
-          mA3 = g * mA2;
+          auto g = util::four::tan(f0 * vdupq_n_f32(PI_SP));
+          auto a1 = util::four::invert(vdupq_n_f32(1.0f) + g * (g + k));
+          auto a2 = g * a1;
+          auto a3 = g * a2;
+
+          mKA123 = { k, a1, a2, a3 };
         }
 
-        float32x4_t mA1 = vdupq_n_f32(0);
-        float32x4_t mA2 = vdupq_n_f32(0);
-        float32x4_t mA3 = vdupq_n_f32(0);
-        float32x4_t mK = vdupq_n_f32(0);
+        inline float32x4_t k()  const { return mKA123.val[0]; }
+        inline float32x4_t a1() const { return mKA123.val[1]; }
+        inline float32x4_t a2() const { return mKA123.val[2]; }
+        inline float32x4_t a3() const { return mKA123.val[3]; }
+
+        float32x4x4_t mKA123;
       };
 
       struct Lowpass {
@@ -132,8 +143,8 @@ namespace filter {
           const float32x4_t x
         ) {
           auto v3 = x - mIc2;
-          auto v1 = mCf.mA1 * mIc1 + mCf.mA2 * v3;
-          auto v2 = mIc2 + mCf.mA2 * mIc1 + mCf.mA3 * v3;
+          auto v1 = mCf.a1() * mIc1 + mCf.a2() * v3;
+          auto v2 = mIc2 + mCf.a2() * mIc1 + mCf.a3() * v3;
 
           auto two = vdupq_n_f32(2);
           mIc1 = two * v1 - mIc1;
@@ -153,8 +164,8 @@ namespace filter {
           const float32x4_t x
         ) {
           auto v3 = x - mIc2;
-          auto v1 = cf.mA1 * mIc1 + cf.mA2 * v3;
-          auto v2 = mIc2 + cf.mA2 * mIc1 + cf.mA3 * v3;
+          auto v1 = cf.a1() * mIc1 + cf.a2() * v3;
+          auto v2 = mIc2 + cf.a2() * mIc1 + cf.a3() * v3;
 
           auto two = vdupq_n_f32(2);
           mIc1 = two * v1 - mIc1;
@@ -162,7 +173,7 @@ namespace filter {
 
           mLp = v2;
           mBp = v1;
-          mHp = x - cf.mK * mBp - mLp;
+          mHp = x - cf.k() * mBp - mLp;
         }
 
         float32x4_t mLp;
@@ -176,210 +187,40 @@ namespace filter {
 
     namespace two {
       struct Coefficients {
-        const float32x2_t minQ = vdup_n_f32(GLOBAL_MIN_Q);
-        const float32x2_t maxQ = vdup_n_f32(GLOBAL_MAX_Q);
+        inline Coefficients(float32x2x4_t ka123) :
+          mKA123(ka123) { }
 
-        inline void configure(float32x2_t f0, float32x2_t vpo, float32x2_t q) {
-          q = util::two::lerpi(minQ, maxQ, q);
+        inline float32x2_t k()  const { return mKA123.val[0]; }
+        inline float32x2_t a1() const { return mKA123.val[1]; }
+        inline float32x2_t a2() const { return mKA123.val[2]; }
+        inline float32x2_t a3() const { return mKA123.val[3]; }
 
-          auto exp = vcombine_f32(q, util::two::fscale_vpo(vpo));
-          exp = util::simd::exp_f32(exp);
-
-          auto f = util::two::fclamp_freq(vmul_f32(f0, vget_high_f32(exp)));
-          auto g = util::two::tan(vmul_f32(f, vdup_n_f32(M_PI * globalConfig.samplePeriod)));
-
-          mK  = util::two::invert(vget_low_f32(exp));
-          auto a = vadd_f32(vdup_n_f32(1), vmul_f32(g, vadd_f32(g, mK)));
-          mA1 = util::two::invert(a);
-          mA2 = vmul_f32(g, mA1);
-          mA3 = vmul_f32(g, mA2);
-        }
-
-        float32x2_t mK  = vdup_n_f32(0);
-        float32x2_t mA1 = vdup_n_f32(0);
-        float32x2_t mA2 = vdup_n_f32(0);
-        float32x2_t mA3 = vdup_n_f32(0);
+        const float32x2x4_t mKA123;
       };
 
       struct Filter {
-        inline void configure(float32x2_t f0, float32x2_t vpo, float32x2_t q) {
-          mCf.configure(f0, vpo, q);
-        }
-
-        inline void process(float32x2_t x) {
-          auto ic12 = mIc12;
-          auto ic1 = vget_low_f32(ic12);
-          auto ic2 = vget_high_f32(ic12);
+        inline float32x2_t process(const Coefficients &cf, const util::two::ThreeWay &tw, float32x2_t x) {
+          auto ic1 = mIc1;
+          auto ic2 = mIc2;
 
           auto v3 = vsub_f32(x, ic2);
-          auto v1 = vadd_f32(vmul_f32(mCf.mA1, ic1), vmul_f32(mCf.mA2, v3));
-          auto v2 = util::two::add3(ic2, vmul_f32(mCf.mA2, ic1), vmul_f32(mCf.mA3, v3));
+          auto v1 = vadd_f32(vmul_f32(cf.a1(), ic1), vmul_f32(cf.a2(), v3));
+          auto v2 = vadd_f32(ic2, vadd_f32(vmul_f32(cf.a2(), ic1), vmul_f32(cf.a3(), v3)));
 
-          auto v12 = vcombine_f32(v1, v2);
-          mIc12 = util::four::twice(v12) - ic12;
+          mIc1 = vsub_f32(util::two::twice(v1), ic1);
+          mIc2 = vsub_f32(util::two::twice(v2), ic2);
 
-          mLp = v2;
-          mBp = v1;
-          mHp = vsub_f32(x, vsub_f32(vmul_f32(mCf.mK, mBp), mLp));
+          auto lp = v2;
+          auto bp = v1;
+          auto hp = vsub_f32(vsub_f32(x, vmul_f32(cf.k(), bp)), lp);
+
+          return tw.mix(lp, bp, hp);
         }
 
-        inline float32x2_t processAndMix(const util::two::ThreeWayMix &mix, float32x2_t x) {
-          process(x);
-          return mix.mix(mLp, mBp, mHp);
-        }
-
-        Coefficients mCf;
-        float32x4_t mIc12 = vdupq_n_f32(0);
-
-        float32x2_t mLp = vdup_n_f32(0);
-        float32x2_t mBp = vdup_n_f32(0);
-        float32x2_t mHp = vdup_n_f32(0);
+        float32x2_t mIc1 = vdup_n_f32(0);
+        float32x2_t mIc2 = vdup_n_f32(0);
       };
     }
-
-    class Coefficients {
-      public:
-        inline void update(
-          const float32x4_t vpo,
-          const float32x4_t f0,
-          const float32x4_t _q
-        ) {
-          auto f = util::four::vpo_scale_limited(f0, vpo);
-          auto q = util::four::exp_ns_f32(_q, 0.70710678118f, 1000.0f);
-
-          const auto g = util::four::tan(f * vdupq_n_f32(M_PI * globalConfig.samplePeriod));
-          const auto k = util::four::invert(q);
-          vst1q_f32(mK, k);
-
-          const auto a1 = util::four::invert(vmlaq_f32(vdupq_n_f32(1.0f), g, g + k));
-          const auto a2 = g * a1;
-          const auto a3 = g * a2;
-          vst1q_f32(mA1223 + 0, a1);
-          vst1q_f32(mA1223 + 4, a2);
-          vst1q_f32(mA1223 + 8, a2);
-          vst1q_f32(mA1223 + 12, a3);
-        }
-
-        inline float32x4x4_t a1223() const { return vld4q_f32(mA1223); }
-        inline float32x4_t   k()     const { return vld1q_f32(mK); }
-
-      private:
-        float mA1223[16];
-        float mK[4];
-    };
-
-    class Mix {
-      public:
-        inline void update(const float32x4_t m) {
-          const auto half = vdupq_n_f32(0.5);
-          vst1q_f32(mDst, util::four::twice(vabdq_f32(m, half)));
-          vst1q_f32(mClm, vcvtq_n_f32_u32(vcltq_f32(m, half), 32));
-        }
-
-        inline float32x4_t dst() const { return vld1q_f32(mDst); }
-        inline float32x4_t clm() const { return vld1q_f32(mClm); }
-
-      private:
-        float mDst[4];
-        float mClm[4];
-    };
-
-    class Filter {
-      public:
-        inline Filter() {
-          mIceq[0] = 0;
-          mIceq[1] = 0;
-        }
-
-        inline void process(
-          const Coefficients &cf,
-          const float32x4_t input
-        ) {
-          // Reference:
-          //   https://www.cytomic.com/files/dsp/SvfLinearTrapOptimised2.pdf
-          //   https://github.com/FredAntonCorvest/Common-DSP
-          //
-          // Heavily optimized to do all operations in parallel. Tested by
-          // examining the assembly.
-          //
-          // Here's the value matrix derived from the original sources:
-          //
-          //        t1      t3          t2      t4
-          // v1: + a1[i] * ic1eq     + a2[i] * xs[i]
-          //     - a2[i] * ic2eq     + 0     * ic2eq
-          //
-          // v2: + a2[i] * ic1eq     + a3[i] * xs[i]
-          //     - a3[i] * ic2eq     + 1     * ic2eq
-          //
-          // Or in plain maths:
-          //
-          //   v3 = xs[i] - ic2eq
-          //   v1 = a1[i] * ic1eq + a2[i] * v3
-          //   v2 = ic2eq + a2[i] * ic1eq + a3[i] * v3
-          //
-          //   ic1eq = 2.0f * v1 - ic1eq
-          //   ic2eq = 2.0f * v2 - ic2eq
-          //
-          // Note that v3 is inlined and terms are rearranged to reach
-          // the above matrix.
-
-          const auto a1223 = cf.a1223();
-          const auto mt1 = vtrnq_f32(vdupq_n_f32(1), vdupq_n_f32(-1)).val[0];
-          const auto mt2 = vcombine_f32(vdup_n_f32(0), vdup_n_f32(1));
-
-          auto iceq = vld1_f32(mIceq);
-
-          float xs[4], lp[4], bp[4];
-          vst1q_f32(xs, input);
-          for (int i = 0; i < 4; i++) {
-            auto t1 = a1223.val[i] * mt1;
-            auto t2 = vtrnq_f32(a1223.val[i], mt2).val[1];
-            auto t3 = vcombine_f32(iceq, iceq);
-            auto t4 = vtrnq_f32(vdupq_n_f32(xs[i]), t3).val[1];
-
-            auto vp  = vmlaq_f32(vmulq_f32(t1, t3), t2, t4);
-            auto v1  = util::two::padds(vget_low_f32(vp));
-            auto v2  = util::two::padds(vget_high_f32(vp));
-            auto v12 = vtrn_f32(v1, v2).val[0];
-
-            iceq = vsub_f32(vadd_f32(v12, v12), iceq);
-
-            bp[i] = vget_lane_f32(v12, 0);
-            lp[i] = vget_lane_f32(v12, 1);
-          }
-
-          auto _lp = vld1q_f32(lp);
-          auto _bp = vld1q_f32(bp);
-          auto _hp = vmlsq_f32(input, cf.k(), _bp) - _lp;
-
-          vst1_f32(mIceq, iceq);
-          vst1q_f32(mLp, _lp);
-          vst1q_f32(mBp, _bp);
-          vst1q_f32(mHp, _hp);
-        }
-
-        inline float32x4_t lowpass()  const { return vld1q_f32(mLp); }
-        inline float32x4_t bandpass() const { return vld1q_f32(mBp); }
-        inline float32x4_t highpass() const { return vld1q_f32(mHp); }
-
-        inline float32x4_t mix(const Mix &mix) const {
-          auto dst = mix.dst();
-          auto clm = mix.clm();
-          auto bp  = bandpass();
-
-          auto bpLvl = vmlsq_f32(bp,    dst, bp);
-          auto lpLvl = vmlaq_f32(bpLvl, dst, lowpass());
-          auto hpLvl = vmlaq_f32(bpLvl, dst, highpass());
-
-          return util::four::lerpi(hpLvl, lpLvl, clm);
-        }
-
-      private:
-        float mIceq[2];
-        float mLp[4];
-        float mBp[4];
-        float mHp[4];
-    };
   }
 
   namespace biquad {

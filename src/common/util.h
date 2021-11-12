@@ -179,6 +179,17 @@ namespace util {
 #endif
     }
 
+    // https://stackoverflow.com/questions/47025373/fastest-implementation-of-the-natural-exponential-function-using-sse
+    // Quite fast, but not *super* accurate.
+    // max. rel. error = 3.55959567e-2 on [-87.33654, 88.72283]
+    // Which doesn't matter much since we're normally in [-1, 1]
+    inline float32x4_t fast_exp_f32(float32x4_t x) {
+      float32x4_t a = vdupq_n_f32(12102203.0f);
+      int32x4_t b = vdupq_n_s32(127 * (1 << 23) - 298765);
+      int32x4_t t = b + vcvtq_s32_f32(a * x);
+      return vreinterpretq_f32_s32(t);
+    }
+
     inline float32x4_t pow_f32(float32x4_t x, float32x4_t m) {
       return exp_f32(m * log_f32(x));
     }
@@ -522,6 +533,10 @@ namespace util {
   };
 
   namespace four {
+    inline float32x4_t make(float a, float b) {
+      return vcombine_f32(vdup_n_f32(a), vdup_n_f32(b));
+    }
+
     inline float32x4_t make(float a, float b, float c, float d) {
       float _x[4];
       _x[0] = a;
@@ -610,11 +625,19 @@ namespace util {
     }
 
     inline float32x4_t vpo_scale(float32x4_t f0, float32x4_t vpo) {
-      return f0 * simd::exp_f32(vpo * vdupq_n_f32(VPO_LOG_MAX));
+      return f0 * simd::exp_f32(fscale_vpo(vpo));
     }
 
     inline float32x4_t vpo_scale_limited(float32x4_t f0, float32x4_t vpo) {
       return fclamp_freq(vpo_scale(f0, vpo));
+    }
+
+    inline float32x4_t fast_vpo_scale(float32x4_t f0, float32x4_t vpo) {
+      return f0 * simd::fast_exp_f32(fscale_vpo(vpo));
+    }
+
+    inline float32x4_t fast_vpo_scale_limited(float32x4_t f0, float32x4_t vpo) {
+      return fclamp_freq(fast_vpo_scale(f0, vpo));
     }
 
     // https://en.wikipedia.org/wiki/Division_algorithm#Newton.E2.80.93Raphson_division
@@ -661,6 +684,53 @@ namespace util {
       auto xabs = vabdq_f32(in, vdupq_n_f32(0));
       return piOver4 * in - in * (xabs - one) * (c1 + c2 * xabs);
     }
+
+    struct ThreeWay {
+      inline static ThreeWay punit(float32x4_t mix) {
+        mix = fclamp_punit(mix);
+        auto center = vdupq_n_f32(0.5f);
+        auto select = vcltq_f32(mix, center);
+        return ThreeWay { select, twice(vabdq_f32(mix, center)) };
+      }
+
+      inline ThreeWay(uint32_t select, float degree) :
+        mSelect(vdupq_n_u32(select)),
+        mDegree(vdupq_n_f32(degree)) { }
+
+      inline ThreeWay(uint32x4_t select, float32x4_t degree) :
+        mSelect(select),
+        mDegree(degree) { }
+
+      inline float32x4_t mix(float32x4_t bottom, float32x4_t middle, float32x4_t top) const {
+        auto out = vbslq_f32(mSelect, bottom, top);
+        return lerpi(middle, out, mDegree);
+      }
+
+      const uint32x4_t mSelect;
+      const float32x4_t mDegree;
+    };
+
+    struct ThreeWayMix {
+      inline ThreeWayMix(float min, float max, float center) :
+        mMin(vdupq_n_f32(min)),
+        mMax(vdupq_n_f32(max)),
+        mCenter(vdupq_n_f32(center)),
+        mScaleLow(vdupq_n_f32(1.0f / fabs(center - min))),
+        mScaleHigh(vdupq_n_f32(1.0f / fabs(center - max))) { }
+
+      inline ThreeWay prepare(float32x4_t mix) const {
+        mix = fclamp(mix, mMin, mMax);
+        auto select = vcltq_f32(mix, mCenter);
+        auto scale = vbslq_f32(select, mScaleLow, mScaleHigh);
+        return ThreeWay { select, scale * vabdq_f32(mix, mCenter) };
+      }
+
+      const float32x4_t mMin;
+      const float32x4_t mMax;
+      const float32x4_t mCenter;
+      const float32x4_t mScaleLow;
+      const float32x4_t mScaleHigh;
+    };
   }
 
   namespace two {
@@ -698,7 +768,8 @@ namespace util {
     }
 
     inline float32x2_t exp_f32(float32x2_t x) {
-      return vget_low_f32(simd::exp_f32(dual(x)));
+      return vget_low_f32(simd::fast_exp_f32(dual(x)));
+      //return vget_low_f32(simd::exp_f32(dual(x)));
     }
 
     inline float32x2_t exp_ns_f32(float32x2_t x, const float min, const float max) {
@@ -791,37 +862,50 @@ namespace util {
       return inv;
     }
 
+    struct ThreeWay {
+      inline static ThreeWay punit(float32x2_t mix) {
+        mix = fclamp_punit(mix);
+        auto center = vdup_n_f32(0.5f);
+        auto select = vclt_f32(mix, center);
+        return ThreeWay { select, twice(vabd_f32(mix, center)) };
+      }
+
+      inline ThreeWay(uint32_t select, float degree) :
+        mSelect(vdup_n_u32(select)),
+        mDegree(vdup_n_f32(degree)) { }
+
+      inline ThreeWay(uint32x2_t select, float32x2_t degree) :
+        mSelect(select),
+        mDegree(degree) { }
+
+      inline float32x2_t mix(float32x2_t bottom, float32x2_t middle, float32x2_t top) const {
+        auto out = vbsl_f32(mSelect, bottom, top);
+        return lerpi(middle, out, mDegree);
+      }
+
+      const uint32x2_t mSelect;
+      const float32x2_t mDegree;
+    };
+
     struct ThreeWayMix {
       inline ThreeWayMix(float min, float max, float center) :
         mMin(vdup_n_f32(min)),
         mMax(vdup_n_f32(max)),
-        mCenter(vdup_n_f32(center)) { }
+        mCenter(vdup_n_f32(center)),
+        mScaleLow(vdup_n_f32(1.0f / fabs(center - min))),
+        mScaleHigh(vdup_n_f32(1.0f / fabs(center - max))) { }
 
-      inline void configure(float32x2_t mix) {
-        mix = fclamp(mix, mMin, mMax);
-        mSelect = vclt_f32(mix, mCenter);
-        mDegree = vmul_f32(vabd_f32(mix, mCenter), scale());
-      }
-
-      inline float32x2_t scale() const {
-        return vbsl_f32(mSelect, mScaleLow, mScaleHigh);
-      }
-
-      inline float32x2_t mix(float32x2_t bottom, float32x2_t middle, float32x2_t top) const {
-        auto out = vbsl_f32(mSelect, bottom, top);
-        return lerpp(middle, out, mDegree);
+      inline ThreeWay prepare(float32x2_t mix) const {
+        auto select = vclt_f32(mix, mCenter);
+        auto scale = vbsl_f32(select, mScaleLow, mScaleHigh);
+        return ThreeWay { select, vmul_f32(scale, vabd_f32(mix, mCenter)) };
       }
 
       const float32x2_t mMin;
       const float32x2_t mMax;
       const float32x2_t mCenter;
-
-      const float32x4_t mScale     = four::invert(vabdq_f32(dual(mCenter), vcombine_f32(mMin, mMax)));
-      const float32x2_t mScaleLow  = vget_low_f32(mScale);
-      const float32x2_t mScaleHigh = vget_high_f32(mScale);
-
-      float32x2_t mDegree = vdup_n_f32(1);
-      uint32x2_t  mSelect = vdup_n_u32(0);
+      const float32x2_t mScaleLow;
+      const float32x2_t mScaleHigh;
     };
   }
 
@@ -895,8 +979,7 @@ namespace util {
       }
 
       inline void configure(const float32x4_t vpo) {
-        const float32x4_t vpoLogMax = vdupq_n_f32(FULLSCALE_IN_VOLTS * logf(2.0f));
-        mScale.set(simd::exp_f32(vpo * vpoLogMax));
+        mScale.set(util::simd::exp_f32(util::four::fscale_vpo(vpo)));
       }
 
       TrackAndHold mScale { 1 };

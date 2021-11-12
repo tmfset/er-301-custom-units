@@ -41,35 +41,49 @@ namespace strike {
         float *outLeft = mOutLeft.buffer();
         float *outRight = mOutRight.buffer();
 
-        //float32x2_t last = vdup_n_f32(0);
+        for (int i = 0; i < FRAMELENGTH; i += 4) {
+          const auto cf4 = filter::svf::four::Coefficients {
+            vld1q_f32(f0 + i),
+            vld1q_f32(vpo + i),
+            vld1q_f32(q + i)
+          };
 
-        for (int i = 0; i < FRAMELENGTH; i++) {
-          mMixer.configure(vld1_dup_f32(mix + i));
-          mFilter.configure(vld1_dup_f32(f0 + i), vld1_dup_f32(vpo + i), vld1_dup_f32(q + i));
+          float ka123[16];
+          vst4q_f32(ka123, cf4.mKA123);
 
-          auto _in = util::two::make(inLeft[i], inRight[i]);
-          _in = vmul_f32(_in, vld1_dup_f32(gain + i));
+          float32x4_t g     = vld1q_f32(gain + i);
+          float32x4_t left  = vld1q_f32(inLeft + i) * g;
+          float32x4_t right = vld1q_f32(inRight + i) * g;
 
-          auto _out = mFilter.processAndMix(mMixer, _in);
-          //_out = util::two::tanh(_out);
-          outLeft[i] = vget_lane_f32(_out, 0);
-          outRight[i] = vget_lane_f32(_out, 1);
+          float lr[8];
+          vst2q_f32(lr, { left, right });
 
-          // if (i > 0 && i % 4 == 0) {
-          //   auto l = vld1q_f32(outLeft + i - 4);
-          //   auto r = vld1q_f32(outRight + i - 4);
+          auto m = vld4_dup_f32(mix + i);
 
-          // }
+          auto filter = mFilter;
 
-          // if (i % 2 == 1) {
-          //   auto lim = util::four::tanh(vcombine_f32(last, _out));
-          //    outLeft[i - 1] = vgetq_lane_f32(lim, 0);
-          //   outRight[i - 1] = vgetq_lane_f32(lim, 1);
-          //    outLeft[i]     = vgetq_lane_f32(lim, 2);
-          //   outRight[i]     = vgetq_lane_f32(lim, 3);
-          // }
+          for (int j = 0; j < 4; j++) {
+            auto _ka123 = vld4_dup_f32(ka123 + j * 4);
+            auto cf = filter::svf::two::Coefficients { _ka123 };
+            auto tw = util::two::ThreeWay::punit(m.val[j]);
 
-          // last = _out;
+            auto lri = lr + j * 2;
+            auto in = vld1_f32(lri);
+            auto out = filter.process(cf, tw, in);
+            vst1_f32(lri, out);
+          }
+
+          mFilter = filter;
+
+          auto olr = vld2q_f32(lr);
+          left  = olr.val[0];
+          right = olr.val[1];
+
+          left  = util::four::tanh(left);
+          right = util::four::tanh(right);
+
+          vst1q_f32(outLeft + i, left);
+          vst1q_f32(outRight + i, right);
         }
       }
 
@@ -88,6 +102,6 @@ namespace strike {
 
     private:
       filter::svf::two::Filter mFilter;
-      util::two::ThreeWayMix mMixer { 0, 1, 0.5 };
+      //util::four::ThreeWayMix mMixer { 0, 1, 0.5 };
   };
 }
