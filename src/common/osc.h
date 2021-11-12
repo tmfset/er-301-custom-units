@@ -452,10 +452,19 @@ namespace osc {
     }
 
     struct TriangleToPulse {
-      inline TriangleToPulse(const float32x4_t shape) :
-        mLow(vcltq_f32(shape, vdupq_n_f32(0))),
-        mAmount(vabsq_f32(shape)),
-        mWidth(vbslq_f32(mLow, util::four::comp(mAmount * vdupq_n_f32(0.5)), vdupq_n_f32(1))) { }
+      inline TriangleToPulse(const float32x4_t shape) {
+        configure(shape);
+      }
+
+      inline void configure(const float32x4_t shape) {
+        auto zero = vdupq_n_f32(0);
+        auto half = vdupq_n_f32(0.5);
+        auto one  = vdupq_n_f32(1);
+
+        mLow    = vcltq_f32(shape, zero);
+        mAmount = vabsq_f32(shape);
+        mWidth  = vbslq_f32(mLow, one - mAmount * half, one);
+      }
 
       inline float32x4_t process(const float32x4_t phase) const {
         auto half = vdupq_n_f32(0.5);

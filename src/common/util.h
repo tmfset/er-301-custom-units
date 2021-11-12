@@ -774,8 +774,7 @@ namespace util {
     }
 
     inline float32x2_t exp_f32(float32x2_t x) {
-      return vget_low_f32(simd::fast_exp_f32(dual(x)));
-      //return vget_low_f32(simd::exp_f32(dual(x)));
+      return vget_low_f32(simd::exp_f32(dual(x)));
     }
 
     inline float32x2_t exp_ns_f32(float32x2_t x, const float min, const float max) {
