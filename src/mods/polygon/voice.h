@@ -99,7 +99,7 @@ namespace voice {
         mMix = mix;
         mShapeEnv = shapeEnv;
         mMixEnv = mixEnv;
-        mResonance = util::four::exp_ns_f32(resonance, 0.70710678118f, 100.0f);
+        mResonance = util::four::fast_exp_ns_f32(resonance, 0.70710678118f, 100.0f);
         mPan = pan;
         mFilterTrack = filterTrack;
       }
@@ -199,7 +199,7 @@ namespace voice {
         const float32x4_t signal,
         const float32x4_t amount
       ) {
-        auto mix = util::simd::mix(amount);
+        auto mix = util::four::mix(amount);
         return {{ signal * mix.val[0], signal * mix.val[1] }};
       }
     };
@@ -214,16 +214,15 @@ namespace voice {
         const uint32x4_t hardSync
       ) {
         auto one = vdupq_n_f32(1);
-        auto two = vdupq_n_f32(2);
 
         auto sync = mSyncTrigger.read(gate);
 
         const auto t2p = osc::shape::TriangleToPulse { shape };
 
         auto p = mPhase.process(delta1, delta2, sync, hardSync);
-        auto m = util::simd::mix(mix);
-        p.val[0] = t2p.process(p.val[0]) * two - one;
-        p.val[1] = t2p.process(p.val[1]) * two - one;
+        auto m = util::four::mix(mix);
+        p.val[0] = util::four::twice(t2p.process(p.val[0])) - one;
+        p.val[1] = util::four::twice(t2p.process(p.val[1])) - one;
 
         return p.val[0] * m.val[0] + p.val[1] * m.val[1];
       }

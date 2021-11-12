@@ -249,16 +249,6 @@ namespace util {
       return vld1q_f32(_x);
     }
 
-    inline float32x4x2_t mix(float32x4_t by) {
-      auto half = vdupq_n_f32(0.5);
-      auto one  = vdupq_n_f32(1);
-
-      auto rightAmount = by * half + half;
-      auto leftAmount  = one - rightAmount;
-
-      return {{ leftAmount, rightAmount }};
-    }
-
     inline void sincos_f32(float32x4_t x, float32x4_t *ysin, float32x4_t *ycos) {
 #if false
       simd_sincos(x, ysin, ycos);
@@ -600,6 +590,12 @@ namespace util {
       return simd::exp_f32(lerpi(logMin, logMax, x));
     }
 
+    inline float32x4_t fast_exp_ns_f32(float32x4_t x, const float min, const float max) {
+      auto logMin = vdupq_n_f32(logf(min));
+      auto logMax = vdupq_n_f32(logf(max));
+      return simd::fast_exp_f32(lerpi(logMin, logMax, x));
+    }
+
     inline float32x4_t fclamp(float32x4_t x, float32x4_t min, float32x4_t max) {
       return vminq_f32(max, vmaxq_f32(min, x));
     }
@@ -683,6 +679,16 @@ namespace util {
       auto piOver4 = vdupq_n_f32(M_PI_4);
       auto xabs = vabdq_f32(in, vdupq_n_f32(0));
       return piOver4 * in - in * (xabs - one) * (c1 + c2 * xabs);
+    }
+
+    inline float32x4x2_t mix(float32x4_t by) {
+      auto half = vdupq_n_f32(0.5);
+      auto one  = vdupq_n_f32(1);
+
+      auto rightAmount = by * half + half;
+      auto leftAmount  = one - rightAmount;
+
+      return {{ leftAmount, rightAmount }};
     }
 
     struct ThreeWay {

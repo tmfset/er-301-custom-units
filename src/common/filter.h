@@ -146,9 +146,8 @@ namespace filter {
           auto v1 = mCf.a1() * mIc1 + mCf.a2() * v3;
           auto v2 = mIc2 + mCf.a2() * mIc1 + mCf.a3() * v3;
 
-          auto two = vdupq_n_f32(2);
-          mIc1 = two * v1 - mIc1;
-          mIc2 = two * v2 - mIc2;
+          mIc1 = util::four::twice(v1) - mIc1;
+          mIc2 = util::four::twice(v2) - mIc2;
 
           return v2;
         }
@@ -167,9 +166,8 @@ namespace filter {
           auto v1 = cf.a1() * mIc1 + cf.a2() * v3;
           auto v2 = mIc2 + cf.a2() * mIc1 + cf.a3() * v3;
 
-          auto two = vdupq_n_f32(2);
-          mIc1 = two * v1 - mIc1;
-          mIc2 = two * v2 - mIc1;
+          mIc1 = util::four::twice(v1) - mIc1;
+          mIc2 = util::four::twice(v2) - mIc1;
 
           mLp = v2;
           mBp = v1;
