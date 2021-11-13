@@ -48,23 +48,26 @@ namespace strike {
             vld1q_f32(q + i)
           };
 
+          auto _ka123 = cf4.ka123();
           float ka123[16];
-          vst4q_f32(ka123, cf4.mKA123);
+          vst4q_f32(ka123, _ka123);
 
           float32x4_t g     = vld1q_f32(gain + i);
           float32x4_t left  = vld1q_f32(inLeft + i) * g;
           float32x4_t right = vld1q_f32(inRight + i) * g;
+          float32x4x2_t _lr { left, right };
 
           float lr[8];
-          vst2q_f32(lr, { left, right });
+          vst2q_f32(lr, _lr);
 
           auto m = vld4_dup_f32(mix + i);
 
           auto filter = mFilter;
 
           for (int j = 0; j < 4; j++) {
-            auto _ka123 = vld4_dup_f32(ka123 + j * 4);
-            auto cf = filter::svf::two::Coefficients { _ka123 };
+            auto cf = filter::svf::two::Coefficients {
+              vld4_dup_f32(ka123 + j * 4)
+            };
             auto tw = util::two::ThreeWay::punit(m.val[j]);
 
             auto lri = lr + j * 2;

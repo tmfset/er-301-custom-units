@@ -116,22 +116,25 @@ namespace filter {
         }
 
         inline void configure(float32x4_t f0, float32x4_t q) {
-          auto k = util::four::invert(q);
+          mK = util::four::invert(q);
 
           auto g = util::four::tan(f0 * vdupq_n_f32(PI_SP));
-          auto a1 = util::four::invert(vdupq_n_f32(1.0f) + g * (g + k));
-          auto a2 = g * a1;
-          auto a3 = g * a2;
-
-          mKA123 = { k, a1, a2, a3 };
+          mA1 = util::four::invert(vdupq_n_f32(1.0f) + g * (g + mK));
+          mA2 = g * mA1;
+          mA3 = g * mA2;
         }
 
-        inline float32x4_t k()  const { return mKA123.val[0]; }
-        inline float32x4_t a1() const { return mKA123.val[1]; }
-        inline float32x4_t a2() const { return mKA123.val[2]; }
-        inline float32x4_t a3() const { return mKA123.val[3]; }
+        inline float32x4x4_t ka123() const { return {{ mK, mA1, mA2, mA3 }}; }
 
-        float32x4x4_t mKA123;
+        inline float32x4_t k()  const { return mK; }
+        inline float32x4_t a1() const { return mA1; }
+        inline float32x4_t a2() const { return mA2; }
+        inline float32x4_t a3() const { return mA3; }
+
+        float32x4_t mK;
+        float32x4_t mA1;
+        float32x4_t mA2;
+        float32x4_t mA3;
       };
 
       struct Lowpass {
@@ -186,27 +189,30 @@ namespace filter {
     namespace two {
       struct Coefficients {
         inline Coefficients(float32x2x4_t ka123) :
-          mKA123(ka123) { }
+          mK(ka123.val[0]),
+          mA1(ka123.val[1]),
+          mA2(ka123.val[2]),
+          mA3(ka123.val[3]) { }
 
-        inline float32x2_t k()  const { return mKA123.val[0]; }
-        inline float32x2_t a1() const { return mKA123.val[1]; }
-        inline float32x2_t a2() const { return mKA123.val[2]; }
-        inline float32x2_t a3() const { return mKA123.val[3]; }
+        inline float32x2_t k()  const { return mK; }
+        inline float32x2_t a1() const { return mA1; }
+        inline float32x2_t a2() const { return mA2; }
+        inline float32x2_t a3() const { return mA3; }
 
-        const float32x2x4_t mKA123;
+        const float32x2_t mK;
+        const float32x2_t mA1;
+        const float32x2_t mA2;
+        const float32x2_t mA3;
       };
 
       struct Filter {
         inline float32x2_t process(const Coefficients &cf, const util::two::ThreeWay &tw, float32x2_t x) {
-          auto ic1 = mIc1;
-          auto ic2 = mIc2;
+          auto v3 = vsub_f32(x, mIc2);
+          auto v1 = vadd_f32(vmul_f32(cf.a1(), mIc1), vmul_f32(cf.a2(), v3));
+          auto v2 = vadd_f32(mIc2, vadd_f32(vmul_f32(cf.a2(), mIc1), vmul_f32(cf.a3(), v3)));
 
-          auto v3 = vsub_f32(x, ic2);
-          auto v1 = vadd_f32(vmul_f32(cf.a1(), ic1), vmul_f32(cf.a2(), v3));
-          auto v2 = vadd_f32(ic2, vadd_f32(vmul_f32(cf.a2(), ic1), vmul_f32(cf.a3(), v3)));
-
-          mIc1 = vsub_f32(util::two::twice(v1), ic1);
-          mIc2 = vsub_f32(util::two::twice(v2), ic2);
+          mIc1 = vsub_f32(util::two::twice(v1), mIc1);
+          mIc2 = vsub_f32(util::two::twice(v2), mIc2);
 
           auto lp = v2;
           auto bp = v1;
