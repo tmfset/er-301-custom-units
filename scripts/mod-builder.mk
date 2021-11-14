@@ -1,25 +1,6 @@
-include scripts/utils.mk
+include scripts/env.mk
 
 LIBNAME ?= lib$(PKGNAME)
-SDKPATH ?= er-301
-
-# Determine ARCH if it's not provided...
-# linux | darwin | am335x
-ifndef ARCH
-  SYSTEM_NAME := $(shell uname -s)
-  ifeq ($(SYSTEM_NAME),Linux)
-    ARCH = linux
-  else ifeq ($(SYSTEM_NAME),Darwin)
-    ARCH = darwin
-  else
-    $(error Unsupported system $(SYSTEM_NAME))
-  endif
-endif
-
-
-# Determine PROFILE if it's not provided...
-# testing | release | debug
-PROFILE ?= testing
 
 OUT_DIR      = $(PROFILE)/$(ARCH)
 LIB_FILE     = $(OUT_DIR)/$(LIBNAME).so
@@ -63,23 +44,17 @@ OBJECTS += $(SWIG_OBJECT)
 ifeq ($(ARCH),am335x)
   CFLAGS.am335x = -mcpu=cortex-a8 -mfpu=neon -mfloat-abi=hard -mabi=aapcs -Dfar= -D__DYNAMIC_REENT__
   LFLAGS = -nostdlib -nodefaultlibs -r
-
-  include $(SDKPATH)/scripts/am335x.mk
 endif
 
 ifeq ($(ARCH),linux)
   CFLAGS.linux = -Wno-deprecated-declarations -msse4 -fPIC
   LFLAGS = -shared
-
-  include $(SDKPATH)/scripts/linux.mk
 endif
 
 ifeq ($(ARCH),darwin)
   INSTALLROOT.darwin = ~/.od/front
   CFLAGS.darwin = -Wno-deprecated-declarations -msse4 -fPIC
   LFLAGS = -dynamic -undefined dynamic_lookup -lSystem
-
-  include $(SDKPATH)/scripts/darwin.mk
 endif
 
 CFLAGS.common = -Wall -ffunction-sections -fdata-sections
