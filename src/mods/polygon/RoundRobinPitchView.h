@@ -6,7 +6,7 @@
 #include <od/extras/LinearRamp.h>
 #include <od/extras/Conversions.h>
 #include "util.h"
-#include "Box.h"
+#include "graphics.h"
 
 using namespace polygon;
 
@@ -43,9 +43,9 @@ namespace polygon {
 
         const float voices = mObservable.voices();
 
-        const Box world     = Box::lbwh(mWorldLeft, mWorldBottom, mWidth, mHeight);
-        const Box leftPane  = world.divideLeft(0.3f).inner(0, 5);
-        const Box rightPane = world.divideRight(0.7f).inner(0, 0).padRight(6);
+        const graphics::Box world     = graphics::Box::lbwh(mWorldLeft, mWorldBottom, mWidth, mHeight);
+        const graphics::Box leftPane  = world.divideLeft(0.3f).inner(0, 5);
+        const graphics::Box rightPane = world.divideRight(0.7f).inner(0, 0).padRight(6);
 
         fb.vline(sColor(0), leftPane.centerX, leftPane.bottom, leftPane.top);
         fb.hline(sColor(0), leftPane.centerX - 2, leftPane.centerX + 2, leftPane.bottom);
@@ -66,9 +66,9 @@ namespace polygon {
           mCursorState.y = rrTargetY;
         }
 
-        const Box first = rightPane.divideTop(1.0f / voices);
+        const graphics::Box first = rightPane.divideTop(1.0f / voices);
         for (int i = 0; i < voices; i++) {
-          const Box next = first.offsetY(util::fhr(-first.height) * i);
+          const graphics::Box next = first.offsetY(util::fhr(-first.height) * i);
 
           const int x0 = util::fhr(next.left);
           const int x1 = util::fhr(next.right);

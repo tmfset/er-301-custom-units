@@ -4,7 +4,7 @@
 #include <od/graphics/Graphic.h>
 #include <od/extras/LinearRamp.h>
 #include "util.h"
-#include "Box.h"
+#include "graphics.h"
 
 using namespace polygon;
 
@@ -34,23 +34,23 @@ namespace polygon {
 
         const float pad = 1.5;
 
-        const Box world  = Box::lbwh(mWorldLeft, mWorldBottom, mWidth, mHeight);
+        const graphics::Box world  = graphics::Box::lbwh(mWorldLeft, mWorldBottom, mWidth, mHeight);
 
-        const Box corner = world.divideLeft(1.0f / cols).divideTop(1.0f / rows);
-        const Box inner = world.inner(
+        const graphics::Box corner = world.divideLeft(1.0f / cols).divideTop(1.0f / rows);
+        const graphics::Box inner = world.inner(
           util::fmax((world.width - corner.minDimension() * cols) / 2.0f, pad),
           util::fmax((world.height - corner.minDimension() * rows) / 2.0f, pad)
         );
 
-        const Box column = inner.divideLeft(1.0f / cols);
-        const Box row    = inner.divideTop(1.0f / rows);
+        const graphics::Box column = inner.divideLeft(1.0f / cols);
+        const graphics::Box row    = inner.divideTop(1.0f / rows);
 
         for (int c = 0; c < cols; c++) {
-          const Box cBox = column.offsetX(util::fhr(column.width) * c);
+          const graphics::Box cBox = column.offsetX(util::fhr(column.width) * c);
           for (int r = 0; r < rows; r++) {
-            const Box rBox = row.offsetY(util::fhr(-row.height) * r);
+            const graphics::Box rBox = row.offsetY(util::fhr(-row.height) * r);
 
-            const Box box = cBox.intersect(rBox).inner(pad);
+            const graphics::Box box = cBox.intersect(rBox).inner(pad);
             const int radius = util::fhr(box.minDimension() * 0.5);
 
             const int index = c * rows + r;

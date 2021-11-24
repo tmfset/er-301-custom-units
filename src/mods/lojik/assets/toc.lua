@@ -11,6 +11,11 @@ return {
       keywords = "sequencer, register"
     },
     {
+      title = "Register2",
+      moduleName = "Register2",
+      keywords = "sequencer, register"
+    },
+    {
       title = "Turing",
       moduleName = "Turing",
       keywords = "sequencer, turing"

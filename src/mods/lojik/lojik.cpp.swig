@@ -15,7 +15,11 @@
 #include <Latch.h>
 #include <DLatch.h>
 #include <TLatch.h>
+#include <RegisterLike.h>
 #include <Register.h>
+#include <Register2.h>
+#include <RegisterChart.h>
+#include <RegisterCircle.h>
 #include <Euclid.h>
 #include <EuclidCircle.h>
 #include <Chance.h>
@@ -34,7 +38,11 @@
 %include <Latch.h>
 %include <DLatch.h>
 %include <TLatch.h>
+%include <RegisterLike.h>
 %include <Register.h>
+%include <Register2.h>
+%include <RegisterChart.h>
+%include <RegisterCircle.h>
 %include <Euclid.h>
 %include <EuclidCircle.h>
 %include <Chance.h>

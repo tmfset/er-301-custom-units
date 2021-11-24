@@ -8,6 +8,22 @@
 
 namespace lojik {
 
+  template <int max>
+  struct RegisterState2 {
+    inline void reset() { mCurrent = 0; }
+
+    float mData[max];
+    float mDrift[max];
+
+    int mCurrent = 0;
+    int mShift   = 0;
+    int mStride  = 1;
+    int mTotal   = max;
+
+    float mDriftAmount = 0.0f;
+
+  };
+
   class RegisterState {
     public:
       int   max()       { return mData.size(); }

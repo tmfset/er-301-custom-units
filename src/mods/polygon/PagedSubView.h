@@ -6,9 +6,7 @@
 namespace polygon {
   class PagedSubView : public od::Graphic {
     public:
-      PagedSubView() : od::Graphic(0, 0, 128, 64) {
-        mPageSlew.setRate(0.1, GRAPHICS_REFRESH_PERIOD);
-      }
+      PagedSubView() : od::Graphic(0, 0, 128, 64) { }
       virtual ~PagedSubView() {}
 
       void switchPage() {
@@ -26,13 +24,13 @@ namespace polygon {
     private:
       void draw(od::FrameBuffer &fb) {
         advanceFrame();
-        mPageSlew.process(mPage);
+        auto slew = mPageSlew.process(mPageSlewRate, mPage);
 
         const int pageCount   = mChildren.size();
         const int isMultiPage = pageCount > 1;
         for (int i = 0; i < pageCount; i++) {
           if (isMultiPage) drawPageIndicator(fb, WHITE, i);
-          mChildren[i]->setPosition(0, (mPageSlew.value() - i) * (mHeight + 1));
+          mChildren[i]->setPosition(0, (slew - i) * (mHeight + 1));
         }
 
         od::Graphic::draw(fb);
@@ -63,6 +61,7 @@ namespace polygon {
 
       int mPage = 0;
       int mFrame = 0;
+      slew::SlewRate mPageSlewRate { 0.1, GRAPHICS_REFRESH_PERIOD };
       slew::Slew mPageSlew;
   };
 }

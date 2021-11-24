@@ -463,6 +463,10 @@ namespace util {
   inline int    clamp(  int v,  int _min,  int _max) { return min(max(v, _min), _max); }
   inline float fclamp(float v, float min, float max) { return fmin(fmax(v, min), max); }
 
+  inline float fpclamp(float v, float a, float b) {
+    return fclamp(v, fmin(a, b), fmax(a, b));
+  }
+
   inline float  funit(float v) { return fclamp(v, -1, 1); }
   inline float fpunit(float v) { return fclamp(v, 0, 1); }
 
@@ -534,6 +538,15 @@ namespace util {
       _x[2] = c;
       _x[3] = d;
       return vld1q_f32(_x);
+    }
+
+    inline uint32x4_t make_u32(bool a, bool b, bool c, bool d) {
+      uint32_t _x[4];
+      _x[0] = util::bcvt(a);
+      _x[1] = util::bcvt(b);
+      _x[2] = util::bcvt(c);
+      _x[3] = util::bcvt(d);
+      return vld1q_u32(_x);
     }
 
     inline float32x4_t comp(float32x4_t x) {
@@ -942,8 +955,8 @@ namespace util {
         const uint32x4_t set,
         const uint32x4_t reset
       ) {
-        mState = vandq_u32(mState, vmvnq_u32(reset));
-        mState = vorrq_u32(mState, set);
+        mState = mState & ~reset;
+        mState = mState | set;
         return mState;
       }
 
@@ -952,13 +965,25 @@ namespace util {
 
     struct Trigger {
       inline uint32x4_t read(const uint32x4_t high) {
-        mTrigger = vandq_u32(high, mEnable);
-        mEnable = vmvnq_u32(high);
-        return mTrigger;
+        auto trigger = mEnable & high;
+        mEnable = ~high;
+        return trigger;
       }
 
       uint32x4_t mEnable = vdupq_n_u32(0);
-      uint32x4_t mTrigger = vdupq_n_u32(0);
+    };
+
+    struct SyncTrigger {
+      inline uint32x4_t read(uint32x4_t high, uint32x4_t sync) {
+        auto trigger = mTrigger.read(high);
+        mLatch = mLatch | trigger; // set
+        auto out = mLatch & sync;
+        mLatch = mLatch & ~sync; // reset
+        return out;
+      }
+
+      uint32x4_t mLatch = vdupq_n_u32(0);
+      Trigger mTrigger;
     };
 
     struct Vpo {

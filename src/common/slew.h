@@ -5,35 +5,40 @@
 #include "util.h"
 
 namespace slew {
-  struct Slew {
-    inline void setRate(float rate, float sp) {
-      setRiseFall(rate, rate, sp);
+  struct SlewRate {
+    inline static SlewRate fromRiseFall(float rise, float fall, float sp) {
+      rise = expf(-sp / util::fmax(rise, sp));
+      fall = expf(-sp / util::fmax(fall, sp));
+      return SlewRate { rise, fall };
     }
 
-    inline void setRiseFall(float rise, float fall, float sp) {
-      rise = util::fmax(rise, sp);
-      fall = util::fmax(fall, sp);
-
-      mRiseCoeff = exp(-sp / rise);
-      mFallCoeff = exp(-sp / fall);
+    inline static SlewRate fromRate(float rate, float sp) {
+      rate = expf(-sp / util::fmax(rate, sp));
+      return SlewRate { rate, rate };
     }
+
+    inline SlewRate(float riseCoeff, float fallCoeff) :
+      mRiseCoeff(riseCoeff),
+      mFallCoeff(fallCoeff) { }
 
     inline float pick(bool rise) const {
       return rise ? mRiseCoeff : mFallCoeff;
     }
 
-    inline float value() const {
+    const float mRiseCoeff;
+    const float mFallCoeff;
+  };
+
+  struct Slew {
+    inline float process(const SlewRate &rate, float target) {
+      auto coeff = rate.pick(mValue < target);
+      mValue = target + coeff * (mValue - target);
       return mValue;
     }
 
-    inline void process(float target) {
-      auto coeff = pick(mValue < target);
-      mValue = target + coeff * (mValue - target);
-    }
+    inline void hardSet(float v) { mValue = v; }
 
     float mValue = 0;
-    float mRiseCoeff = 0;
-    float mFallCoeff = 0;
   };
 
   namespace two {
