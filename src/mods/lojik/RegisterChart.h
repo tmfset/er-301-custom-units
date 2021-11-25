@@ -58,13 +58,6 @@ namespace lojik {
 
           auto value = mRegister.value(i);
 
-          // auto _bar = graphics::Box::cwr(chartX, chart.centerY, mBarWidth, value * mBarHeight);
-          // auto _cursor = _bar.centerOnX(chart.centerY, mBarWidth + 2);
-          // _bar.fill(fb, GRAY12);
-          // if (i == current) {
-          //   _cursor.line(fb, WHITE);
-          // }
-
           if (!view.containsX(x)) continue;
 
           
@@ -72,7 +65,7 @@ namespace lojik {
           //auto bar = graphics::Box::lbwh(x, y, mBarWidth, value * mBarHeight);
 
           if (i == current) {
-            auto cursor = bar.centerOnX(y, mBarWidth + 2);
+            auto cursor = bar.recenterY(y).square(mBarWidth + 2);
             bar.fill(fb, GRAY12);
             cursor.line(fb, WHITE);
           } else {

@@ -477,6 +477,7 @@ namespace util {
     return min(m, n - m);
   }
 
+  // Float half-round
   inline int fhr(float v) {
     int iv = v;
     float d = v - iv;

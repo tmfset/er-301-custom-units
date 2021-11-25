@@ -3,6 +3,46 @@
 #include <util.h>
 
 namespace graphics {
+  struct Point {
+    inline Point(float _x, float _y) :
+      x(_x),
+      y(_y) { }
+
+    inline Point withX(float _x) const {
+      return Point(_x, y);
+    }
+
+    inline Point withY(float _y) const {
+      return Point(x, _y);
+    }
+
+    inline Point quantize() const {
+      return Point(util::fhr(x), util::fhr(y));
+    }
+
+    inline void circle(od::FrameBuffer &fb, od::Color color, float radius) const {
+      fb.circle(color, x, y, radius);
+    }
+
+    inline void fillCircle(od::FrameBuffer &fb, od::Color color, float radius) const {
+      fb.fillCircle(color, x, y, radius);
+    }
+
+    inline void diamond(od::FrameBuffer &fb, od::Color color) const {
+      fb.pixel(color, x - 1, y);
+      fb.pixel(color, x + 1, y);
+      fb.pixel(color, x, y - 1);
+      fb.pixel(color, x, y + 1);
+    }
+
+    inline void dot(od::FrameBuffer &fb, od::Color color) const {
+      fb.pixel(color, x, y);
+    }
+
+    float x;
+    float y;
+  };
+
   struct Box {
     inline Box(float _left, float _bottom, float _right, float _top) :
         left(_left),
@@ -11,14 +51,13 @@ namespace graphics {
         top(_top),
         width(_right - _left),
         height(_top - _bottom),
-        centerX(_left + width * 0.5f),
-        centerY(_bottom + height * 0.5f) { }
+        center(Point(_left + width * 0.5f, _bottom + height * 0.5f)) { }
 
     static inline Box lbrt(float _left, float _bottom, float _right, float _top) {
-      auto l = util::min(_left, _right);
-      auto b = util::min(_bottom, _top);
-      auto r = util::max(_left, _right);
-      auto t = util::max(_bottom, _top);
+      auto l = util::fmin(_left, _right);
+      auto b = util::fmin(_bottom, _top);
+      auto r = util::fmax(_left, _right);
+      auto t = util::fmax(_bottom, _top);
       return Box(l, b, r, t);
     }
 
@@ -35,14 +74,14 @@ namespace graphics {
       return lbwh(0, 0, _width, _height);
     }
 
-    static inline Box cwh(float _x, float _y, float _width, float _height) {
+    static inline Box cwh(const Point &c, float _width, float _height) {
       auto hWidth = _width / 2.0f;
       auto hHeight = _height / 2.0f;
-      return lbrt(_x - hWidth, _y - hHeight, _x + hWidth, _y + hHeight);
+      return lbrt(c.x - hWidth, c.y - hHeight, c.x + hWidth, c.y + hHeight);
     }
 
-    static inline Box cs(float _x, float _y, float _size) {
-      return cwh(_x, _y, _size, _size);
+    static inline Box cs(const Point &c, float _size) {
+      return cwh(c, _size, _size);
     }
 
     inline Box inner(float margin) const {
@@ -58,16 +97,20 @@ namespace graphics {
       );
     }
 
-    inline Box center(float size) const {
-      return cs(centerX, centerY, size);
+    inline Box centerOn(const Box& other) const {
+      return cwh(other.center, width, height);
     }
 
-    inline Box centerOnX(float y, float size) const {
-      return cs(centerX, y, size);
+    inline Box square(float size) const {
+      return cs(center, size);
     }
 
     inline Box padRight(float by) const {
       return lbrt(left, bottom, right - by, top);
+    }
+
+    inline Box topLeftCorner(float w, float h) const {
+      return lbrt(left, top - height * h, left + width * w, top);
     }
 
     inline Box divideTop(float by) const {
@@ -90,12 +133,28 @@ namespace graphics {
       return lbwh(left, bottom, _width, height);
     }
 
+    inline Box offset(float byX, float byY) const {
+      return lbrt(left + byX, bottom + byY, right + byX, top + byY);
+    }
+
     inline Box offsetX(float by) const {
       return lbrt(left + by, bottom, right + by, top);
     }
 
     inline Box offsetY(float by) const {
       return lbrt(left, bottom + by, right, top + by);
+    }
+
+    inline Box quantizeSize() const {
+      return cwh(center, util::fhr(width), util::fhr(height));
+    }
+
+    inline Box quantizeCenter() const {
+      return cwh(center.quantize(), width, height);
+    }
+
+    inline Box quantize() const {
+      return quantizeSize().quantizeCenter();
     }
 
     inline Box intersect(const Box& other) const {
@@ -107,16 +166,20 @@ namespace graphics {
       );
     }
 
-    inline Box recenter(float atX, float atY) const {
-      return cwh(atX, atY, width, height);
+    inline Box recenter(const Point &c) const {
+      return cwh(c, width, height);
     }
 
     inline Box recenterOn(const Box& other) const {
-      return recenter(other.centerX, other.centerY);
+      return recenter(other.center);
     }
 
-    inline Box recenterX(float atX) const {
-      return cwh(atX, centerY, width, height);
+    inline Box recenterY(float y) const {
+      return recenter(center.withY(y));
+    }
+
+    inline Box recenterX(float x) const {
+      return recenter(center.withX(x));
     }
 
     inline Box insert(const Box& other) const {
@@ -139,24 +202,40 @@ namespace graphics {
       return util::fmin(width, height);
     }
 
+    inline Box minSquare() const {
+      return cs(center, minDimension());
+    }
+
+    inline Box scaleDiscrete(int w, int h) const {
+      return cwh(center, width * w, height * h);
+    }
+
     inline bool containsX(float x) const {
       return x > left && x < right;
     }
 
-    inline void fill(od::FrameBuffer &fb, od::Color color) {
+    inline void fill(od::FrameBuffer &fb, od::Color color) const {
       fb.fill(color, left, bottom, right, top);
     }
 
-    inline void clear(od::FrameBuffer &fb) {
+    inline void clear(od::FrameBuffer &fb) const {
       fb.clear(left, bottom, right, top);
     }
 
-    inline void line(od::FrameBuffer &fb, od::Color color) {
+    inline void line(od::FrameBuffer &fb, od::Color color) const {
       fb.box(color, left, bottom, right, top);
     }
 
-    inline void outline(od::FrameBuffer &fb, od::Color color) {
+    inline void outline(od::FrameBuffer &fb, od::Color color) const {
       fb.box(color, (int)left - 1, (int)bottom - 1, (int)right + 1, (int)top + 1);
+    }
+
+    inline void circle(od::FrameBuffer &fb, od::Color color) const {
+      center.circle(fb, color, width / 2.0f);
+    }
+
+    inline void fillCircle(od::FrameBuffer &fb, od::Color color) const {
+      center.fillCircle(fb, color, width / 2.0f);
     }
 
     const float left;
@@ -167,7 +246,6 @@ namespace graphics {
     const float width;
     const float height;
 
-    const float centerX;
-    const float centerY;
+    const Point center;
   };
 }

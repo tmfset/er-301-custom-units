@@ -11,11 +11,12 @@ using namespace polygon;
 namespace polygon {
   class RoundRobinGateView : public od::Graphic {
     public:
-      RoundRobinGateView(Observable &observable, int left, int bottom, int width, int height) :
-          od::Graphic(left, bottom, width, height),
-          mObservable(observable) {
-        mObservable.attach();
-      }
+      RoundRobinGateView(Observable &observable, int left, int bottom, int width, int height);
+      // RoundRobinGateView(Observable &observable, int left, int bottom, int width, int height) :
+      //     od::Graphic(left, bottom, width, height),
+      //     mObservable(observable) {
+      //   mObservable.attach();
+      // }
 
       virtual ~RoundRobinGateView() {
         mObservable.release();
@@ -32,60 +33,57 @@ namespace polygon {
         const float cols = (float)mObservable.groups();
         const float rows = (float)4;
 
-        const float pad = 1.5;
+        const float iCols = 1.0f / cols;
+        const float iRows = 1.0f / rows;
 
-        const graphics::Box world  = graphics::Box::lbwh(mWorldLeft, mWorldBottom, mWidth, mHeight);
+        const float pad = 2;
 
-        const graphics::Box corner = world.divideLeft(1.0f / cols).divideTop(1.0f / rows);
-        const graphics::Box inner = world.inner(
-          util::fmax((world.width - corner.minDimension() * cols) / 2.0f, pad),
-          util::fmax((world.height - corner.minDimension() * rows) / 2.0f, pad)
-        );
+        auto world  = graphics::Box::lbwh(mWorldLeft, mWorldBottom, mWidth, mHeight);
+        auto inner  = world.inner(2);
 
-        const graphics::Box column = inner.divideLeft(1.0f / cols);
-        const graphics::Box row    = inner.divideTop(1.0f / rows);
+        auto corner = inner.topLeftCorner(iCols, iRows).minSquare().quantizeSize();
+        auto grid   = corner.scaleDiscrete(cols, rows).centerOn(world).quantizeCenter();
+
+        auto cell   = grid.topLeftCorner(iCols, iRows);
+        auto cStep  = cell.width;
+        auto rStep  = -cell.height;
+        auto mark   = cell.inner(1);
+        auto radius = util::fhr(mark.width * 0.5);
 
         for (int c = 0; c < cols; c++) {
-          const graphics::Box cBox = column.offsetX(util::fhr(column.width) * c);
           for (int r = 0; r < rows; r++) {
-            const graphics::Box rBox = row.offsetY(util::fhr(-row.height) * r);
-
-            const graphics::Box box = cBox.intersect(rBox).inner(pad);
-            const int radius = util::fhr(box.minDimension() * 0.5);
+            auto box = mark.offset(cStep * c, rStep * r);
 
             const int index = c * rows + r;
             const float fillColor = mObservable.envLevel(index);
 
-            const int x = util::fhr(box.centerX);
-            const int y = util::fhr(box.centerY);
+            auto primaryColor = pColor(index + 1);
+            auto secondaryColor = sColor(index + 1);
 
-            fb.fillCircle(pColor(index + 1) * fillColor, x, y, radius);
-            fb.circle(sColor(index + 1), x, y, radius);
+            box.fillCircle(fb, primaryColor * fillColor);
+            box.circle(fb, secondaryColor);
 
             if (mObservable.isVoiceArmed(index)) {
-              fb.pixel(pColor(index + 1), x - 1, y);
-              fb.pixel(pColor(index + 1), x + 1, y);
-              fb.pixel(pColor(index + 1), x, y - 1);
-              fb.pixel(pColor(index + 1), x, y + 1);
+              box.center.diamond(fb, primaryColor);
             }
 
             if (mObservable.isVoiceNext(index)) {
-              fb.pixel(pColor(index + 1), x, y);
+              box.center.dot(fb, primaryColor);
             }
           }
         }
       }
 
-      bool isFaded(int i) {
+      bool isFaded(int i) const {
         if (mCursorSelection == 0) return false;
         return mCursorSelection != i;
       }
 
-      int pColor(int i) {
+      int pColor(int i) const {
         return isFaded(i) ? mPrimaryColor - mColorFade : mPrimaryColor;
       }
 
-      int sColor(int i) {
+      int sColor(int i) const {
         return isFaded(i) ? mSecondaryColor - mColorFade : mSecondaryColor;
       }
 
