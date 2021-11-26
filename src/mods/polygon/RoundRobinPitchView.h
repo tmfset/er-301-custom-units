@@ -35,8 +35,16 @@ namespace polygon {
       }
 
     private:
-      int scale(float value, int width) {
-        return util::funit(value * mScale) * width;
+      float scale(float value) {
+        return util::funit(value * mScale);
+      }
+
+      float target(od::Parameter* direct, od::Parameter* offset) {
+        return direct->target() + offset->target();
+      }
+
+      float actual(od::Parameter* direct, od::Parameter* offset) {
+        return direct->value() + offset->value();
       }
 
       void draw(od::FrameBuffer &fb) {
@@ -45,7 +53,7 @@ namespace polygon {
         const float voices = mObservable.voices();
 
         auto world     = graphics::Box::lbwh(mWorldLeft, mWorldBottom, mWidth, mHeight);
-        auto leftPane  = world.splitLeft(0.3f).innerY(5);
+        auto leftPane  = world.splitLeft(0.3f).inner(2, 5);
         auto rightPane = world.splitRight(0.7f).padRight(6);
 
         auto pFader = graphics::IFader::box(leftPane);
@@ -53,12 +61,8 @@ namespace polygon {
 
         od::Parameter* vpoRRDirect = mObservable.vpoDirect(0);
         od::Parameter* vpoRROffset = mObservable.vpoOffset(0);
-        const float rrTarget = vpoRRDirect->target() + vpoRROffset->target();
-        const float rrActual = vpoRRDirect->value() + vpoRROffset->value();
-        const int rrTargetY = util::fhr(leftPane.center.y + scale(rrTarget, leftPane.height / 2.0f));
-        const int rrActualY = util::fhr(leftPane.center.y + scale(rrActual, leftPane.height / 2.0f));
-        fb.hline(sColor(0), leftPane.center.x - 4, leftPane.center.x + 4, rrActualY);
-        fb.box(pColor(0), leftPane.center.x - 3, rrTargetY - 1, leftPane.center.x + 3, rrTargetY + 1);
+        pFader.drawActual(fb, pColor(0), scale(actual(vpoRRDirect, vpoRROffset)));
+        auto rrTargetY = pFader.drawTarget(fb, pColor(0), scale(target(vpoRRDirect, vpoRROffset)));
 
         if (mCursorSelection == 0) {
           mCursorState.orientation = od::cursorRight;
@@ -66,42 +70,34 @@ namespace polygon {
           mCursorState.y = rrTargetY;
         }
 
-        const graphics::Box first = rightPane.divideTop(1.0f / voices);
+        auto grid = graphics::Grid::createRect(rightPane, 1, voices, 1);
         for (int i = 0; i < voices; i++) {
-          const graphics::Box next = first.offsetY(util::fhr(-first.height) * i);
+          auto cell = grid.cell(0, i);
+          auto vFader = graphics::HFader::box(cell);
 
-          auto vFader = graphics::HFader::box(next);
-          vFader.draw(fb, sColor(i + 1));
-          auto y = vFader.y;
+          auto primaryColor = pColor(i + 1);
+          auto secondaryColor = sColor(i + 1);
+          vFader.draw(fb, secondaryColor);
 
           od::Parameter* vpoDirect = mObservable.vpoDirect(i + 1);
           od::Parameter* vpoOffset = mObservable.vpoOffset(i + 1);
-          const float target = vpoDirect->target() + vpoOffset->target();
-          const float actual = vpoDirect->value() + vpoOffset->value();
+          vFader.drawActual(fb, secondaryColor, scale(actual(vpoDirect, vpoOffset)));
+          vFader.drawTarget(fb, primaryColor, scale(target(vpoDirect, vpoOffset)));
 
-          const int targetX = util::fhr(next.center.x + scale(target, next.width / 2.0f));
-          const int actualX = util::fhr(next.center.x + scale(actual, next.width / 2.0f));
-          fb.vline(sColor(i + 1), actualX, y - 3, y + 3);
-          fb.box(pColor(i + 1), targetX - 1, y - 2, targetX + 1, y + 2);
-
-          const int indX = next.right + 3;
-          const int indY = next.center.y;
+          auto indicator = cell.rightCenter().offsetX(3);
 
           if (mObservable.isVoiceArmed(i)) {
-            fb.pixel(pColor(i + 1), indX - 1, indY);
-            fb.pixel(pColor(i + 1), indX + 1, indY);
-            fb.pixel(pColor(i + 1), indX, indY - 1);
-            fb.pixel(pColor(i + 1), indX, indY + 1);
+            indicator.diamond(fb, primaryColor);
           }
 
           if (mObservable.isVoiceNext(i)) {
-            fb.pixel(pColor(i + 1), indX, indY);
+            indicator.dot(fb, primaryColor);
           }
 
           if (mCursorSelection == i + 1) {
             mCursorState.orientation = od::cursorRight;
-            mCursorState.x = next.left - 10;
-            mCursorState.y = next.center.y;
+            mCursorState.x = vFader.left - 10;
+            mCursorState.y = vFader.y;
           }
         }
       }

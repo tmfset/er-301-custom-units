@@ -8,6 +8,14 @@ namespace graphics {
       x(_x),
       y(_y) { }
 
+    inline Point offsetX(float byX) {
+      return Point(x + byX, y);
+    }
+
+    inline Point offsetY(float byY) {
+      return Point(x, y + byY);
+    }
+
     inline Point atX(float _x) const {
       return Point(_x, y);
     }
@@ -188,6 +196,10 @@ namespace graphics {
       );
     }
 
+    inline Point rightCenter() const {
+      return center.atX(right);
+    }
+
     inline Box recenter(const Point &c) const {
       return cwh(c, width, height);
     }
@@ -289,6 +301,16 @@ namespace graphics {
       return Grid(grid.topLeftCorner(iCols, iRows), cols, rows, pad);
     }
 
+    static inline Grid createRect(const Box& world, int cols, int rows, float pad) {
+      float iCols = 1.0f / cols;
+      float iRows = 1.0f / rows;
+
+      auto corner = world.topLeftCorner(iCols, iRows).quantizeSize();
+      auto grid = corner.scaleDiscrete(cols, rows).recenterOn(world).quantizeCenter();
+
+      return Grid(grid.topLeftCorner(iCols, iRows), cols, rows, pad);
+    }
+
     inline int index(int c, int r) const {
       return c * rows + r;
     }
@@ -321,7 +343,7 @@ namespace graphics {
     }
 
     static inline IFader box(const Box &b) {
-      return IFader(b.center.x, b.bottom, b.top, b.width / 2.0f);
+      return IFader(b.center.x, b.bottom, b.top, b.width);
     }
 
     inline void draw(od::FrameBuffer &fb, od::Color color) const {
@@ -330,14 +352,16 @@ namespace graphics {
       fb.hline(color, x - span, x + span, top);
     }
 
-    inline void drawActual(od::FrameBuffer &fb, od::Color color, float value) const {
+    inline float drawActual(od::FrameBuffer &fb, od::Color color, float value) const {
       auto y = center + (height / 2.0f) * value;
       fb.hline(color, x - span, x + span, y);
+      return y;
     }
 
-    inline void drawTarget(od::FrameBuffer &fb, od::Color color, float value) const {
+    inline float drawTarget(od::FrameBuffer &fb, od::Color color, float value) const {
       auto y = center + (height / 2.0f) * value;
       fb.box(color, x - span, y - 1, x + span, y + 1);
+      return y;
     }
 
     const float x;
@@ -375,6 +399,18 @@ namespace graphics {
       fb.hline(color, left, right, y);
       fb.vline(color, left, y - span, y);
       fb.vline(color, right, y, y + span);
+    }
+
+    inline float drawActual(od::FrameBuffer &fb, od::Color color, float value) const {
+      auto x = center + (width / 2.0f) * value;
+      fb.vline(color, x, y - span, y + span);
+      return y;
+    }
+
+    inline float drawTarget(od::FrameBuffer &fb, od::Color color, float value) const {
+      auto x = center + (width / 2.0f) * value;
+      fb.box(color, x - 1, y - span, x + 1, y + span);
+      return x;
     }
 
     const float y;
