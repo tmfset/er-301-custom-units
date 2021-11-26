@@ -13,11 +13,12 @@ using namespace polygon;
 namespace polygon {
   class RoundRobinPitchView : public od::Graphic {
     public:
-      RoundRobinPitchView(Observable &observable, int left, int bottom, int width, int height) :
-          od::Graphic(left, bottom, width, height),
-          mObservable(observable) {
-        mObservable.attach();
-      }
+      RoundRobinPitchView(Observable &observable, int left, int bottom, int width, int height);
+      // RoundRobinPitchView(Observable &observable, int left, int bottom, int width, int height) :
+      //     od::Graphic(left, bottom, width, height),
+      //     mObservable(observable) {
+      //   mObservable.attach();
+      // }
 
       virtual ~RoundRobinPitchView() {
         mObservable.release();
@@ -43,13 +44,12 @@ namespace polygon {
 
         const float voices = mObservable.voices();
 
-        const graphics::Box world     = graphics::Box::lbwh(mWorldLeft, mWorldBottom, mWidth, mHeight);
-        const graphics::Box leftPane  = world.divideLeft(0.3f).inner(0, 5);
-        const graphics::Box rightPane = world.divideRight(0.7f).inner(0, 0).padRight(6);
+        auto world     = graphics::Box::lbwh(mWorldLeft, mWorldBottom, mWidth, mHeight);
+        auto leftPane  = world.splitLeft(0.3f).innerY(5);
+        auto rightPane = world.splitRight(0.7f).padRight(6);
 
-        fb.vline(sColor(0), leftPane.center.x, leftPane.bottom, leftPane.top);
-        fb.hline(sColor(0), leftPane.center.x - 2, leftPane.center.x + 2, leftPane.bottom);
-        fb.hline(sColor(0), leftPane.center.x - 2, leftPane.center.x + 2, leftPane.top);
+        auto pFader = graphics::IFader::box(leftPane);
+        pFader.draw(fb, sColor(0));
 
         od::Parameter* vpoRRDirect = mObservable.vpoDirect(0);
         od::Parameter* vpoRROffset = mObservable.vpoOffset(0);
@@ -70,12 +70,9 @@ namespace polygon {
         for (int i = 0; i < voices; i++) {
           const graphics::Box next = first.offsetY(util::fhr(-first.height) * i);
 
-          const int x0 = util::fhr(next.left);
-          const int x1 = util::fhr(next.right);
-          const int y  = util::fhr(next.center.y);
-          fb.hline(sColor(i + 1), x0, x1, y);
-          fb.vline(sColor(i + 1), x0, y - 1, y);
-          fb.vline(sColor(i + 1), x1, y, y + 1);
+          auto vFader = graphics::HFader::box(next);
+          vFader.draw(fb, sColor(i + 1));
+          auto y = vFader.y;
 
           od::Parameter* vpoDirect = mObservable.vpoDirect(i + 1);
           od::Parameter* vpoOffset = mObservable.vpoOffset(i + 1);

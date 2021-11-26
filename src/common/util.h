@@ -454,6 +454,8 @@ namespace util {
     };
   }
 
+  inline float fabs(float v) { return v >= 0 ? v : -v; }
+
   inline int    max(  int a,   int b) { return a > b ? a : b; }
   inline float fmax(float a, float b) { return a > b ? a : b; }
   inline int    min(  int a,   int b) { return a < b ? a : b; }

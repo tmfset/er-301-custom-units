@@ -12,11 +12,6 @@ namespace polygon {
   class RoundRobinGateView : public od::Graphic {
     public:
       RoundRobinGateView(Observable &observable, int left, int bottom, int width, int height);
-      // RoundRobinGateView(Observable &observable, int left, int bottom, int width, int height) :
-      //     od::Graphic(left, bottom, width, height),
-      //     mObservable(observable) {
-      //   mObservable.attach();
-      // }
 
       virtual ~RoundRobinGateView() {
         mObservable.release();
@@ -30,32 +25,15 @@ namespace polygon {
       void draw(od::FrameBuffer &fb) {
         Graphic::draw(fb);
 
-        const float cols = (float)mObservable.groups();
-        const float rows = (float)4;
+        auto world = graphics::Box::lbwh_raw(mWorldLeft, mWorldBottom, mWidth, mHeight);
+        auto grid  = graphics::Grid::create(world.inner(2), mObservable.groups(), 4, 1);
 
-        const float iCols = 1.0f / cols;
-        const float iRows = 1.0f / rows;
+        for (int c = 0; c < grid.cols; c++) {
+          for (int r = 0; r < grid.rows; r++) {
+            auto box = grid.cell(c, r);
 
-        const float pad = 2;
-
-        auto world  = graphics::Box::lbwh(mWorldLeft, mWorldBottom, mWidth, mHeight);
-        auto inner  = world.inner(2);
-
-        auto corner = inner.topLeftCorner(iCols, iRows).minSquare().quantizeSize();
-        auto grid   = corner.scaleDiscrete(cols, rows).centerOn(world).quantizeCenter();
-
-        auto cell   = grid.topLeftCorner(iCols, iRows);
-        auto cStep  = cell.width;
-        auto rStep  = -cell.height;
-        auto mark   = cell.inner(1);
-        auto radius = util::fhr(mark.width * 0.5);
-
-        for (int c = 0; c < cols; c++) {
-          for (int r = 0; r < rows; r++) {
-            auto box = mark.offset(cStep * c, rStep * r);
-
-            const int index = c * rows + r;
-            const float fillColor = mObservable.envLevel(index);
+            auto index = grid.index(c, r);
+            auto fillColor = mObservable.envLevel(index);
 
             auto primaryColor = pColor(index + 1);
             auto secondaryColor = sColor(index + 1);
