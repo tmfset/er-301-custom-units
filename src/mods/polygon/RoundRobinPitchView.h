@@ -61,7 +61,7 @@ namespace polygon {
 
         od::Parameter* vpoRRDirect = mObservable.vpoDirect(0);
         od::Parameter* vpoRROffset = mObservable.vpoOffset(0);
-        pFader.drawActual(fb, pColor(0), scale(actual(vpoRRDirect, vpoRROffset)));
+        pFader.drawActual(fb, sColor(0), scale(actual(vpoRRDirect, vpoRROffset)));
         auto rrTargetY = pFader.drawTarget(fb, pColor(0), scale(target(vpoRRDirect, vpoRROffset)));
 
         if (mCursorSelection == 0) {
@@ -70,7 +70,7 @@ namespace polygon {
           mCursorState.y = rrTargetY;
         }
 
-        auto grid = graphics::Grid::createRect(rightPane, 1, voices, 1);
+        auto grid = graphics::Grid::createRect(rightPane, 1, voices, 0);
         for (int i = 0; i < voices; i++) {
           auto cell = grid.cell(0, i);
           auto vFader = graphics::HFader::box(cell);

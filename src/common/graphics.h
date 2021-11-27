@@ -285,7 +285,7 @@ namespace graphics {
 
   struct Grid {
     inline Grid(const Box &topLeft, int _cols, int _rows, float pad) :
-      mark(topLeft.inner(pad)),
+      mark(topLeft.quantize().inner(pad)),
       cols(_cols),
       rows(_rows),
       cStep(topLeft.width),
@@ -329,7 +329,7 @@ namespace graphics {
   struct IFader {
     inline IFader(float _x, float _bottom, float _top, float _width) :
       x(_x),
-      span(_width / 2.0f),
+      span(2),
       width(_width),
       height(_top - _bottom),
       bottom(_bottom),
@@ -354,19 +354,19 @@ namespace graphics {
 
     inline float drawActual(od::FrameBuffer &fb, od::Color color, float value) const {
       auto y = center + (height / 2.0f) * value;
-      fb.hline(color, x - span, x + span, y);
+      fb.hline(color, x - (span + 2), x + (span + 2), y);
       return y;
     }
 
     inline float drawTarget(od::FrameBuffer &fb, od::Color color, float value) const {
       auto y = center + (height / 2.0f) * value;
-      fb.box(color, x - span, y - 1, x + span, y + 1);
+      fb.box(color, x - (span + 1), y - 1, x + (span + 1), y + 1);
       return y;
     }
 
     const float x;
 
-    const float span;
+    const int span;
     const float width;
     const float height;
 
@@ -378,7 +378,9 @@ namespace graphics {
   struct HFader {
     inline HFader(float _y, float _left, float _right, float _height) :
       y(_y),
-      span(_height / 2.0f),
+      hSpan(1),
+      tSpan(util::fclamp(_height / 2.0f, hSpan, hSpan + 1)),
+      aSpan(util::fclamp(_height / 2.0f, tSpan, tSpan + 1)),
       width(_right - _left),
       height(_height),
       left(_left),
@@ -397,25 +399,28 @@ namespace graphics {
 
     inline void draw(od::FrameBuffer &fb, od::Color color) const {
       fb.hline(color, left, right, y);
-      fb.vline(color, left, y - span, y);
-      fb.vline(color, right, y, y + span);
+      fb.vline(color, left, y - hSpan, y);
+      fb.vline(color, right, y, y + hSpan);
     }
 
     inline float drawActual(od::FrameBuffer &fb, od::Color color, float value) const {
-      auto x = center + (width / 2.0f) * value;
-      fb.vline(color, x, y - span, y + span);
+      auto x = util::fhr(center + (width / 2.0f) * value);
+      fb.vline(color, x, y - aSpan, y + aSpan);
       return y;
     }
 
     inline float drawTarget(od::FrameBuffer &fb, od::Color color, float value) const {
-      auto x = center + (width / 2.0f) * value;
-      fb.box(color, x - 1, y - span, x + 1, y + span);
+      auto x = util::fhr(center + (width / 2.0f) * value);
+      fb.box(color, x - 1, y - tSpan, x + 1, y + tSpan);
       return x;
     }
 
     const float y;
 
-    const float span;
+    const int hSpan;
+    const int tSpan;
+    const int aSpan;
+
     const float width;
     const float height;
 
