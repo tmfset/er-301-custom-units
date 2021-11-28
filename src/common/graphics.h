@@ -151,6 +151,10 @@ namespace graphics {
       return lbrt_raw(left, bottom, right, bottom + height * by);
     }
 
+    inline Box scaleHeight(float by) const {
+      return cwh(center, width, height * by);
+    }
+
     inline Box splitLeft(float by) const {
       return lbrt_raw(left, bottom, left + width * by, top);
     }
@@ -254,6 +258,14 @@ namespace graphics {
 
     inline void clear(od::FrameBuffer &fb) const {
       fb.clear(left, bottom, right, top);
+    }
+
+    inline void lineTopIn(od::FrameBuffer &fb, od::Color color, int dotting = 0) const {
+      fb.hline(color, left + 1, right - 1, top, dotting);
+    }
+
+    inline void lineBottomIn(od::FrameBuffer &fb, od::Color color, int dotting = 0) const {
+      fb.hline(color, left + 1, right - 1, bottom, dotting);
     }
 
     inline void line(od::FrameBuffer &fb, od::Color color) const {

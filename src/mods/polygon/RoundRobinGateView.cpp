@@ -1,4 +1,4 @@
-#include <RoundRobinGateView.h>
+#include "RoundRobinGateView.h"
 
 namespace polygon {
   RoundRobinGateView::RoundRobinGateView(Observable &observable, int left, int bottom, int width, int height) :

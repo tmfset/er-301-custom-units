@@ -3,6 +3,7 @@
 #include <od/objects/measurement/FifoProbe.h>
 #include <od/graphics/Graphic.h>
 #include <od/AudioThread.h>
+#include <util.h>
 
 namespace strike {
   class SimpleScope : public od::Graphic {
@@ -69,7 +70,6 @@ namespace strike {
           fb.vline(mColor - 6, x, min, max);
         }
 
-        
         //fb.vline(mColor, x, min, center);
         fb.pixel(mColor, x, max);
         fb.pixel(mColor, x, min);
@@ -112,8 +112,8 @@ namespace strike {
 
         // Remove gaps
         for (int i = 1; i < mWidth; i++) {
-          mMax[i] = MAX(mMax[i], mMin[i - 1]);
-          mMin[i] = MIN(mMin[i], mMax[i - 1]);
+          mMax[i] = util::max(mMax[i], mMin[i - 1]);
+          mMin[i] = util::min(mMin[i], mMax[i - 1]);
         }
       }
 

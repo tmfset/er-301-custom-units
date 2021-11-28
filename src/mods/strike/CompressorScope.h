@@ -5,26 +5,14 @@
 #include <od/graphics/text/Label.h>
 #include <od/extras/FastEWMA.h>
 #include <od/AudioThread.h>
+#include <graphics.h>
 #include <SimpleScope.h>
 #include <CPR.h>
 
 namespace strike {
   class CompressorScope : public od::Graphic {
     public:
-      CompressorScope(
-        int left,
-        int bottom,
-        int width,
-        int height
-      ) : od::Graphic(left, bottom, width, height),
-          mScopeExcite(left, bottom, width, height, WHITE, true),
-          mScopeReduction(left, bottom, width, height, WHITE, false) {
-        own(mScopeExcite);
-        addChild(&mScopeExcite);
-
-        own(mScopeReduction);
-        addChild(&mScopeReduction);
-      }
+      CompressorScope(int left, int bottom, int width, int height);
 
       virtual ~CompressorScope() {
         clearObjects();
@@ -34,11 +22,14 @@ namespace strike {
       virtual void draw(od::FrameBuffer &fb) {
         od::Graphic::draw(fb);
 
-        drawThreshold(fb, GRAY10);
+        auto world = graphics::Box::lbwh_raw(mWorldLeft, mWorldBottom, mWidth, mHeight);
+        auto frame = world.inner(10);
 
-        fb.vline(GRAY8, mWorldLeft, mWorldBottom + 1, mWorldBottom + mHeight - 2);
+        drawThreshold(fb, frame, GRAY10);
 
-        drawGuidlines(fb, GRAY10);
+        fb.vline(GRAY8, frame.left, frame.bottom, frame.top);
+
+        drawGuidlines(fb, frame, GRAY10);
       }
 #endif
 
@@ -56,37 +47,38 @@ namespace strike {
       SimpleScope mScopeReduction;
       od::Parameter *mpThreshold = 0;
 
-      void drawThreshold(od::FrameBuffer &fb, int color) {
-        auto height = mHeight - 1;
-        auto halfHeight = height / 2.0f;
-        auto center = mWorldBottom + halfHeight;
-        auto threshold = mpThreshold->value() * halfHeight;
-        fb.hline(color, mWorldLeft, mWorldLeft + mWidth - 1, center + threshold, 2);
-        fb.hline(color, mWorldLeft, mWorldLeft + mWidth - 1, center - threshold, 2);
+      void drawThreshold(od::FrameBuffer &fb, const graphics::Box &world, od::Color color) {
+        auto threshold = world.scaleHeight(mpThreshold->value());
+        threshold.lineTopIn(fb, color, 2);
+        threshold.lineBottomIn(fb, color, 2);
       }
 
-      void drawGuidlines(od::FrameBuffer &fb, int color) {
-        auto height = mHeight - 1;
-        auto halfHeight    = height / 2.0f;
-        auto quarterHeight = height / 4.0f;
-        auto eigthHeight   = height / 8.0f;
-        auto center        = mWorldBottom + halfHeight;
+      void drawGuidlines(od::FrameBuffer &fb, const graphics::Box &world, int color) {
+        auto height  = world.height;
+        auto quarter = height / 4.0f;
+        auto eigth   = height / 8.0f;
 
-        auto left = mWorldLeft;
-        fb.hline(color, left, left + 1, center + quarterHeight + eigthHeight);
-        fb.hline(color, left, left + 3, center + quarterHeight);
-        fb.hline(color, left, left + 1, center + eigthHeight);
-        fb.hline(color, left, left + 1, center - eigthHeight);
-        fb.hline(color, left, left + 3, center - quarterHeight);
-        fb.hline(color, left, left + 1, center - quarterHeight - eigthHeight);
+        auto center = util::fhr(world.center.y);
+        auto left   = world.left + 1;
+        auto right  = world.right - 1;
 
-        auto right = mWorldLeft + mWidth - 1;
-        fb.hline(color, right, right - 1, center + quarterHeight + eigthHeight);
-        fb.hline(color, right, right - 3, center + quarterHeight);
-        fb.hline(color, right, right - 1, center + eigthHeight);
-        fb.hline(color, right, right - 1, center - eigthHeight);
-        fb.hline(color, right, right - 3, center - quarterHeight);
-        fb.hline(color, right, right - 1, center - quarterHeight - eigthHeight);
+        auto threeEigths = util::fhr(quarter + eigth);
+        auto twoEigths = util::fhr(quarter);
+        auto oneEigth = util::fhr(eigth);
+        fb.hline(color, left,  left  + 1, center + threeEigths);
+        fb.hline(color, right, right - 1, center + threeEigths);
+        fb.hline(color, left,  left  + 1, center - threeEigths);
+        fb.hline(color, right, right - 1, center - threeEigths);
+
+        fb.hline(color, left,  left  + 3, center + twoEigths);
+        fb.hline(color, right, right - 3, center + twoEigths);
+        fb.hline(color, left,  left  + 3, center - twoEigths);
+        fb.hline(color, right, right - 3, center - twoEigths);
+
+        fb.hline(color, left,  left  + 1, center + oneEigth);
+        fb.hline(color, right, right - 1, center + oneEigth);
+        fb.hline(color, left,  left  + 1, center - oneEigth);
+        fb.hline(color, right, right - 1, center - oneEigth);
       }
 
       void clearObjects() {
