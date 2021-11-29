@@ -31,8 +31,8 @@ namespace lojik {
         auto radiusSpan = (outerRadius - innerRadius) / 2.0f;
         auto centerRadius = innerRadius + radiusSpan;
 
-        int x = interior.centerX;
-        int y = interior.centerY;
+        int x = interior.center.x;
+        int y = interior.center.y;
 
         auto current = mRegister.current();
         int length = mRegister.length();
@@ -55,6 +55,9 @@ namespace lojik {
         mMaxV = 0;
 
         float brightness = 0;
+
+        auto kb = graphics::IKeyboard(world);
+        kb.draw(fb, WHITE, 1);
 
         for (int i = 0; i < 128; i++) {
           if (isLengthChange) {

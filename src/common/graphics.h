@@ -151,6 +151,18 @@ namespace graphics {
       return lbrt_raw(left, bottom, right, bottom + height * by);
     }
 
+    inline Box scale(float by) const {
+      return scale(by, by);
+    }
+
+    inline Box scale(float wBy, float hBy) const {
+      return cwh(center, width * wBy, height * hBy);
+    }
+
+    inline Box scaleWidth(float by) const {
+      return cwh(center, width * by, height);
+    }
+
     inline Box scaleHeight(float by) const {
       return cwh(center, width, height * by);
     }
@@ -226,6 +238,14 @@ namespace graphics {
       auto r = util::fclamp(other.right, clampX(l + other.width), right);
       auto t = util::fclamp(other.top, clampY(b + other.height), top);
       return lbrt(l, b, r, t);
+    }
+
+    inline Box alignLeftBottom(const Box &other) const {
+      return lbwh_raw(other.left, other.bottom, width, height);
+    }
+
+    inline Box alignRightBottom(const Box &other) const {
+      return lbrt_raw(other.right - width, other.bottom, other.right, other.bottom + height);
     }
 
     inline float clampX(float x) const {
@@ -439,5 +459,58 @@ namespace graphics {
     const float left;
     const float center;
     const float right;
+  };
+
+  struct HKeyboard {
+    inline HKeyboard(graphics::Box &world) :
+      mKey(world.scale(1.0f / 7.0f, 1.0f / 2.0f).minSquare()),
+      mBounds(mKey.scale(7.0f, 2.0f)) { }
+
+    inline void draw(od::FrameBuffer &fb, od::Color color, float pad) const {
+      auto aligned  = mKey.alignLeftBottom(mBounds);
+      auto diameter = aligned.minDimension();
+      auto radius   = diameter / 2.0f;
+
+      auto white = aligned.inner(pad);
+      for (int i = 0; i < 7; i++) {
+        white.offsetX(diameter * i).circle(fb, color);
+      }
+
+      auto black = white.offset(radius, diameter);
+      for (int i = 0; i < 6; i++) {
+        if (i == 2) continue;
+        black.offsetX(diameter * i).circle(fb, color);
+      }
+    }
+
+    graphics::Box mKey;
+    graphics::Box mBounds;
+  };
+
+  struct IKeyboard {
+    inline IKeyboard(graphics::Box &world) :
+      mKey(world.scale(1.0f / 2.0f, 1.0f / 7.0f).minSquare()),
+      mBounds(mKey.scale(2.0f, 7.0f)) { }
+    
+    inline void draw(od::FrameBuffer &fb, od::Color color, float pad) const {
+      mBounds.line(fb, color);
+      auto aligned  = mKey.alignRightBottom(mBounds);
+      auto diameter = aligned.minDimension();
+      auto radius   = diameter / 2.0f;
+
+      auto white = aligned.inner(pad);
+      for (int i = 0; i < 7; i++) {
+        white.offsetY(diameter * i).circle(fb, color);
+      }
+
+      auto black = white.offset(-diameter, radius);
+      for (int i = 0; i < 6; i++) {
+        if (i == 2) continue;
+        black.offsetY(diameter * i).circle(fb, color);
+      }
+    }
+
+    graphics::Box mKey;
+    graphics::Box mBounds;
   };
 }

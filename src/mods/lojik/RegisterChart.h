@@ -54,7 +54,7 @@ namespace lojik {
         for (int i = 0; i < length; i++) {
           auto chartX = chart.left + barCenterX(i);
           auto x = chartX - window.left + view.left;
-          auto y = view.centerY;
+          auto y = view.center.y;
 
           auto value = mRegister.value(i);
 

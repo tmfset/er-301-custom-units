@@ -7,6 +7,7 @@
 #include <hal/simd.h>
 #include <util.h>
 #include <RegisterLike.h>
+#include <ScaleBook.h>
 
 namespace lojik {
   class Register2 : public RegisterLike {
@@ -22,6 +23,7 @@ namespace lojik {
         addParameter(mDrift);
         addParameter(mInputGain);
         addParameter(mInputBias);
+        addParameter(mQuantizeScale);
 
         addInput(mClock);
         addInput(mCapture);
@@ -29,6 +31,7 @@ namespace lojik {
         addInput(mReset);
 
         addOption(mSync);
+        addOption(mQuantize);
       }
 
       virtual ~Register2() { }
@@ -46,10 +49,11 @@ namespace lojik {
         mState.setTotal(mLength.value());
         const float stride = mStride.value();
 
-        const auto scatter = mScatter.value();
-        const auto drift   = mDrift.value();
-        const auto gain    = vdupq_n_f32(mInputGain.value());
-        const auto bias    = vdupq_n_f32(mInputBias.value());
+        const auto scatter  = mScatter.value();
+        const auto drift    = mDrift.value();
+        const auto gain     = vdupq_n_f32(mInputGain.value());
+        const auto bias     = vdupq_n_f32(mInputBias.value());
+        const auto quantize = isQuantized();
 
         const auto sync = vmvnq_u32(util::four::make_u32(
           false,
@@ -111,18 +115,28 @@ namespace lojik {
       od::Parameter mDrift     { "Drift",      0.0f };
       od::Parameter mInputGain { "Input Gain", 1.0f };
       od::Parameter mInputBias { "Input Bias", 0.0f };
+      od::Parameter mQuantizeScale { "Quantize Scale", 0 };
 
       od::Inlet mClock   { "Clock" };
       od::Inlet mCapture { "Capture" };
       od::Inlet mShift   { "Shift" };
       od::Inlet mReset   { "Reset" };
 
-      od::Option mSync { "Sync", 0b111 };
+      od::Option mSync     { "Sync", 0b111 };
+      od::Option mQuantize { "Quantize", 2 };
 #endif
 
       int length() { return mState.mTotal; }
       int current() { return mState.mCurrent; }
       float value(int i) { return mState.valueAt(i); }
+
+      bool isQuantized() { return mQuantize.value() == 1; }
+
+      const common::Scale& currentScale() {
+        return mScaleBook.getScale(
+          util::fhr(mQuantizeScale.value()) % mScaleBook.size()
+        );
+      }
 
     private:
       template<int max>
@@ -161,8 +175,11 @@ namespace lojik {
         int mTotal   = max;
       };
 
+      common::ScaleBook mScaleBook;
+
       util::four::Trigger mClockTrigger;
       util::four::SyncTrigger mCSRTrigger;
       State<128> mState;
+
   };
 }
