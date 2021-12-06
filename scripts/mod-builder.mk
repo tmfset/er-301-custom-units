@@ -8,12 +8,12 @@ PACKAGE_DIR  = $(OUT_DIR)/$(PKGNAME)-$(PKGVERSION)
 PACKAGE_FILE = $(PACKAGE_DIR).pkg
 
 # Common code to all mods
-COMMON_DIR          = src/common
-COMMON_ASSETS_DIR   = $(COMMON_DIR)/ASSETS
-COMMON_ASSETS      := $(call rwildcard, $(COMMON_ASSETS_DIR), *)
-COMMON_C_SOURCES   := $(call rwildcard, $(COMMON_DIR), *.c)
-COMMON_CPP_SOURCES := $(call rwildcard, $(COMMON_DIR), *.cpp)
-COMMON_HEADERS     := $(call rwildcard, $(COMMON_DIR), *.h)
+COMMON_DIR           = src/common
+COMMON_ASSETS_DIR    = $(COMMON_DIR)/ASSETS
+COMMON_ASSETS       := $(call rwildcard, $(COMMON_ASSETS_DIR), *)
+COMMON_C_SOURCES    := $(call rwildcard, $(COMMON_DIR), *.c)
+COMMON_CPP_SOURCES  := $(call rwildcard, $(COMMON_DIR), *.cpp)
+COMMON_HEADERS      := $(call rwildcard, $(COMMON_DIR), *.h)
 
 # Mod specific code
 MOD_DIR           = src/mods/$(PKGNAME)

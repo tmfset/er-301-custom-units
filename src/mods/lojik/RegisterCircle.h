@@ -2,18 +2,15 @@
 
 #include <od/graphics/Graphic.h>
 #include <math.h>
-#include <RegisterLike.h>
+#include <HasChartData.h>
 #include <util.h>
 #include <slew.h>
+#include <graphics.h>
 
 namespace lojik {
   class RegisterCircle : public od::Graphic {
     public:
-      RegisterCircle(RegisterLike &regLike, int left, int bottom, int width, int height) :
-          od::Graphic(left, bottom, width, height),
-          mRegister(regLike) {
-        mRegister.attach();
-      }
+      RegisterCircle(common::HasChartData &regLike, int left, int bottom, int width, int height);
       
       virtual ~RegisterCircle() {
         mRegister.release();
@@ -56,7 +53,7 @@ namespace lojik {
 
         float brightness = 0;
 
-        auto kb = graphics::IKeyboard(world);
+        auto kb = graphics::IKeyboard(world.splitRight(0.333));
         kb.draw(fb, WHITE, 1);
 
         for (int i = 0; i < 128; i++) {
@@ -149,6 +146,6 @@ namespace lojik {
       float mMaxV = 0;
       float mLastLength = 1;
 
-      RegisterLike &mRegister;
+      common::HasChartData &mRegister;
   };
 }

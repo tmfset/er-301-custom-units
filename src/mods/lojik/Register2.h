@@ -6,11 +6,11 @@
 #include <od/config.h>
 #include <hal/simd.h>
 #include <util.h>
-#include <RegisterLike.h>
 #include <ScaleBook.h>
+#include <HasChartData.h>
 
 namespace lojik {
-  class Register2 : public RegisterLike {
+  class Register2 : public od::Object, public common::HasChartData {
     public:
       Register2() {
         addInput(mIn);
@@ -129,6 +129,9 @@ namespace lojik {
       int length() { return mState.mTotal; }
       int current() { return mState.mCurrent; }
       float value(int i) { return mState.valueAt(i); }
+
+      void attach() { Object::attach(); }
+      void release() { Object::release(); }
 
       bool isQuantized() { return mQuantize.value() == 1; }
 

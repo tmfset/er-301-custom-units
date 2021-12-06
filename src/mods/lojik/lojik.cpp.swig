@@ -1,5 +1,6 @@
 %module lojik_liblojik
 %include <od/glue/mod.cpp.swig>
+%include <common.cpp.swig>
 
 %{
 
@@ -15,7 +16,6 @@
 #include <Latch.h>
 #include <DLatch.h>
 #include <TLatch.h>
-#include <RegisterLike.h>
 #include <Register.h>
 #include <Register2.h>
 #include <RegisterChart.h>
@@ -38,7 +38,6 @@
 %include <Latch.h>
 %include <DLatch.h>
 %include <TLatch.h>
-%include <RegisterLike.h>
 %include <Register.h>
 %include <Register2.h>
 %include <RegisterChart.h>

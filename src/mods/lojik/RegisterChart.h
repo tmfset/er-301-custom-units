@@ -2,7 +2,7 @@
 
 #include <od/graphics/Graphic.h>
 #include <math.h>
-#include <RegisterLike.h>
+#include <HasChartData.h>
 #include <util.h>
 #include <graphics.h>
 #include <slew.h>
@@ -10,11 +10,7 @@
 namespace lojik {
   class RegisterChart : public od::Graphic {
     public:
-      RegisterChart(RegisterLike &regLike, int left, int bottom, int width, int height) :
-          od::Graphic(left, bottom, width, height),
-          mRegister(regLike) {
-        mRegister.attach();
-      }
+      RegisterChart(common::HasChartData &regLike, int left, int bottom, int width, int height);
 
       virtual ~RegisterChart() {
         mRegister.release();
@@ -43,11 +39,6 @@ namespace lojik {
             .recenterX(chart.left + currentX)
         );
         auto view = window.recenterOn(interior);
-        // chart.clear(fb);
-        // chart.outline(fb, WHITE);
-        // window.outline(fb, WHITE);
-
-        //view.outline(fb, WHITE);
 
         auto hBarWidth = mBarWidth / 2.0f;
 
@@ -60,9 +51,7 @@ namespace lojik {
 
           if (!view.containsX(x)) continue;
 
-          
           auto bar = graphics::Box::cwr(x, y, mBarWidth, value * mBarHeight);
-          //auto bar = graphics::Box::lbwh(x, y, mBarWidth, value * mBarHeight);
 
           if (i == current) {
             auto cursor = bar.recenterY(y).square(mBarWidth + 2);
@@ -89,6 +78,6 @@ namespace lojik {
       const int mBarWidth = 3;
       const int mBarHeight = mBarWidth * 3;
 
-      RegisterLike &mRegister;
+      common::HasChartData &mRegister;
   };
 }

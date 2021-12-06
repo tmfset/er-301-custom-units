@@ -1,6 +1,9 @@
 #pragma once
 
 #include <util.h>
+#include <HasChartData.h>
+#include <slew.h>
+#include <vector>
 
 namespace graphics {
   struct Point {
@@ -462,7 +465,7 @@ namespace graphics {
   };
 
   struct HKeyboard {
-    inline HKeyboard(graphics::Box &world) :
+    inline HKeyboard(const graphics::Box &world) :
       mKey(world.scale(1.0f / 7.0f, 1.0f / 2.0f).minSquare()),
       mBounds(mKey.scale(7.0f, 2.0f)) { }
 
@@ -488,12 +491,11 @@ namespace graphics {
   };
 
   struct IKeyboard {
-    inline IKeyboard(graphics::Box &world) :
+    inline IKeyboard(const graphics::Box &world) :
       mKey(world.scale(1.0f / 2.0f, 1.0f / 7.0f).minSquare()),
       mBounds(mKey.scale(2.0f, 7.0f)) { }
     
     inline void draw(od::FrameBuffer &fb, od::Color color, float pad) const {
-      mBounds.line(fb, color);
       auto aligned  = mKey.alignRightBottom(mBounds);
       auto diameter = aligned.minDimension();
       auto radius   = diameter / 2.0f;
@@ -512,5 +514,74 @@ namespace graphics {
 
     graphics::Box mKey;
     graphics::Box mBounds;
+  };
+
+  class HChart {
+    public:
+      HChart(common::HasChartData &data, int barWidth, int barHeight, int barSpace) :
+          mChartData(data),
+          mBarWidth(barWidth),
+          mBarHeight(barHeight),
+          mBarSpace(barSpace) {
+        mChartData.attach();
+      }
+
+      ~HChart() {
+        mChartData.release();
+      }
+
+      inline void draw(od::FrameBuffer &fb, const Box& world) {
+        auto length = mChartData.length();
+        mValues.resize(length);
+
+        auto chart = Box::wh(
+          length * mBarWidth + (length - 1) * mBarSpace,
+          world.height
+        ).recenterOn(world);
+
+        auto current = mChartData.current();
+        auto currentPos = barStart(current);
+
+        auto window = chart.insert(
+          chart
+            .withWidthFromLeft(world.width)
+            .recenterX(chart.left + currentPos)
+        );
+
+        auto view = window.recenterOn(window);
+
+        for (int i = 0; i < length; i++) {
+          auto pos = chart.left + barStart(i);
+          auto x   = pos - window.left + view.left;
+          if (!view.containsX(x)) continue;
+
+          auto height = mRegister.value(i) * mBarHeight;
+          auto bar = Box::cwr(x, view.center.y, mBarWidth, height);
+
+          if (i == current) {
+            auto cursor = bar.recenterY(y).square(mBarWidth + 2);
+            bar.fill(fb, GRAY12);
+            cursor.line(fb, WHITE);
+          } else {
+            bar.fill(fb, GRAY10);
+          }
+        }
+      }
+
+    private:
+      inline float barStart(int i) const {
+        return mBarWidth * i + mBarSpace * i;
+      }
+
+      inline float barCenter(int i) const {
+        return barStart(i) + mBarWidth / 2.0f;
+      }
+
+      std::vector<slew::Slew> mValues;
+      common::HasChartData &mChartData;
+
+      int mBarWidth;
+      int mBarHeight;
+      int mBarSpace;
   };
 }

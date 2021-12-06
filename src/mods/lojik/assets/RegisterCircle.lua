@@ -34,7 +34,7 @@ function RegisterCircle:init(args)
   local width = args.width or (2 * ply)
 
   local graphic = app.Graphic(0, 0, width, 64)
-  local splitTop = app.SCREEN_HEIGHT * 0.666
+  local splitTop = app.SCREEN_HEIGHT * 0.75
   local splitBottom = app.SCREEN_HEIGHT - splitTop
   graphic:addChild(lojik.RegisterCircle(register, 0, splitBottom, width, splitTop))
   graphic:addChild(lojik.RegisterChart(register, 0, 0, width, splitBottom))
