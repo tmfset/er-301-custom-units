@@ -160,7 +160,7 @@ function Sloop:doCreateBuffer()
   local task = function(sample)
     if sample then
       local Overlay = require "Overlay"
-      Overlay.mainFlashMessage("Attached buffer: %s", sample.name)
+      Overlay.flashMainMessage("Attached buffer: %s", sample.name)
       self:setSample(sample)
     end
   end
@@ -178,7 +178,7 @@ function Sloop:doAttachBufferFromPool()
     if sample then
       self:setSample(sample)
       local Overlay = require "Overlay"
-      Overlay.mainFlashMessage("Attached buffer: %s", sample.name)
+      Overlay.flashMainMessage("Attached buffer: %s", sample.name)
     end
   end
 
@@ -191,7 +191,7 @@ function Sloop:doAttachSampleFromCard()
     if sample then
       self:setSample(sample)
       local Overlay = require "Overlay"
-      Overlay.mainFlashMessage("Attached sample: %s",sample.name)
+      Overlay.flashMainMessage("Attached sample: %s",sample.name)
     end
   end
 
@@ -202,25 +202,25 @@ end
 function Sloop:doDetachBuffer()
   self:setSample(nil)
   local Overlay = require "Overlay"
-  Overlay.mainFlashMessage("Buffer detached.")
+  Overlay.flashMainMessage("Buffer detached.")
 end
 
 function Sloop:doZeroBuffer()
   local Overlay = require "Overlay"
   self.objects.head:zeroBuffer()
-  Overlay.mainFlashMessage("Buffer zeroed.")
+  Overlay.flashMainMessage("Buffer zeroed.")
 end
 
 function Sloop:doClearSlices()
   local n = self.objects.head:clearSlices()
   local Overlay = require "Overlay"
-  Overlay.mainFlashMessage("Deleted "..n.." slices.")
+  Overlay.flashMainMessage("Deleted "..n.." slices.")
 end
 
 function Sloop:doCreateSlices()
   local n = self.objects.head:createSlices()
   local Overlay = require "Overlay"
-  Overlay.mainFlashMessage("Created "..n.." slices.")
+  Overlay.flashMainMessage("Created "..n.." slices.")
 end
 
 function Sloop:showSampleEditor()
@@ -234,7 +234,7 @@ function Sloop:showSampleEditor()
     self.sampleEditor:show()
   else
     local Overlay = require "Overlay"
-    Overlay.mainFlashMessage("You must first select a sample.")
+    Overlay.flashMainMessage("You must first select a sample.")
   end
 end
 
