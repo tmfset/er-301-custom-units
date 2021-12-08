@@ -518,21 +518,19 @@ namespace graphics {
 
   class HChart {
     public:
-      HChart(common::HasChartData &data, int barWidth, int barHeight, int barSpace) :
+      inline HChart(common::HasChartData &data, int barWidth, int barSpace) :
           mChartData(data),
           mBarWidth(barWidth),
-          mBarHeight(barHeight),
           mBarSpace(barSpace) {
         mChartData.attach();
       }
 
-      ~HChart() {
+      inline ~HChart() {
         mChartData.release();
       }
 
       inline void draw(od::FrameBuffer &fb, const Box& world) {
         auto length = mChartData.length();
-        mValues.resize(length);
 
         auto chart = Box::wh(
           length * mBarWidth + (length - 1) * mBarSpace,
@@ -540,23 +538,25 @@ namespace graphics {
         ).recenterOn(world);
 
         auto current = mChartData.current();
-        auto currentPos = barStart(current);
+        auto currentX = barCenter(current);
 
         auto window = chart.insert(
           chart
             .withWidthFromLeft(world.width)
-            .recenterX(chart.left + currentPos)
+            .recenterX(chart.left + currentX)
         );
 
-        auto view = window.recenterOn(window);
+        auto view = window.recenterOn(world);
 
         for (int i = 0; i < length; i++) {
-          auto pos = chart.left + barStart(i);
-          auto x   = pos - window.left + view.left;
+          auto barX = chart.left + barStart(i);
+          auto x    = barX - window.left + view.left;
+          auto y    = view.center.y;
           if (!view.containsX(x)) continue;
 
-          auto height = mRegister.value(i) * mBarHeight;
-          auto bar = Box::cwr(x, view.center.y, mBarWidth, height);
+          auto width  = mBarWidth;
+          auto height = mChartData.value(i) * world.height / 2.0f;
+          auto bar    = Box::cwr(x, y, width, height);
 
           if (i == current) {
             auto cursor = bar.recenterY(y).square(mBarWidth + 2);
@@ -577,11 +577,9 @@ namespace graphics {
         return barStart(i) + mBarWidth / 2.0f;
       }
 
-      std::vector<slew::Slew> mValues;
       common::HasChartData &mChartData;
 
       int mBarWidth;
-      int mBarHeight;
       int mBarSpace;
   };
 }
