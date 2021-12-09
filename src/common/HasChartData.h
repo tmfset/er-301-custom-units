@@ -8,9 +8,9 @@ namespace common {
       HasChartData();
       virtual ~HasChartData();
 
-      virtual int length() = 0;
-      virtual int current() = 0;
-      virtual float value(int i) = 0;
+      virtual int getChartSize() = 0;
+      virtual int getChartCurrentIndex() = 0;
+      virtual float getChartValue(int i) = 0;
 
       virtual void attach() = 0;
       virtual void release() = 0;
@@ -29,11 +29,11 @@ namespace common {
 
       virtual ~SlewChartData() { }
 
-      int length() { return mWrap.length(); }
-      int current() { return mWrap.current(); }
+      int getChartSize() { return mWrap.getChartSize(); }
+      int getChartCurrentIndex() { return mWrap.getChartCurrentIndex(); }
 
-      float value(int i) { return mValues[i].process(mSlewRate, mWrap.value(i)); }
-      void clear(int i) { mValues[i].hardSet(0); }
+      float getChartValue(int i) { return mValues[i].process(mSlewRate, mWrap.getChartValue(i)); }
+      void clearChartValue(int i) { mValues[i].hardSet(0); }
 
       void attach() { mWrap.attach(); }
       void release() { mWrap.release(); }

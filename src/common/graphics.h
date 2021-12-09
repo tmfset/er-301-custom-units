@@ -11,11 +11,19 @@ namespace graphics {
       x(_x),
       y(_y) { }
 
-    inline Point offsetX(float byX) {
+    inline Point offset(const Point &by) const {
+      return Point(x + by.x, y + by.y);
+    }
+
+    inline Point scale(float by) const {
+      return Point(x * by, y * by);
+    }
+
+    inline Point offsetX(float byX) const {
       return Point(x + byX, y);
     }
 
-    inline Point offsetY(float byY) {
+    inline Point offsetY(float byY) const {
       return Point(x, y + byY);
     }
 
@@ -52,6 +60,31 @@ namespace graphics {
 
     const float x;
     const float y;
+  };
+
+  struct Circle {
+    inline Circle(const Point &c, float r) :
+      center(c),
+      radius(r) { }
+
+    static inline Circle cr(const Point &c, float r) {
+      return Circle(c, r);
+    }
+
+    inline Circle offset(const Point &by) const {
+      return cr(center.offset(by), radius);
+    }
+
+    inline void trace(od::FrameBuffer &fb, od::Color color) const {
+      center.circle(fb, color, radius);
+    }
+
+    inline void fill(od::FrameBuffer &fb, od::Color color) const {
+      center.fillCircle(fb, color, radius);
+    }
+
+    const Point center;
+    const float radius;
   };
 
   struct Box {
@@ -299,12 +332,8 @@ namespace graphics {
       fb.box(color, (int)left - 1, (int)bottom - 1, (int)right + 1, (int)top + 1);
     }
 
-    inline void circle(od::FrameBuffer &fb, od::Color color) const {
-      center.circle(fb, color, width / 2.0f);
-    }
-
-    inline void fillCircle(od::FrameBuffer &fb, od::Color color) const {
-      center.fillCircle(fb, color, width / 2.0f);
+    inline Circle minCircle() const {
+      return Circle::cr(center, minDimension());
     }
 
     const float left;
@@ -464,6 +493,26 @@ namespace graphics {
     const float right;
   };
 
+  struct Keyboard {
+    static inline void draw(
+      od::FrameBuffer &fb,
+      od::Color color,
+      const Circle &white,
+      const Point &keyOffset,
+      const Point &blackOffset
+    ) {
+      for (int i = 0; i < 7; i++) {
+        white.offset(keyOffset.scale(i)).trace(fb, color);
+      }
+
+      auto black = white.offset(blackOffset);
+      for (int i = 0; i < 6; i++) {
+        if (i == 2) continue;
+        black.offset(keyOffset.scale(i)).trace(fb, color);
+      }
+    }
+  };
+
   struct HKeyboard {
     inline HKeyboard(const graphics::Box &world) :
       mKey(world.scale(1.0f / 7.0f, 1.0f / 2.0f).minSquare()),
@@ -474,16 +523,13 @@ namespace graphics {
       auto diameter = aligned.minDimension();
       auto radius   = diameter / 2.0f;
 
-      auto white = aligned.inner(pad);
-      for (int i = 0; i < 7; i++) {
-        white.offsetX(diameter * i).circle(fb, color);
-      }
-
-      auto black = white.offset(radius, diameter);
-      for (int i = 0; i < 6; i++) {
-        if (i == 2) continue;
-        black.offsetX(diameter * i).circle(fb, color);
-      }
+      Keyboard::draw(
+        fb,
+        color,
+        aligned.inner(pad).minCircle(),
+        Point(diameter, 0),
+        Point(radius, diameter)
+      );
     }
 
     graphics::Box mKey;
@@ -500,16 +546,13 @@ namespace graphics {
       auto diameter = aligned.minDimension();
       auto radius   = diameter / 2.0f;
 
-      auto white = aligned.inner(pad);
-      for (int i = 0; i < 7; i++) {
-        white.offsetY(diameter * i).circle(fb, color);
-      }
-
-      auto black = white.offset(-diameter, radius);
-      for (int i = 0; i < 6; i++) {
-        if (i == 2) continue;
-        black.offsetY(diameter * i).circle(fb, color);
-      }
+      Keyboard::draw(
+        fb,
+        color,
+        aligned.inner(pad).minCircle(),
+        Point(0, diameter),
+        Point(-diameter, radius)
+      );
     }
 
     graphics::Box mKey;
@@ -530,14 +573,14 @@ namespace graphics {
       }
 
       inline void draw(od::FrameBuffer &fb, const Box& world) {
-        auto length = mChartData.length();
+        auto length = mChartData.getChartSize();
 
         auto chart = Box::wh(
           length * mBarWidth + (length - 1) * mBarSpace,
           world.height
         ).recenterOn(world);
 
-        auto current = mChartData.current();
+        auto current = mChartData.getChartCurrentIndex();
         auto currentX = barCenter(current);
 
         auto window = chart.insert(
@@ -555,7 +598,7 @@ namespace graphics {
           if (!view.containsX(x)) continue;
 
           auto width  = mBarWidth;
-          auto height = mChartData.value(i) * world.height / 2.0f;
+          auto height = mChartData.getChartValue(i) * world.height / 2.0f;
           auto bar    = Box::cwr(x, y, width, height);
 
           if (i == current) {
@@ -581,5 +624,29 @@ namespace graphics {
 
       int mBarWidth;
       int mBarSpace;
+  };
+
+  class CircleChart {
+    public:
+      inline CircleChart(common::HasChartData &data, float size) :
+          mChartData(data),
+          mSize(size) {
+        mChartData.attach();
+      }
+
+      inline ~CircleChart() {
+        mChartData.release();
+      }
+
+      inline void draw(od::FrameBuffer &fb, const Box& world) {
+        auto outsideRadius = world.minDimension() / 2.0f;
+        auto insideRadius  = outsideRadius * mSize;
+        auto radiusSpan    = (outsideRadius - insideRadius) / 2.0f;
+        auto centerRadius  = insideRadius + radiusSpan;
+      }
+
+    private:
+      common::HasChartData &mChartData;
+      float mSize;
   };
 }

@@ -126,9 +126,9 @@ namespace lojik {
       od::Option mQuantize { "Quantize", 2 };
 #endif
 
-      int length() { return mState.mTotal; }
-      int current() { return mState.mCurrent; }
-      float value(int i) { return mState.valueAt(i); }
+      int getChartSize() { return mState.mTotal; }
+      int getChartCurrentIndex() { return mState.mCurrent; }
+      float getChartValue(int i) { return mState.valueAt(i); }
 
       void attach() { Object::attach(); }
       void release() { Object::release(); }

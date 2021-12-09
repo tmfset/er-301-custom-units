@@ -38,8 +38,9 @@ namespace polygon {
             auto primaryColor = pColor(index + 1);
             auto secondaryColor = sColor(index + 1);
 
-            box.fillCircle(fb, primaryColor * fillColor);
-            box.circle(fb, secondaryColor);
+            auto boxCircle = box.minCircle();
+            boxCircle.fill(fb, primaryColor * fillColor);
+            boxCircle.trace(fb, secondaryColor);
 
             if (mObservable.isVoiceArmed(index)) {
               box.center.diamond(fb, primaryColor);

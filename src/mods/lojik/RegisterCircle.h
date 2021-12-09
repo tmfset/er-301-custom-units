@@ -31,8 +31,8 @@ namespace lojik {
         int x = interior.center.x;
         int y = interior.center.y;
 
-        auto current = mRegister.current();
-        int length = mRegister.length();
+        auto current = mRegister.getChartCurrentIndex();
+        int length = mRegister.getChartSize();
         float width = M_PI * 2.0f / (float)length;
 
         bool isLengthChange = length != mLastLength;
@@ -65,7 +65,7 @@ namespace lojik {
           if (i >= length) continue;
 
           float theta = width * (float)i;
-          float amount = mRegister.value(i);
+          float amount = mRegister.getChartValue(i);
           mMaxV = util::fmax(mMaxV, fabs(amount));
 
           //float rFrom = centerRadius;
