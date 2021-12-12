@@ -224,6 +224,14 @@ namespace graphics {
       return scale(v2d::of(1, by));
     }
 
+    inline Box withWidth(float w) const {
+      return cwh(center, widthHeight.atX(w));
+    }
+
+    inline Box withHeight(float h) const {
+      return cwh(center, widthHeight.atY(h));
+    }
+
     inline Box splitLeft(float by) const {
       auto _wh = widthHeight;
       auto _lb = leftBottom;
@@ -680,13 +688,19 @@ namespace graphics {
 
         float delta = M_PI * 2.0f / (float)length;
 
-        v2d prev, curr;
+        v2d first, prev, curr;
         for (int i = 0; i < length; i++) {
           auto next = getCirclePoint(center, span, delta, i);
-          if (i > 1) Line::of(prev, next).trace(fb, GRAY10);
+
+          if (i == 0) first = next;
           if (i == current) curr = next;
+
+          if (i > 0) Line::of(prev, next).trace(fb, GRAY10);
+          
           prev = next;
         }
+
+        Line::of(prev, first).trace(fb, GRAY10);
 
         Point::of(curr).diamond(fb, WHITE);
       }

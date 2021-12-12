@@ -18,8 +18,7 @@
 #include <TLatch.h>
 #include <Register.h>
 #include <Register2.h>
-#include <RegisterChart.h>
-#include <RegisterCircle.h>
+#include <RegisterMainView.h>
 #include <Euclid.h>
 #include <EuclidCircle.h>
 #include <Chance.h>
@@ -40,8 +39,7 @@
 %include <TLatch.h>
 %include <Register.h>
 %include <Register2.h>
-%include <RegisterChart.h>
-%include <RegisterCircle.h>
+%include <RegisterMainView.h>
 %include <Euclid.h>
 %include <EuclidCircle.h>
 %include <Chance.h>

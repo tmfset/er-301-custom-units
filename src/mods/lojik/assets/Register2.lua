@@ -10,7 +10,7 @@ local FlagSelect = require "Unit.MenuControl.FlagSelect"
 local OutputScope = require "Unit.ViewControl.OutputScope"
 local UnitShared = require "common.assets.UnitShared"
 local RegisterShared = require "lojik.RegisterShared"
-local RegisterCircle = require "lojik.RegisterCircle"
+local RegisterView = require "lojik.RegisterView"
 
 local Register = Class {}
 Register:include(Unit)
@@ -149,8 +149,8 @@ function Register:onLoadViews()
       biasPrecision = 0,
       initialBias   = 16
     },
-    circle = RegisterCircle {
-      name = "circle",
+    circle = RegisterView {
+      name = "register",
       register = self.objects.register
     }
   }, {

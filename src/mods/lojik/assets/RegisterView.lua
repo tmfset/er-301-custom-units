@@ -16,28 +16,24 @@ local col1 = app.BUTTON1_CENTER
 local col2 = app.BUTTON2_CENTER
 local col3 = app.BUTTON3_CENTER
 
-local RegisterCircle = Class {
-  type    = "RegisterCircle",
+local RegisterView = Class {
+  type    = "RegisterView",
   canEdit = false,
   canMove = true
 }
-RegisterCircle:include(Base)
-RegisterCircle:include(UnitShared)
+RegisterView:include(Base)
+RegisterView:include(UnitShared)
 
-function RegisterCircle:init(args)
+function RegisterView:init(args)
+  self:setClassName("RegisterView")
+
   local name     = args.name or app.logError("%s.init: name is missing.", self)
   local register = args.register or app.logError("%s.init: register is missing.", self)
-
   Base.init(self, name)
-  self:setClassName("RegisterCircle")
 
   local width = args.width or (2 * ply)
-
   local graphic = app.Graphic(0, 0, width, 64)
-  local splitTop = app.SCREEN_HEIGHT * 0.75
-  local splitBottom = app.SCREEN_HEIGHT - splitTop
-  graphic:addChild(lojik.RegisterCircle(register, 0, splitBottom, width, splitTop))
-  graphic:addChild(lojik.RegisterChart(register, 0, 0, width, splitBottom))
+  graphic:addChild(lojik.RegisterMainView(register, 0, 0, width, app.SCREEN_HEIGHT))
 
   self.graphic = graphic
   self:setControlGraphic(self.graphic)
@@ -48,4 +44,4 @@ function RegisterCircle:init(args)
   end
 end
 
-return RegisterCircle
+return RegisterView
