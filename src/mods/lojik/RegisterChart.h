@@ -10,7 +10,7 @@
 namespace lojik {
   class RegisterChart : public od::Graphic {
     public:
-      RegisterChart(common::HasChartData &regLike, int left, int bottom, int width, int height);
+      RegisterChart(common::HasChartData &data, int left, int bottom, int width, int height);
 
       virtual ~RegisterChart() { }
 
@@ -18,10 +18,12 @@ namespace lojik {
       void draw(od::FrameBuffer &fb) {
         Graphic::draw(fb);
 
-        auto world    = graphics::Box::lbwh(mWorldLeft, mWorldBottom, mWidth, mHeight);
-        auto interior = world.inner(2);
+        auto world = graphics::Box::lbwh_raw(
+          v2d::of(mWorldLeft, mWorldBottom),
+          v2d::of(mWidth, mHeight)
+        );
 
-        mChart.draw(fb, interior);
+        mChart.draw(fb, world.inner(2));
       }
 
       graphics::HChart mChart;

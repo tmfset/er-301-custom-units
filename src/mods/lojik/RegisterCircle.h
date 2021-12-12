@@ -10,142 +10,147 @@
 namespace lojik {
   class RegisterCircle : public od::Graphic {
     public:
-      RegisterCircle(common::HasChartData &regLike, int left, int bottom, int width, int height);
+      RegisterCircle(common::HasChartData &data, int left, int bottom, int width, int height);
       
-      virtual ~RegisterCircle() {
-        mRegister.release();
-      }
+      virtual ~RegisterCircle() { }
 
     private:
       void draw(od::FrameBuffer &fb) {
         Graphic::draw(fb);
 
-        auto world = graphics::Box::lbwh(mWorldLeft, mWorldBottom, mWidth, mHeight);
+        auto world = graphics::Box::lbwh_raw(
+          v2d::of(mWorldLeft, mWorldBottom),
+          v2d::of(mWidth, mHeight)
+        );
         auto interior = world.inner(2);
 
-        auto outerRadius = interior.minDimension() / 2.0f;
-        auto innerRadius = outerRadius * 0.5;
-        auto radiusSpan = (outerRadius - innerRadius) / 2.0f;
-        auto centerRadius = innerRadius + radiusSpan;
+        mChart.draw(fb, interior);
 
-        int x = interior.center.x;
-        int y = interior.center.y;
+        // auto outerRadius = interior.minDimension() / 2.0f;
+        // auto innerRadius = outerRadius * 0.5;
+        // auto radiusSpan = (outerRadius - innerRadius) / 2.0f;
+        // auto centerRadius = innerRadius + radiusSpan;
 
-        auto current = mRegister.getChartCurrentIndex();
-        int length = mRegister.getChartSize();
-        float width = M_PI * 2.0f / (float)length;
+        // int x = interior.center.x;
+        // int y = interior.center.y;
 
-        bool isLengthChange = length != mLastLength;
-        mLastLength = length;
+        // auto current = mRegister.getChartCurrentIndex();
+        // int length = mRegister.getChartSize();
+        // float width = M_PI * 2.0f / (float)length;
 
-        fb.circle(GRAY1, x, y, innerRadius);
-        fb.circle(GRAY5, x, y, centerRadius);
-        fb.circle(GRAY1, x, y, outerRadius);
+        // bool isLengthChange = length != mLastLength;
+        // mLastLength = length;
 
-        float lastX = x;
-        float lastY = y;
+        // fb.circle(GRAY1, x, y, innerRadius);
+        // fb.circle(GRAY5, x, y, centerRadius);
+        // fb.circle(GRAY1, x, y, outerRadius);
 
-        float firstX = x;
-        float firstY = y;
+        // float lastX = x;
+        // float lastY = y;
 
-        float scale = mMaxV > 0 ? 1.0f / mMaxV : 1.0f;
-        mMaxV = 0;
+        // float firstX = x;
+        // float firstY = y;
 
-        float brightness = 0;
+        // float scale = mMaxV > 0 ? 1.0f / mMaxV : 1.0f;
+        // mMaxV = 0;
 
-        auto kb = graphics::IKeyboard(world.splitRight(0.333));
-        kb.draw(fb, WHITE, 1);
+        // float brightness = 0;
 
-        for (int i = 0; i < 128; i++) {
-          if (isLengthChange) {
-            mValues[i].hardSet(0);
-            //continue;
-          }
+        // auto kb = graphics::IKeyboard(world.splitRight(0.333));
+        // kb.draw(fb, WHITE, 1);
 
-          if (i >= length) continue;
+        // for (int i = 0; i < 128; i++) {
+        //   if (isLengthChange) {
+        //     mValues[i].hardSet(0);
+        //     //continue;
+        //   }
 
-          float theta = width * (float)i;
-          float amount = mRegister.getChartValue(i);
-          mMaxV = util::fmax(mMaxV, fabs(amount));
+        //   if (i >= length) continue;
 
-          //float rFrom = centerRadius;
-          float rTo = centerRadius + radiusSpan * amount * scale;
-          float rMax = util::fmax(rTo, 0.01);
-          rTo = mValues[i].process(mSlewRate, rTo);
+        //   float theta = width * (float)i;
+        //   float amount = mRegister.getChartValue(i);
+        //   mMaxV = util::fmax(mMaxV, fabs(amount));
 
-          auto brightnessBase = i == current ? GRAY10 : GRAY7;
+        //   //float rFrom = centerRadius;
+        //   float rTo = centerRadius + radiusSpan * amount * scale;
+        //   float rMax = util::fmax(rTo, 0.01);
+        //   rTo = mValues[i].process(mSlewRate, rTo);
 
-          brightness = rTo / rMax;
-          brightness = brightness * brightness; // ^2
-          brightness = brightness * brightness; // ^4
-          brightness = brightness * brightness; // ^8
-          brightness = brightnessBase * brightness;
+        //   auto brightnessBase = i == current ? GRAY10 : GRAY7;
 
-          //float fromX = circleX(x, rFrom, theta);
-          //float fromY = circleY(y, rFrom, theta);
+        //   brightness = rTo / rMax;
+        //   brightness = brightness * brightness; // ^2
+        //   brightness = brightness * brightness; // ^4
+        //   brightness = brightness * brightness; // ^8
+        //   brightness = brightnessBase * brightness;
 
-          float toX = circleX(x, rTo, theta);
-          float toY = circleY(y, rTo, theta);
+        //   //float fromX = circleX(x, rFrom, theta);
+        //   //float fromY = circleY(y, rFrom, theta);
 
-          // toX = mXValues[i].process(mSlewRate, toX);
-          // toY = mYValues[i].process(mSlewRate, toY);
+        //   float toX = circleX(x, rTo, theta);
+        //   float toY = circleY(y, rTo, theta);
 
-          //fb.line(GRAY5, fromX, fromY, toX, toY);
-          //fb.circle(WHITE, toX, toY, 1);
-          //fb.pixel(WHITE, toX, toY);
+        //   // toX = mXValues[i].process(mSlewRate, toX);
+        //   // toY = mYValues[i].process(mSlewRate, toY);
 
-          if (i == 0) {
-            firstX = toX;
-            firstY = toY;
-          } else {
-            fb.line(brightness, lastX, lastY, toX, toY);
-          }
+        //   //fb.line(GRAY5, fromX, fromY, toX, toY);
+        //   //fb.circle(WHITE, toX, toY, 1);
+        //   //fb.pixel(WHITE, toX, toY);
 
-          if (i == current) {
-            fb.circle(brightnessBase, toX, toY, 1);
-          }
-          lastX = toX;
-          lastY = toY;
+        //   if (i == 0) {
+        //     firstX = toX;
+        //     firstY = toY;
+        //   } else {
+        //     fb.line(brightness, lastX, lastY, toX, toY);
+        //   }
 
-          //fb.circle(WHITE, toX, toY, 1);
-          //drawSegment(fb, x, y, centerRadius, centerRadius + radiusSpan * amount, theta);
-          //drawCirclePixel(fb, WHITE, x, y, centerRadius, theta);
-        }
+        //   if (i == current) {
+        //     fb.circle(brightnessBase, toX, toY, 1);
+        //   }
+        //   lastX = toX;
+        //   lastY = toY;
 
-        fb.line(brightness, lastX, lastY, firstX, firstY);
+        //   //fb.circle(WHITE, toX, toY, 1);
+        //   //drawSegment(fb, x, y, centerRadius, centerRadius + radiusSpan * amount, theta);
+        //   //drawCirclePixel(fb, WHITE, x, y, centerRadius, theta);
+        // }
+
+        // fb.line(brightness, lastX, lastY, firstX, firstY);
       }
 
-      float circleX(float x, float radius, float theta) {
-        return (sinf(theta) * radius) + x;
-      }
+      // float circleX(float x, float radius, float theta) {
+      //   return (sinf(theta) * radius) + x;
+      // }
 
-      float circleY(float y, float radius, float theta) {
-        return (cosf(theta) * radius) + y;
-      }
+      // float circleY(float y, float radius, float theta) {
+      //   return (cosf(theta) * radius) + y;
+      // }
 
-      void drawSegment(od::FrameBuffer &fb, float x, float y, float rFrom, float rTo, float theta) {
-        int fromX = circleX(x, rFrom, theta);
-        int fromY = circleY(y, rFrom, theta);
+      // void drawSegment(od::FrameBuffer &fb, float x, float y, float rFrom, float rTo, float theta) {
+      //   int fromX = circleX(x, rFrom, theta);
+      //   int fromY = circleY(y, rFrom, theta);
 
-        int toX = circleX(x, rTo, theta);
-        int toY = circleY(y, rTo, theta);
+      //   int toX = circleX(x, rTo, theta);
+      //   int toY = circleY(y, rTo, theta);
 
-        fb.line(GRAY5, fromX, fromY, toX, toY);
-        fb.pixel(WHITE, toX, toY);
-      }
+      //   fb.line(GRAY5, fromX, fromY, toX, toY);
+      //   fb.pixel(WHITE, toX, toY);
+      // }
 
-      void drawCirclePixel(od::FrameBuffer &fb, od::Color color, float x, float y, float radius, float theta) {
-        int toX = circleX(x, radius, theta);
-        int toY = circleY(y, radius, theta);
-        fb.pixel(color, toX, toY);
-      }
+      // void drawCirclePixel(od::FrameBuffer &fb, od::Color color, float x, float y, float radius, float theta) {
+      //   int toX = circleX(x, radius, theta);
+      //   int toY = circleY(y, radius, theta);
+      //   fb.pixel(color, toX, toY);
+      // }
 
-      slew::SlewRate mSlewRate { 0.25, GRAPHICS_REFRESH_PERIOD };
-      slew::Slew mValues[128];
+      //slew::SlewRate mSlewRate { 0.25, GRAPHICS_REFRESH_PERIOD };
+      //slew::Slew mValues[128];
 
-      float mMaxV = 0;
-      float mLastLength = 1;
+      //float mMaxV = 0;
+      //float mLastLength = 1;
 
-      common::HasChartData &mRegister;
+      //common::HasChartData &mRegister;
+
+      graphics::CircleChart mChart;
   };
 }

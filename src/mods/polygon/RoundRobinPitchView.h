@@ -52,7 +52,10 @@ namespace polygon {
 
         const float voices = mObservable.voices();
 
-        auto world     = graphics::Box::lbwh(mWorldLeft, mWorldBottom, mWidth, mHeight);
+        auto world = graphics::Box::lbwh_raw(
+          v2d::of(mWorldLeft, mWorldBottom),
+          v2d::of(mWidth, mHeight)
+        );
         auto leftPane  = world.splitLeft(0.3f).inner(2, 5);
         auto rightPane = world.splitRight(0.7f).padRight(6);
 
@@ -66,7 +69,7 @@ namespace polygon {
 
         if (mCursorSelection == 0) {
           mCursorState.orientation = od::cursorRight;
-          mCursorState.x = leftPane.left - 5;
+          mCursorState.x = leftPane.left() - 5;
           mCursorState.y = rrTargetY;
         }
 
@@ -84,7 +87,7 @@ namespace polygon {
           vFader.drawActual(fb, secondaryColor, scale(actual(vpoDirect, vpoOffset)));
           vFader.drawTarget(fb, primaryColor, scale(target(vpoDirect, vpoOffset)));
 
-          auto indicator = cell.rightCenter().offsetX(3);
+          auto indicator = graphics::Point(cell.rightCenter() + v2d::of(3, 0));
 
           if (mObservable.isVoiceArmed(i)) {
             indicator.diamond(fb, primaryColor);

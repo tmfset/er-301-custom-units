@@ -22,12 +22,16 @@ namespace strike {
       virtual void draw(od::FrameBuffer &fb) {
         od::Graphic::draw(fb);
 
-        auto world = graphics::Box::lbwh_raw(mWorldLeft, mWorldBottom, mWidth, mHeight);
+        auto world = graphics::Box::lbwh_raw(
+          v2d::of(mWorldLeft, mWorldBottom),
+          v2d::of(mWidth, mHeight)
+        );
+
         auto frame = world.inner(10);
 
         drawThreshold(fb, frame, GRAY10);
 
-        fb.vline(GRAY8, frame.left, frame.bottom, frame.top);
+        fb.vline(GRAY8, frame.left(), frame.bottom(), frame.top());
 
         drawGuidlines(fb, frame, GRAY10);
       }
@@ -54,13 +58,13 @@ namespace strike {
       }
 
       void drawGuidlines(od::FrameBuffer &fb, const graphics::Box &world, int color) {
-        auto height  = world.height;
+        auto height  = world.height();
         auto quarter = height / 4.0f;
         auto eigth   = height / 8.0f;
 
-        auto center = util::fhr(world.center.y);
-        auto left   = world.left + 1;
-        auto right  = world.right - 1;
+        auto center = util::fhr(world.center.y());
+        auto left   = world.left() + 1;
+        auto right  = world.right() - 1;
 
         auto threeEigths = util::fhr(quarter + eigth);
         auto twoEigths = util::fhr(quarter);

@@ -1,7 +1,7 @@
 #include "RegisterChart.h"
 
 namespace lojik {
-  RegisterChart::RegisterChart(common::HasChartData &chartData, int left, int bottom, int width, int height) :
+  RegisterChart::RegisterChart(common::HasChartData &data, int left, int bottom, int width, int height) :
       od::Graphic(left, bottom, width, height),
-      mChart(chartData, 3, 2) { }
+      mChart(data, 3, 2) { }
 }

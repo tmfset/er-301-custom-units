@@ -25,7 +25,10 @@ namespace polygon {
       void draw(od::FrameBuffer &fb) {
         Graphic::draw(fb);
 
-        auto world = graphics::Box::lbwh_raw(mWorldLeft, mWorldBottom, mWidth, mHeight);
+        auto world = graphics::Box::lbwh_raw(
+          v2d::of(mWorldLeft, mWorldBottom),
+          v2d::of(mWidth, mHeight)
+        );
         auto grid  = graphics::Grid::create(world.inner(2), mObservable.groups(), 4, 1);
 
         for (int c = 0; c < grid.cols; c++) {
@@ -42,12 +45,14 @@ namespace polygon {
             boxCircle.fill(fb, primaryColor * fillColor);
             boxCircle.trace(fb, secondaryColor);
 
+            auto point = graphics::Point(box.center);
+
             if (mObservable.isVoiceArmed(index)) {
-              box.center.diamond(fb, primaryColor);
+              point.diamond(fb, primaryColor);
             }
 
             if (mObservable.isVoiceNext(index)) {
-              box.center.dot(fb, primaryColor);
+              point.dot(fb, primaryColor);
             }
           }
         }
