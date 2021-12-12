@@ -560,49 +560,51 @@ namespace graphics {
   };
 
   struct HKeyboard {
-    inline HKeyboard(const graphics::Box &world) :
-      mKey(world.scale(v2d::of(1.0f / 7.0f, 1.0f / 2.0f)).minSquare()),
-      mBounds(mKey.scale(v2d::of(7.0f, 2.0f))) { }
+    inline HKeyboard(float pad) :
+      mPad(pad) { }
 
-    inline void draw(od::FrameBuffer &fb, od::Color color, float pad) const {
-      auto aligned  = mKey.alignLeftBottom(mBounds);
+    inline void draw(od::FrameBuffer &fb, const Box &world) const {
+      auto key = world.scale(v2d::of(1.0f / 7.0f, 1.0f / 2.0f)).minSquare();
+      auto bounds = key.scale(v2d::of(7.0f, 2.0f));
+
+      auto aligned  = key.alignLeftBottom(bounds);
       auto diameter = aligned.minDimension();
       auto radius   = diameter / 2.0f;
 
       Keyboard::draw(
         fb,
-        color,
-        aligned.inner(pad).minCircle(),
+        GRAY10,
+        aligned.inner(mPad).minCircle(),
         v2d::of(diameter, 0),
         v2d::of(radius, diameter)
       );
     }
 
-    graphics::Box mKey;
-    graphics::Box mBounds;
+    const float mPad;
   };
 
   struct IKeyboard {
-    inline IKeyboard(const graphics::Box &world) :
-      mKey(world.scale(v2d::of(1.0f / 2.0f, 1.0f / 7.0f)).minSquare()),
-      mBounds(mKey.scale(v2d::of(2.0f, 7.0f))) { }
+    inline IKeyboard(float pad) :
+      mPad(pad) { }
     
-    inline void draw(od::FrameBuffer &fb, od::Color color, float pad) const {
-      auto aligned  = mKey.alignRightBottom(mBounds);
+    inline void draw(od::FrameBuffer &fb, const Box &world) const {
+      auto key = world.scale(v2d::of(1.0f / 2.0f, 1.0f / 7.0f)).minSquare();
+      auto bounds = key.scale(v2d::of(2.0f, 7.0f));
+
+      auto aligned  = key.alignRightBottom(bounds);
       auto diameter = aligned.minDimension();
       auto radius   = diameter / 2.0f;
 
       Keyboard::draw(
         fb,
-        color,
-        aligned.inner(pad).minCircle(),
+        GRAY10,
+        aligned.inner(mPad).minCircle(),
         v2d::of(0, diameter),
         v2d::of(-diameter, radius)
       );
     }
 
-    graphics::Box mKey;
-    graphics::Box mBounds;
+    const float mPad;
   };
 
   class HChart {

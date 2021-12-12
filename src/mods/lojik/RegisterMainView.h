@@ -26,15 +26,12 @@ namespace lojik {
 
         auto interior = world.inner(2).quantizeCenter();
 
-        //auto left = interior.splitLeft(0.95);
-        //auto right = interior.splitRight(0.25);
-
         auto top = interior.divideTop(0.5);
         auto bottom = interior.divideBottom(0.5);
 
         //mCircleChart.draw(fb, left.scaleHeight(0.75));
 
-        graphics::HKeyboard(top).draw(fb, GRAY10, 1);
+        graphics::HKeyboard(1).draw(fb, top);
 
         mChart.draw(fb, bottom);
       }
