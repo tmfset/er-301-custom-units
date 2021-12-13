@@ -31,12 +31,13 @@ namespace lojik {
 
         //mCircleChart.draw(fb, left.scaleHeight(0.75));
 
-        graphics::HKeyboard(1).draw(fb, top);
+        mKeyboard.draw(fb, top);
 
         mChart.draw(fb, bottom);
       }
 
       graphics::HChart mChart;
       graphics::CircleChart mCircleChart;
+      graphics::HKeyboard mKeyboard;
   };
 }

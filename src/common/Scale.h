@@ -35,6 +35,16 @@ namespace common {
         return mCentValues.at(i);
       }
 
+      inline float quantizePitch(float pitch) const {
+        auto iterator = std::upper_bound(
+          mPitchBoundaries.begin(),
+          mPitchBoundaries.end(),
+          pitch
+        );
+
+        return mPitchClasses[std::distance(mPitchBoundaries.begin(), iterator)];
+      }
+
       inline float quantize(float value) {
         float V = FULLSCALE_IN_VOLTS * value;
         int octave = (int)V;

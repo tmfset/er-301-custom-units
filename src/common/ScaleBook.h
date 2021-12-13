@@ -7,7 +7,21 @@
 namespace common {
   class ScaleBook {
     public:
-      inline ScaleBook() { }
+      inline ScaleBook() {
+        addPitch(0);
+        //addPitch(100);
+        //addPitch(200);
+        addPitch(300);
+        //addPitch(400);
+        //addPitch(500);
+        //addPitch(600);
+        addPitch(700);
+        //addPitch(800);
+        //addPitch(900);
+        addPitch(1000);
+        //addPitch(1100);
+        commitScale();
+      }
 
       void addPitch(float cents) {
         mWrite.push_back(cents);
@@ -23,7 +37,7 @@ namespace common {
         return mScales.size();
       }
 
-      const Scale& getScale(int i) const {
+      const Scale& scale(int i) const {
         return mScales.at(i);
       }
 

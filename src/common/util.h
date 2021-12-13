@@ -486,6 +486,12 @@ namespace util {
     return d >= 0.5f ? iv + 1 : iv;
   }
 
+  // Float down-round
+  inline int fdr(float v) {
+    int iv = v;
+    return v < 0 ? iv - 1 : iv;
+  }
+
   inline float toDecibels(float x) {
     // 20 * ln(x) / ln(10)
     x = fmax(x, 0.001);

@@ -6,11 +6,12 @@
 #include <od/config.h>
 #include <hal/simd.h>
 #include <util.h>
-#include <ScaleBook.h>
+#include <ScaleQuantizer.h>
 #include <HasChartData.h>
+#include <HasScaleData.h>
 
 namespace lojik {
-  class Register2 : public od::Object, public common::HasChartData {
+  class Register2 : public od::Object, public common::HasChartData, public common::HasScaleData {
     public:
       Register2() {
         addInput(mIn);
@@ -100,7 +101,7 @@ namespace lojik {
             if (doReset)   mState.reset();
             if (doCapture) mState.setCurrent(ingb[j]);
 
-            out[i + j] = mState.value();
+            out[i + j] = mScaleQuantizer.quantizeAndDetect(mState.value());
           }
         }
       }
@@ -128,25 +129,31 @@ namespace lojik {
 
       int getChartSize() { return mState.mTotal; }
       int getChartCurrentIndex() { return mState.mCurrent; }
-      float getChartValue(int i) { return mState.valueAt(i); }
+      float getChartValue(int i) {
+        return mScaleQuantizer.quantize(mState.valueAt(i));
+      }
+
+      const common::Scale& currentScale() {
+        return mScaleQuantizer.currentScale();
+      }
+
+      int getScaleSize() { return currentScale().size(); }
+      float getScaleCentValue(int i) { return currentScale().getCentValue(i); }
+
+      float getDetectedCentValue() { return mScaleQuantizer.detectedCentValue(); }
+      float getQuantizedCentValue() { return mScaleQuantizer.quantizedCentValue(); }
 
       void attach() { Object::attach(); }
       void release() { Object::release(); }
 
       bool isQuantized() { return mQuantize.value() == 1; }
 
-      const common::Scale& currentScale() {
-        return mScaleBook.getScale(
-          util::fhr(mQuantizeScale.value()) % mScaleBook.size()
-        );
-      }
-
     private:
       template<int max>
       struct State {
         inline State() {
           for (int i = 0; i < max; i++) {
-            mData[i]  = od::Random::generateFloat(-1.0f, 1.0f);
+            mData[i]  = od::Random::generateFloat(-0.0f, 0.2f);
             mDrift[i] = 0;
           }
         }
@@ -178,7 +185,7 @@ namespace lojik {
         int mTotal   = max;
       };
 
-      common::ScaleBook mScaleBook;
+      common::ScaleQuantizer mScaleQuantizer;
 
       util::four::Trigger mClockTrigger;
       util::four::SyncTrigger mCSRTrigger;

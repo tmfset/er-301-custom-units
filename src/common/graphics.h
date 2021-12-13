@@ -1,7 +1,8 @@
 #pragma once
 
-#include <util.h>
-#include <HasChartData.h>
+#include "util.h"
+#include "HasChartData.h"
+#include "HasScaleData.h"
 #include <slew.h>
 #include <vector>
 #include "v2d.h"
@@ -540,28 +541,56 @@ namespace graphics {
   };
 
   struct Keyboard {
+    //  1 3   6 8 A
+    // 0 2 4 5 7 9 B
+    static inline bool isBlackKey(float key) {
+      int i = util::fhr(key);
+      if (i == 1) return true;
+      if (i == 3) return true;
+      if (i == 6) return true;
+      if (i == 8) return true;
+      if (i == 10) return true;
+      return false;
+    }
+
+    static inline v2d keyPosition(const v2d &runRise, float key) {
+      float offset = key > 4 ? 1 : 0;
+      return runRise * v2d::of(key + offset, isBlackKey(key) ? 1 : 0);
+    }
+
     static inline void draw(
       od::FrameBuffer &fb,
-      od::Color color,
-      const Circle &white,
-      const v2d &keyOffset,
-      const v2d &blackOffset
+      common::HasScaleData &data,
+      const Circle &base,
+      const v2d &runRise
     ) {
-      for (int i = 0; i < 7; i++) {
-        white.offset(keyOffset.scale(i)).trace(fb, color);
+      auto detected = data.getDetectedCentValue() / 100.0f;
+      auto quantized = data.getQuantizedCentValue() / 100.0f;
+      base.offset(keyPosition(runRise, detected)).fill(fb, GRAY3);
+      base.offset(keyPosition(runRise, quantized)).fill(fb, GRAY10);
+
+      for (int i = 0; i < 12; i++) {
+        base.offset(keyPosition(runRise, i)).trace(fb, GRAY5);
       }
 
-      auto black = white.offset(blackOffset);
-      for (int i = 0; i < 6; i++) {
-        if (i == 2) continue;
-        black.offset(keyOffset.scale(i)).trace(fb, color);
+      int length = data.getScaleSize();
+      for (int i = 0; i < length; i++) {
+        float key = data.getScaleCentValue(i) / 100.0f;
+        base.offset(keyPosition(runRise, key)).trace(fb, GRAY13);
       }
     }
   };
 
   struct HKeyboard {
-    inline HKeyboard(float pad) :
-      mPad(pad) { }
+    inline HKeyboard(common::HasScaleData &data, float pad) :
+        mScaleData(data),
+        mPad(pad) {
+      mScaleData.attach();
+    }
+
+    inline ~HKeyboard() {
+      mScaleData.release();
+    }
 
     inline void draw(od::FrameBuffer &fb, const Box &world) const {
       auto key = world.scale(v2d::of(1.0f / 7.0f, 1.0f / 2.0f)).minSquare();
@@ -573,19 +602,26 @@ namespace graphics {
 
       Keyboard::draw(
         fb,
-        GRAY10,
+        mScaleData,
         aligned.inner(mPad).minCircle(),
-        v2d::of(diameter, 0),
         v2d::of(radius, diameter)
       );
     }
 
+    common::HasScaleData &mScaleData;
     const float mPad;
   };
 
   struct IKeyboard {
-    inline IKeyboard(float pad) :
-      mPad(pad) { }
+    inline IKeyboard(common::HasScaleData &data, float pad) :
+        mScaleData(data),
+        mPad(pad) {
+      mScaleData.attach();
+    }
+
+    inline ~IKeyboard() {
+      mScaleData.release();
+    }
     
     inline void draw(od::FrameBuffer &fb, const Box &world) const {
       auto key = world.scale(v2d::of(1.0f / 2.0f, 1.0f / 7.0f)).minSquare();
@@ -597,14 +633,14 @@ namespace graphics {
 
       Keyboard::draw(
         fb,
-        GRAY10,
+        mScaleData,
         aligned.inner(mPad).minCircle(),
-        v2d::of(0, diameter),
-        v2d::of(-diameter, radius)
+        v2d::of(radius, -diameter)
       );
     }
 
-    const float mPad;
+    common::HasScaleData &mScaleData;
+    float mPad;
   };
 
   class HChart {
