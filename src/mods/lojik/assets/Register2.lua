@@ -30,31 +30,36 @@ end
 
 function Register:onLoadGraph(channelCount)
   --local clock   = self:addComparatorControl("clock",  app.COMPARATOR_TRIGGER_ON_RISE)
-  local capture = self:addComparatorControl("capture", app.COMPARATOR_TOGGLE)
-  local shift   = self:addComparatorControl("shift", app.COMPARATOR_GATE)
-  local reset   = self:addComparatorControl("reset", app.COMPARATOR_GATE)
+  local captureGate = self:addComparatorControl("captureGate", app.COMPARATOR_TOGGLE)
+  local shiftGate   = self:addComparatorControl("shiftGate", app.COMPARATOR_GATE)
+  local resetGate   = self:addComparatorControl("resetGate", app.COMPARATOR_GATE)
 
+  local offset  = self:addParameterAdapterControl("offset")
+  local shift   = self:addParameterAdapterControl("shift")
   local length  = self:addParameterAdapterControl("length")
   local stride  = self:addParameterAdapterControl("stride")
 
-  local scatter = self:addParameterAdapterControl("scatter")
-  local drift   = self:addParameterAdapterControl("drift")
-  local gain    = self:addParameterAdapterControl("gain")
-  local bias    = self:addParameterAdapterControl("bias")
+
+  local outputGain = self:addParameterAdapterControl("outputGain")
+  local outputBias = self:addParameterAdapterControl("outputBias")
+  local inputGain  = self:addParameterAdapterControl("inputGain")
+  local inputBias  = self:addParameterAdapterControl("inputBias")
 
   local register = self:addObject("register", lojik.Register2())
   connect(self, "In1", register, "Clock")
-  connect(capture, "Out", register, "Capture")
-  connect(shift,   "Out", register, "Shift")
-  connect(reset,   "Out", register, "Reset")
+  connect(captureGate, "Out", register, "Capture")
+  connect(shiftGate,   "Out", register, "Shift")
+  connect(resetGate,   "Out", register, "Reset")
 
+  tie(register, "Offset", offset, "Out")
+  tie(register, "Shift",  shift,  "Out")
   tie(register, "Length", length, "Out")
   tie(register, "Stride", stride, "Out")
 
-  tie(register, "Scatter",    scatter, "Out")
-  tie(register, "Drift",      drift,   "Out")
-  tie(register, "Input Gain", gain,    "Out")
-  tie(register, "Input Bias", bias,    "Out")
+  tie(register, "Output Gain", outputGain, "Out")
+  tie(register, "Output Bias", outputBias, "Out")
+  tie(register, "Input Gain",  inputGain,  "Out")
+  tie(register, "Input Bias",  inputBias,  "Out")
 
   for i = 1, channelCount do
     connect(register, "Out", self, "Out"..i)
@@ -149,12 +154,89 @@ function Register:onLoadViews()
       biasPrecision = 0,
       initialBias   = 16
     },
-    circle = RegisterView {
+    stride  = GainBias {
+      button        = "stride",
+      description   = "Stride",
+      branch        = self.branches.stride,
+      gainbias      = self.objects.stride,
+      range         = self.objects.strideRange,
+      gainMap       = self.intMap(-self.max / 4, self.max / 4),
+      biasMap       = self.intMap(-self.max / 4, self.max / 4),
+      biasPrecision = 0,
+      initialBias   = 1
+    },
+    offset  = GainBias {
+      button        = "offset",
+      description   = "Offset",
+      branch        = self.branches.offset,
+      gainbias      = self.objects.offset,
+      range         = self.objects.offset,
+      gainMap       = self.intMap(-self.max, self.max),
+      biasMap       = self.intMap(0, self.max),
+      biasPrecision = 0,
+      initialBias   = 0
+    },
+    shift  = GainBias {
+      button        = "shift",
+      description   = "Shift",
+      branch        = self.branches.shift,
+      gainbias      = self.objects.shift,
+      range         = self.objects.shift,
+      gainMap       = self.intMap(-self.max, self.max),
+      biasMap       = self.intMap(0, self.max),
+      biasPrecision = 0,
+      initialBias   = 0
+    },
+    outputGain   = GainBias {
+      button        = "oGain",
+      description   = "Output Gain",
+      branch        = self.branches.outputGain,
+      gainbias      = self.objects.outputGain,
+      range         = self.objects.outputGain,
+      biasMap       = Encoder.getMap("[-1,1]"),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = 1
+    },
+    outputBias   = GainBias {
+      button        = "oBias",
+      description   = "Output Bias",
+      branch        = self.branches.outputBias,
+      gainbias      = self.objects.outputBias,
+      range         = self.objects.outputBias,
+      biasMap       = Encoder.getMap("[-1,1]"),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = 0
+    },
+    inputGain   = GainBias {
+      button        = "iGain",
+      description   = "Input Gain",
+      branch        = self.branches.inputGain,
+      gainbias      = self.objects.inputGain,
+      range         = self.objects.inputGain,
+      biasMap       = Encoder.getMap("[-1,1]"),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = 1
+    },
+    inputBias   = GainBias {
+      button        = "iBias",
+      description   = "Input Bias",
+      branch        = self.branches.inputBias,
+      gainbias      = self.objects.inputBias,
+      range         = self.objects.inputBias,
+      biasMap       = Encoder.getMap("[-1,1]"),
+      biasUnits     = app.unitNone,
+      biasPrecision = 2,
+      initialBias   = 0
+    },
+    register = RegisterView {
       name = "register",
       register = self.objects.register
     }
   }, {
-    expanded = { "length", "circle" }
+    expanded = { "length", "stride", "offset", "shift", "outputGain", "outputBias", "register" }
   }
   -- return {
   --   wave1 = OutputScope {
