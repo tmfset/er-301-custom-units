@@ -64,6 +64,9 @@ namespace common {
       inline v2d atX(float _x) const { return of(_x, mY); }
       inline v2d atY(float _y) const { return of(mX, _y); }
 
+      inline v2d offsetX(float by) const { return atX(mX + by); }
+      inline v2d offsetY(float by) const { return atY(mY + by); }
+
       inline float x() const { return mX; }
       inline float y() const { return mY; }
 

@@ -10,6 +10,7 @@ namespace common {
 
       virtual int getChartSize() = 0;
       virtual int getChartCurrentIndex() = 0;
+      virtual int getChartBaseIndex() = 0;
       virtual float getChartValue(int i) = 0;
 
       virtual void attach() = 0;
@@ -31,6 +32,7 @@ namespace common {
 
       int getChartSize() { return mWrap.getChartSize(); }
       int getChartCurrentIndex() { return mWrap.getChartCurrentIndex(); }
+      int getChartBaseIndex() { return mWrap.getChartBaseIndex(); }
 
       float getChartValue(int i) { return mValues[i].process(mSlewRate, mWrap.getChartValue(i)); }
       void clearChartValue(int i) { mValues[i].hardSet(0); }

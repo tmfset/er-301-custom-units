@@ -143,6 +143,10 @@ namespace lojik {
         return mState.windowIndex();
       }
 
+      int getChartBaseIndex() {
+        return mState.windowBaseIndex();
+      }
+
       float getChartValue(int i) {
         return mScaleQuantizer.quantize(mState.windowValueAt(i));
       }
@@ -155,6 +159,7 @@ namespace lojik {
       float getScaleCentValue(int i) { return currentScale().getCentValue(i); }
 
       float getDetectedCentValue() { return mScaleQuantizer.detectedCentValue(); }
+      int   getDetectedOctaveValue() { return mScaleQuantizer.detectedOctaveValue(); }
       float getQuantizedCentValue() { return mScaleQuantizer.quantizedCentValue(); }
 
       void attach() { Object::attach(); }
@@ -202,6 +207,7 @@ namespace lojik {
 
           inline int   windowLength()       const { return mWindowLength; }
           inline int   windowIndex()        const { return mWindowIndex; }
+          inline int   windowBaseIndex()    const { return util::mod(mWindowIndex - mWindowShift, mWindowLength); }
           inline float windowValueAt(int i) const { return valueAt(toAbsolute(i)); }
           inline float windowValue()        const { return windowValueAt(mWindowIndex); }
           inline int   absoluteIndex()      const { return toAbsolute(windowIndex()); }

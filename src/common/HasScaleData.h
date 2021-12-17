@@ -10,6 +10,7 @@ namespace common {
       virtual float getScaleCentValue(int i) = 0;
 
       virtual float getDetectedCentValue() = 0;
+      virtual int   getDetectedOctaveValue() = 0;
       virtual float getQuantizedCentValue() = 0;
 
       virtual void attach() = 0;

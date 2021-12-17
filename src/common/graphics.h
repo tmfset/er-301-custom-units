@@ -1,5 +1,6 @@
 #pragma once
 
+#include <od/graphics/text/Utils.h>
 #include "util.h"
 #include "HasChartData.h"
 #include "HasScaleData.h"
@@ -55,6 +56,42 @@ namespace graphics {
 
     inline void dot(od::FrameBuffer &fb, od::Color color) const {
       fb.pixel(color, v.x(), v.y());
+    }
+
+    inline void arrowRight(od::FrameBuffer &fb, od::Color color) const {
+      fb.pixel(color, v.x(), v.y());
+
+      fb.pixel(color, v.x() - 1, v.y() - 1);
+      fb.pixel(color, v.x() - 2, v.y() - 2);
+
+      fb.pixel(color, v.x() - 1, v.y() + 1);
+      fb.pixel(color, v.x() - 2, v.y() + 2);
+    }
+
+    inline void arrowsRight(od::FrameBuffer &fb, od::Color color, int count, int step) const {
+      v2d p = v;
+      for (int i = 0; i < count; i++) {
+        Point(p).arrowRight(fb, color);
+        p = p + v2d::of(-step, 0);
+      }
+    }
+
+    inline void arrowsLeft(od::FrameBuffer &fb, od::Color color, int count, int step) const {
+      v2d p = v;
+      for (int i = 0; i < count; i++) {
+        Point(p).arrowLeft(fb, color);
+        p = p + v2d::of(step, 0);
+      }
+    }
+
+    inline void arrowLeft(od::FrameBuffer &fb, od::Color color) const {
+      fb.pixel(color, v.x(), v.y());
+
+      fb.pixel(color, v.x() + 1, v.y() - 1);
+      fb.pixel(color, v.x() + 2, v.y() - 2);
+
+      fb.pixel(color, v.x() + 1, v.y() + 1);
+      fb.pixel(color, v.x() + 2, v.y() + 2);
     }
 
     const v2d v;
@@ -145,6 +182,10 @@ namespace graphics {
 
     static inline Box lbwh(const v2d &_lb, const v2d &_wh) {
       return lbrt(_lb, _lb + _wh);
+    }
+
+    static inline Box rbwh(const v2d &rb, const v2d &wh) {
+      return lbwh(v2d::of(rb.x() - wh.x(), rb.y()), wh);
     }
 
     static inline Box cwr(const v2d &c, const v2d &wr) {
@@ -286,8 +327,16 @@ namespace graphics {
       );
     }
 
+    inline v2d bottomCenter() const {
+      return center.atY(leftBottom.y());
+    }
+
     inline v2d rightCenter() const {
       return center.atX(rightTop.x());
+    }
+
+    inline v2d rightBottom() const {
+      return rightTop.atY(leftBottom.y());
     }
 
     inline Box recenter(const v2d &c) const {
@@ -606,6 +655,13 @@ namespace graphics {
         aligned.inner(mPad).minCircle(),
         v2d::of(radius, diameter)
       );
+
+      auto right = bounds.splitRight(0.5);
+      auto left = bounds.splitLeft(0.5);
+
+      auto octave = mScaleData.getDetectedOctaveValue();
+      if (octave > 0) Point(right.bottomCenter()).arrowsRight(fb, WHITE, octave, 2);
+      if (octave < 0) Point(left.bottomCenter()).arrowsLeft(fb, WHITE, -octave, 2);
     }
 
     common::HasScaleData &mScaleData;
@@ -659,6 +715,7 @@ namespace graphics {
       inline void draw(od::FrameBuffer &fb, const Box& world) const {
         auto length  = mChartData.getChartSize();
         auto current = mChartData.getChartCurrentIndex();
+        auto base    = mChartData.getChartBaseIndex();
 
         auto fullWidth = length * mBarWidth + (length - 1) * mBarSpace;
         auto chart     = Box::cwh(world.center, v2d::of(fullWidth, world.height()));
@@ -675,10 +732,10 @@ namespace graphics {
           auto wh = v2d::of(mBarWidth, h);
 
           auto isCurrent = i == current;
+          auto isBase    = i == base;
           Box::cwr(xy, wh).fill(fb, isCurrent ? GRAY12 : GRAY10);
-          if (!isCurrent) continue;
-
-          Box::cs(xy, mBarWidth + 2).trace(fb, WHITE);
+          if (isBase) Box::cs(xy, mBarWidth + 2).trace(fb, GRAY5);
+          if (isCurrent) Box::cs(xy, mBarWidth + 2).trace(fb, WHITE);
         }
       }
 
@@ -751,5 +808,74 @@ namespace graphics {
 
       common::HasChartData &mChartData;
       float mSize;
+  };
+
+  class RenderedText {
+    public:
+      RenderedText() {
+        update(0, 10, true);
+      }
+
+      void drawLeftBottom(od::FrameBuffer &fb, od::Color color, const v2d &left, int value, int size) {
+        draw(fb, color, Box::lbwh(left, mDimensions), value, size);
+      }
+
+      void drawRightBottom(od::FrameBuffer &fb, od::Color color, const v2d &right, int value, int size) {
+        draw(fb, color, Box::rbwh(right, mDimensions), value, size);
+      }
+
+    private:
+      void draw(od::FrameBuffer &fb, od::Color color, const Box &bounds, float value, int size) {
+        update(value, size);
+        //bounds.trace(fb, color);
+        fb.text(color, bounds.left(), bounds.bottom(), mText.c_str(), mSize);
+      }
+
+      void update(float value, int size, bool force = false) {
+        if (mValue == value && !force) return;
+        mValue = value;
+
+        char tmp[8];
+        snprintf(tmp, sizeof(tmp), "%d", mValue);
+        mText = tmp;
+
+        writeDimensions(size);
+      }
+
+      void writeDimensions(int size) {
+        mSize = size;
+        int width, height;
+        od::getTextSize(mText.c_str(), &width, &height, mSize);
+        mDimensions = v2d::of(width, height);
+      }
+
+      int mValue;
+      int mSize;
+      std::string mText;
+      v2d mDimensions;
+  };
+
+  class Readout {
+    public:
+      inline Readout(od::Parameter &parameter) :
+          mParameter(parameter) {
+        mParameter.attach();
+      }
+
+      inline ~Readout() {
+        mParameter.release();
+      }
+
+      void drawLeftBottom(od::FrameBuffer &fb, od::Color color, const v2d &left, int size) {
+        mText.drawLeftBottom(fb, color, left, mParameter.value(), size);
+      }
+
+      void drawRightBottom(od::FrameBuffer &fb, od::Color color, const v2d &right, int size) {
+        mText.drawRightBottom(fb, color, right, mParameter.value(), size);
+      }
+
+    private:
+      od::Parameter &mParameter;
+      RenderedText mText;
   };
 }

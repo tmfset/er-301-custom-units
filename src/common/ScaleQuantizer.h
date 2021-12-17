@@ -25,6 +25,11 @@ namespace common {
         return mDetection.detectedCents();
       }
 
+
+      int detectedOctaveValue() const {
+        return mDetection.detectedOctave();
+      }
+
       float quantizedCentValue() const {
         return mDetection.quantizedCents();
       }
@@ -47,6 +52,10 @@ namespace common {
           incomingOctave = util::fdr(voltage);
           incomingPitch  = voltage - incomingOctave;
           outgoingPitch  = scale.quantizePitch(incomingPitch);
+        }
+
+        inline int detectedOctave() const {
+          return incomingOctave;
         }
 
         inline float detectedCents() const {
