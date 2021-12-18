@@ -7,6 +7,7 @@
 #include <slew.h>
 #include <vector>
 #include "v2d.h"
+#include <stdio.h>
 
 using namespace common;
 

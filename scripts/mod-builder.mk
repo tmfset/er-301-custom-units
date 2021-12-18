@@ -53,7 +53,7 @@ endif
 
 ifeq ($(ARCH),darwin)
   INSTALLROOT.darwin = ~/.od/front
-  CFLAGS.darwin = -Wno-deprecated-declarations -msse4 -fPIC
+  CFLAGS.darwin = -Wno-deprecated-declarations -march=native -fPIC
   LFLAGS = -dynamic -undefined dynamic_lookup -lSystem
 endif
 

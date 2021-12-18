@@ -36,31 +36,31 @@ $(addsuffix -list,$(PROJECTS)):
 	+$(MAKE) -f src/mods/$(PROJECT)/mod.mk list PKGNAME=$(PROJECT)
 
 am335x-docker:
-	docker build docker/er-301-am335x-build-env/ -t er-301-am335x-build-env
+	docker build docker/er-301-am335x-build-env/ -t er-301-am335x-build-env --platform=linux/amd64
 
 release:
-	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units $(docker_image) \
-		make -j all ARCH=am335x PROFILE=release
+	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units $(docker_image) --platform=linux/amd64 \
+		make -j 4 all ARCH=am335x PROFILE=release
 
 testing:
-	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units $(docker_image) \
-		make -j all ARCH=am335x PROFILE=testing
+	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units $(docker_image) --platform=linux/amd64 \
+		make -j 4 all ARCH=am335x PROFILE=testing
 
 release-asm:
-	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units $(docker_image) \
-		make -j asm ARCH=am335x PROFILE=release
+	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units $(docker_image) --platform=linux/amd64 \
+		make -j 4 asm ARCH=am335x PROFILE=release
 
 er-301-docker:
-	docker run --privileged -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units/er-301 $(docker_image) \
-		make -j ARCH=am335x PROFILE=release
+	docker run --privileged -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units/er-301 $(docker_image) --platform=linux/amd64 \
+		make -j 4 ARCH=am335x PROFILE=release
 
 er-301-docker-testing:
-	docker run --privileged -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units/er-301 $(docker_image) \
-		make -j ARCH=am335x PROFILE=testing
+	docker run --privileged -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units/er-301 $(docker_image) --platform=linux/amd64 \
+		make -j 4 ARCH=am335x PROFILE=testing
 
 release-missing:
-	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units $(docker_image) \
-		make -j strike-missing ARCH=am335x PROFILE=release
+	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units $(docker_image) --platform=linux/amd64 \
+		make -j 4 strike-missing ARCH=am335x PROFILE=release
 
 clean:
 	rm -rf testing debug release
