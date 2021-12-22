@@ -61,6 +61,17 @@ namespace common {
         );
       }
 
+      inline v2d lerp(const v2d &to, float by) const {
+        return of(
+          util::flerpi(mX, to.mX, by),
+          util::flerpi(mY, to.mY, by)
+        );
+      }
+
+      inline v2d swap() const { return of(mY, mX); }
+      inline v2d rotateCW() const { return of(mY, -mX); }
+      inline v2d rotateCCW() const { return of(-mY, mX); }
+
       inline v2d atX(float _x) const { return of(_x, mY); }
       inline v2d atY(float _y) const { return of(mX, _y); }
 

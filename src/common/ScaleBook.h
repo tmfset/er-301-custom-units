@@ -8,7 +8,7 @@ namespace common {
   class ScaleBook {
     public:
       inline ScaleBook() {
-        addPitch(0);
+        //addPitch(0);
         //addPitch(100);
         //addPitch(200);
         addPitch(300);

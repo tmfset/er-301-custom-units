@@ -465,6 +465,11 @@ namespace util {
   inline int    clamp(  int v,  int _min,  int _max) { return min(max(v, _min), _max); }
   inline float fclamp(float v, float min, float max) { return fmin(fmax(v, min), max); }
 
+  // Lerp imprecise. Does not guarantee output = to when by = 1
+  inline float flerpi(float from, float to, float by) {
+    return from + by * (to - from);
+  }
+
   inline float fpclamp(float v, float a, float b) {
     return fclamp(v, fmin(a, b), fmax(a, b));
   }
@@ -479,17 +484,31 @@ namespace util {
     return min(m, n - m);
   }
 
-  // Float half-round
-  inline int fhr(float v) {
-    int iv = v;
-    float d = v - iv;
-    return d >= 0.5f ? iv + 1 : iv;
+  inline float fmod(float a, int n) {
+    auto i = (int)a;
+    auto diff = a - i;
+    return mod(i, n) + diff;
   }
+
+  // inline float fmoddst(float a, float b, int n) {
+  //   auto m = fmod(a - b, n);
+  //   return fmin(m, n - m);
+  // }
 
   // Float down-round
   inline int fdr(float v) {
     int iv = v;
     return v < 0 ? iv - 1 : iv;
+  }
+
+  // Float half-round
+  inline int fhr(float v) {
+    return fdr(v + 0.5);
+  }
+
+  // Float up-round
+  inline int fur(float v) {
+    return fdr(v + 1);
   }
 
   inline float toDecibels(float x) {

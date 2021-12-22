@@ -106,7 +106,7 @@ namespace lojik {
             if (doCapture) mState.setCurrent(ingb[j]);
 
             auto value = mState.windowValue();
-            value = mScaleQuantizer.quantizeAndDetect(value);
+            value = mScaleQuantizer.process(value);
             out[i + j] = value;
           }
         }
@@ -148,11 +148,11 @@ namespace lojik {
       }
 
       float getChartValue(int i) {
-        return mScaleQuantizer.quantize(mState.windowValueAt(i));
+        return mState.windowValueAt(i);
       }
 
       const common::Scale& currentScale() {
-        return mScaleQuantizer.currentScale();
+        return mScaleQuantizer.current();
       }
 
       int getScaleSize() { return currentScale().size(); }

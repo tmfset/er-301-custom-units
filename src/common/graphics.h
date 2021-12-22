@@ -593,19 +593,36 @@ namespace graphics {
   struct Keyboard {
     //  1 3   6 8 A
     // 0 2 4 5 7 9 B
-    static inline bool isBlackKey(float key) {
-      int i = util::fhr(key);
-      if (i == 1) return true;
-      if (i == 3) return true;
-      if (i == 6) return true;
-      if (i == 8) return true;
-      if (i == 10) return true;
+    static inline bool isBlackKey(int key) {
+      if (key == 1) return true;
+      if (key == 3) return true;
+      if (key == 6) return true;
+      if (key == 8) return true;
+      if (key == 10) return true;
       return false;
     }
 
     static inline v2d keyPosition(const v2d &runRise, float key) {
       float offset = key > 4 ? 1 : 0;
+      return runRise * v2d::of(key + offset, isBlackKey(util::fhr(key)) ? 1 : 0);
+    }
+
+    static inline v2d keyPositionInt(const v2d &runRise, int key) {
+      float offset = key > 4 ? 1 : 0;
       return runRise * v2d::of(key + offset, isBlackKey(key) ? 1 : 0);
+    }
+
+    static inline v2d keyPositionInterpolate(const v2d &runRise, float key) {
+      // 2.3  -> 2, 3
+      // 10.2 -> 10, 11
+      // 11.2 -> 11, 12
+      // 11.6 -> -1, 0
+      key = key > 11.5 ? key - 12 : key;
+      auto keyLow = util::fdr(key);
+      auto keyHigh = util::fur(key);
+      auto low = keyPositionInt(runRise, keyLow);
+      auto high = keyPositionInt(runRise, keyHigh);
+      return low.lerp(high, key - keyLow);
     }
 
     static inline void draw(
@@ -614,10 +631,15 @@ namespace graphics {
       const Circle &base,
       const v2d &runRise
     ) {
-      auto detected = data.getDetectedCentValue() / 100.0f;
+      auto detected  = data.getDetectedCentValue() / 100.0f;
       auto quantized = data.getQuantizedCentValue() / 100.0f;
-      base.offset(keyPosition(runRise, detected)).fill(fb, GRAY3);
-      base.offset(keyPosition(runRise, quantized)).fill(fb, GRAY10);
+      base.offset(keyPositionInterpolate(runRise, detected)).fill(fb, GRAY3);
+      base.offset(keyPositionInterpolate(runRise, quantized)).fill(fb, GRAY10);
+
+      auto octave = data.getDetectedOctaveValue();
+      auto offset = runRise.atY(0).scale(1.5).rotateCW();
+      if (octave < 0) Point(base.center.offset(keyPosition(runRise, 0) + offset)).arrowsLeft(fb, GRAY10, -octave, 3);
+      if (octave > 0) Point(base.center.offset(keyPosition(runRise, 11) + offset)).arrowsRight(fb, GRAY10, octave, 3);
 
       for (int i = 0; i < 12; i++) {
         base.offset(keyPosition(runRise, i)).trace(fb, GRAY5);
@@ -656,13 +678,6 @@ namespace graphics {
         aligned.inner(mPad).minCircle(),
         v2d::of(radius, diameter)
       );
-
-      auto right = bounds.splitRight(0.5);
-      auto left = bounds.splitLeft(0.5);
-
-      auto octave = mScaleData.getDetectedOctaveValue();
-      if (octave > 0) Point(right.bottomCenter()).arrowsRight(fb, WHITE, octave, 2);
-      if (octave < 0) Point(left.bottomCenter()).arrowsLeft(fb, WHITE, -octave, 2);
     }
 
     common::HasScaleData &mScaleData;
@@ -813,10 +828,6 @@ namespace graphics {
 
   class RenderedText {
     public:
-      RenderedText() {
-        update(0, 10, true);
-      }
-
       void drawLeftBottom(od::FrameBuffer &fb, od::Color color, const v2d &left, int value, int size) {
         draw(fb, color, Box::lbwh(left, mDimensions), value, size);
       }
@@ -828,12 +839,11 @@ namespace graphics {
     private:
       void draw(od::FrameBuffer &fb, od::Color color, const Box &bounds, float value, int size) {
         update(value, size);
-        //bounds.trace(fb, color);
         fb.text(color, bounds.left(), bounds.bottom(), mText.c_str(), mSize);
       }
 
-      void update(float value, int size, bool force = false) {
-        if (mValue == value && !force) return;
+      void update(float value, int size) {
+        if (mValue == value && mSize == size) return;
         mValue = value;
 
         char tmp[8];

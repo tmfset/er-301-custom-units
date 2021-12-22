@@ -14,9 +14,6 @@
 #define BUILDOPT_DEBUG_LEVEL 10
 #include <hal/log.h>
 
-#define SSTR( x ) dynamic_cast< std::ostringstream & >( \
-            ( std::ostringstream() << std::dec << x ) ).str()
-
 #define LANES 4
 
 #define VOICES GROUPS * LANES
@@ -267,11 +264,17 @@ namespace polygon {
 
     private:
       class VoiceControl {
+        static std::string concat(const std::string &name, int id) {
+          std::stringstream s;
+          s << name << id;
+          return s.str();
+        }
+
         public:
           inline void init(Polygon &obj, int id) {
-            mGate       = new od::Inlet     { SSTR("Gate" << id) };
-            mVpoDirect  = new od::Parameter { SSTR("V/Oct" << id) };
-            mVpoOffset  = new od::Parameter { SSTR("V/Oct Offset" << id) };
+            mGate       = new od::Inlet     { concat("Gate", id) };
+            mVpoDirect  = new od::Parameter { concat("V/Oct", id) };
+            mVpoOffset  = new od::Parameter { concat("V/Oct Offset",id) };
 
             obj.addInputFromHeap(mGate);
             obj.addParameterFromHeap(mVpoDirect);

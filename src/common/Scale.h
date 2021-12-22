@@ -3,6 +3,9 @@
 #include <od/config.h>
 #include <vector>
 #include <algorithm>
+#include "util.h"
+
+#define CENTS_PER_OCTAVE 1200.0f
 
 namespace common {
   class Scale {
@@ -33,32 +36,6 @@ namespace common {
 
       inline float getCentValue(int i) const {
         return mCentValues.at(i);
-      }
-
-      inline float quantizePitch(float pitch) const {
-        auto iterator = std::upper_bound(
-          mPitchBoundaries.begin(),
-          mPitchBoundaries.end(),
-          pitch
-        );
-
-        return mPitchClasses[std::distance(mPitchBoundaries.begin(), iterator)];
-      }
-
-      inline float quantize(float value) {
-        float V = FULLSCALE_IN_VOLTS * value;
-        int octave = (int)V;
-        // Remove octaves
-        float pitch = V - octave;
-        // pitch is now in  (-1,1)
-        // Find the first quantized pitch that is greater than the candidate pitch.
-        std::vector<float>::iterator i = std::upper_bound(mPitchBoundaries.begin(),
-                                                          mPitchBoundaries.end(),
-                                                          pitch);
-        pitch = mPitchClasses[std::distance(mPitchBoundaries.begin(), i)];
-        // Add octaves back in
-        V = pitch + octave;
-        return V * (1.0f / FULLSCALE_IN_VOLTS);
       }
 
     private:
