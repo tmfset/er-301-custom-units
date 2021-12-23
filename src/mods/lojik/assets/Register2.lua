@@ -39,6 +39,8 @@ function Register:onLoadGraph(channelCount)
   local length  = self:addParameterAdapterControl("length")
   local stride  = self:addParameterAdapterControl("stride")
 
+  local scale = self:addParameterAdapterControl("scale")
+
 
   local outputGain = self:addParameterAdapterControl("outputGain")
   local outputBias = self:addParameterAdapterControl("outputBias")
@@ -55,6 +57,7 @@ function Register:onLoadGraph(channelCount)
   tie(register, "Shift",  shift,  "Out")
   tie(register, "Length", length, "Out")
   tie(register, "Stride", stride, "Out")
+  tie(register, "Quantize Scale", scale, "Out")
 
   tie(register, "Output Gain", outputGain, "Out")
   tie(register, "Output Bias", outputBias, "Out")
@@ -209,6 +212,17 @@ function Register:onLoadViews()
       biasPrecision = 2,
       initialBias   = 0
     },
+    scale  = GainBias {
+      button        = "scale",
+      description   = "Scale",
+      branch        = self.branches.scale,
+      gainbias      = self.objects.scale,
+      range         = self.objects.scale,
+      gainMap       = self.intMap(-20, 20),
+      biasMap       = self.intMap(0, 20),
+      biasPrecision = 0,
+      initialBias   = 0
+    },
     inputGain   = GainBias {
       button        = "iGain",
       description   = "Input Gain",
@@ -236,7 +250,7 @@ function Register:onLoadViews()
       register = self.objects.register
     }
   }, {
-    expanded = { "length", "stride", "offset", "shift", "outputGain", "outputBias", "register" }
+    expanded = { "length", "stride", "offset", "shift", "outputGain", "outputBias", "scale", "register" }
   }
   -- return {
   --   wave1 = OutputScope {

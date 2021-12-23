@@ -610,13 +610,13 @@ namespace graphics {
       if (octave > 0) Point(base.center.offset(keyPosition(runRise, 11) + offset)).arrowsRight(fb, GRAY10, octave, 3);
 
       for (int i = 0; i < 12; i++) {
-        base.offset(keyPosition(runRise, i)).trace(fb, GRAY5);
+        base.offset(keyPositionInterpolate(runRise, i)).trace(fb, GRAY5);
       }
 
       int length = data.getScaleSize();
       for (int i = 0; i < length; i++) {
         float key = data.getScaleCentValue(i) / 100.0f;
-        base.offset(keyPosition(runRise, key)).trace(fb, GRAY13);
+        base.offset(keyPositionInterpolate(runRise, key)).trace(fb, GRAY13);
       }
     }
   };

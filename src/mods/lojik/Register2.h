@@ -49,6 +49,8 @@ namespace lojik {
         const float *shiftGate    = mShiftGate.buffer();
         const float *resetGate    = mResetGate.buffer();
 
+        mScaleQuantizer.setCurrent(mQuantizeScale.value());
+
         mState.setAbsoluteOffset(mOffset.value());
         mState.setWindowShift(mShift.value());
         mState.setWindowStride(mStride.value());

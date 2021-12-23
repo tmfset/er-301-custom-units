@@ -42,6 +42,11 @@ namespace common {
       };
     }
 
+    inline void resetBounds() {
+      mLowerBound = 2 * CENTS_PER_OCTAVE;
+      mUpperBound = -CENTS_PER_OCTAVE;
+    }
+
     inline bool inBounds(float cents) const {
       return cents > mLowerBound && cents < mUpperBound;
     }
@@ -96,6 +101,7 @@ namespace common {
 
       inline void configure(const Scale &scale) {
         if (scale.isEmpty()) return;
+        mQuantized.resetBounds();
 
         int total  = scale.size();
         int note   = 0;
@@ -131,7 +137,7 @@ namespace common {
       inline ScaleQuantizer() {}
 
       inline void setCurrent(int i) {
-        mIndex = i;
+        mIndex = util::mod(i, mScaleBook.size());
         mRefresh = true;
       }
 
