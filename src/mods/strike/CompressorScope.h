@@ -62,7 +62,7 @@ namespace strike {
         auto quarter = height / 4.0f;
         auto eigth   = height / 8.0f;
 
-        auto center = util::fhr(world.center.y());
+        auto center = util::fhr(world.centerY());
         auto left   = world.left() + 1;
         auto right  = world.right() - 1;
 

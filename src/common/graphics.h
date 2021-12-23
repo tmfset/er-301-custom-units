@@ -156,10 +156,10 @@ namespace graphics {
 
   struct Box {
     inline Box(const v2d &_lb, const v2d &_rt) :
-        leftBottom(_lb),
-        rightTop(_rt),
-        widthHeight(_rt - _lb),
-        center(leftBottom + widthHeight * 0.5) { }
+        mLeftBottom(_lb),
+        mRightTop(_rt),
+        mWidthHeight(_rt - _lb),
+        mCenter(mLeftBottom + mWidthHeight * 0.5) { }
 
     static inline Box lbrt_raw(const v2d &_lb, const v2d &_rt) {
       return Box(_lb, _rt);
@@ -206,30 +206,24 @@ namespace graphics {
       return cwh(c, v2d::of(s));
     }
 
-    inline Box inner(const v2d &m) const {
-      return lbrt(leftBottom + m, rightTop - m);
-    }
-
-    inline Box inner(float x, float y) const {
-      return inner(v2d::of(x, y));
-    }
-
-    inline Box inner(float m)  const { return inner(v2d::of(m)); }
-    inline Box innerX(float x) const { return inner(v2d::of(x, 0)); }
-    inline Box innerY(float y) const { return inner(v2d::of(0, y)); }
+    inline Box inner(const v2d &m)     const { return lbrt(leftBottom() + m, rightTop() - m); }
+    inline Box inner(float x, float y) const { return inner(v2d::of(x, y)); }
+    inline Box inner(float m)          const { return inner(v2d::of(m)); }
+    inline Box innerX(float x)         const { return inner(v2d::of(x, 0)); }
+    inline Box innerY(float y)         const { return inner(v2d::of(0, y)); }
 
     inline Box square(float size) const {
-      return cs(center, size);
+      return cs(center(), size);
     }
 
     inline Box padRight(float by) const {
-      return lbrt(leftBottom, rightTop - v2d::of(by, 0));
+      return lbrt(leftBottom(), rightTop() - v2d::of(by, 0));
     }
 
     inline Box topLeftCorner(float w, float h) const {
-      auto _wh = widthHeight * v2d::of(w, h);
-      auto _lb = leftBottom;
-      auto _rt = rightTop;
+      auto _wh = widthHeight() * v2d::of(w, h);
+      auto _lb = leftBottom();
+      auto _rt = rightTop();
 
       return lbrt_raw(
         v2d::of(_lb.x(), _rt.y() - _wh.y()),
@@ -238,212 +232,186 @@ namespace graphics {
     }
 
     inline Box divideTop(float by) const {
-      auto _wh = widthHeight;
-      auto _lb = leftBottom;
-      auto _rt = rightTop;
+      auto _wh = widthHeight();
+      auto _lb = leftBottom();
+      auto _rt = rightTop();
       return lbrt_raw(v2d::of(_lb.x(), _rt.y() - _wh.y() * by), _rt);
     }
 
     inline Box divideBottom(float by) const {
-      auto _wh = widthHeight;
-      auto _lb = leftBottom;
-      auto _rt = rightTop;
+      auto _wh = widthHeight();
+      auto _lb = leftBottom();
+      auto _rt = rightTop();
       return lbrt_raw(_lb, v2d::of(_rt.x(), _lb.y() + _wh.y() * by));
     }
 
-    inline Box scale(const v2d &by) const {
-      return cwh(center, widthHeight * by);
-    }
-
-    inline Box scale(float by) const {
-      return scale(v2d::of(by));
-    }
-
-    inline Box scaleWidth(float by) const {
-      return scale(v2d::of(by, 1));
-    }
-
-    inline Box scaleHeight(float by) const {
-      return scale(v2d::of(1, by));
-    }
-
     inline Box withWidth(float w) const {
-      return cwh(center, widthHeight.atX(w));
+      return cwh(center(), widthHeight().atX(w));
     }
 
     inline Box withHeight(float h) const {
-      return cwh(center, widthHeight.atY(h));
+      return cwh(center(), widthHeight().atY(h));
     }
 
     inline Box splitLeft(float by) const {
-      auto _wh = widthHeight;
-      auto _lb = leftBottom;
-      auto _rt = rightTop;
+      auto _wh = widthHeight();
+      auto _lb = leftBottom();
+      auto _rt = rightTop();
       return lbrt_raw(_lb, v2d::of(_lb.x() + _wh.y() * by, _rt.y()));
     }
 
     inline Box splitRight(float by) const {
-      auto _wh = widthHeight;
-      auto _lb = leftBottom;
-      auto _rt = rightTop;
+      auto _wh = widthHeight();
+      auto _lb = leftBottom();
+      auto _rt = rightTop();
       return lbrt_raw(v2d::of(_rt.x() - _wh.x() * by, _lb.y()), _rt);
     }
 
     inline Box withWidthFromLeft(float _width) const {
-      return lbwh(leftBottom, widthHeight.atX(_width));
+      return lbwh(leftBottom(), widthHeight().atX(_width));
     }
 
-    inline Box offset(const v2d &by) const {
-      return lbrt_raw(leftBottom + by, rightTop + by);
-    }
+    inline Box scale(const v2d &by)        const { return cwh(center(), widthHeight() * by); }
+    inline Box scale(float by)             const { return scale(v2d::of(by)); }
+    inline Box scaleWidth(float by)        const { return scale(v2d::of(by, 1)); }
+    inline Box scaleHeight(float by)       const { return scale(v2d::of(1, by)); }
+    inline Box scaleDiscrete(int w, int h) const { return scale(v2d::of(w, h)); }
 
-    inline Box offset(float x, float y) const {
-      return offset(v2d::of(x, y));
-    }
+    inline Box offset(const v2d &by)    const { return lbrt_raw(leftBottom() + by, rightTop() + by); }
+    inline Box offset(float x, float y) const { return offset(v2d::of(x, y)); }
+    inline Box offsetX(float x)         const { return offset(v2d::of(x, 0)); }
+    inline Box offsetY(float y)         const { return offset(v2d::of(0, y)); }
 
-    inline Box offsetX(float x) const {
-      return offset(v2d::of(x, 0));
-    }
+    inline Box quantizeSize()   const { return cwh(center(), widthHeight().quantize()); }
+    inline Box quantizeCenter() const { return cwh(center().quantize(), widthHeight()); }
+    inline Box quantize()       const { return quantizeSize().quantizeCenter(); }
 
-    inline Box offsetY(float y) const {
-      return offset(v2d::of(0, y));
-    }
+    inline Box recenter(const v2d &c)       const { return cwh(c, widthHeight()); }
+    inline Box recenterOn(const Box& other) const { return recenter(other.center()); }
+    inline Box recenterY(float y)           const { return recenter(center().atY(y)); }
+    inline Box recenterX(float x)           const { return recenter(center().atX(x)); }
 
-    inline Box quantizeSize() const {
-      return cwh(center, widthHeight.quantize());
-    }
+    inline float width()       const { return widthHeight().x(); }
+    inline float height()      const { return widthHeight().y(); }
+    inline v2d   widthHeight() const { return mWidthHeight; }
+    inline v2d   center()      const { return mCenter; }
+    inline float centerX()     const { return center().x(); }
+    inline float centerY()     const { return center().y(); }
 
-    inline Box quantizeCenter() const {
-      return cwh(center.quantize(), widthHeight);
-    }
+    inline float left()       const { return leftBottom().x(); }
+    inline v2d   leftBottom() const { return mLeftBottom; }
+    inline v2d   leftTop()    const { return mLeftBottom.atY(top()); }
+    inline v2d   leftCenter() const { return center().atX(left()); }
 
-    inline Box quantize() const {
-      return quantizeSize().quantizeCenter();
-    }
+    inline float bottom()       const { return leftBottom().y(); }
+    inline v2d   bottomCenter() const { return center().atY(bottom()); }
+
+    inline float right()       const { return rightTop().x(); }
+    inline v2d   rightBottom() const { return rightTop().atY(bottom()); }
+    inline v2d   rightTop()    const { return mRightTop; }
+    inline v2d   rightCenter() const { return center().atX(right()); }
+
+    inline float top()       const { return rightTop().y(); }
+    inline v2d   topCenter() const { return center().atY(top()); }
 
     inline Box intersect(const Box& other) const {
       return lbrt(
-        leftBottom.max(other.leftBottom),
-        rightTop.min(other.rightTop)
+        leftBottom().max(other.leftBottom()),
+        rightTop().min(other.rightTop())
       );
-    }
-
-    inline v2d bottomCenter() const {
-      return center.atY(leftBottom.y());
-    }
-
-    inline v2d rightCenter() const {
-      return center.atX(rightTop.x());
-    }
-
-    inline v2d rightBottom() const {
-      return rightTop.atY(leftBottom.y());
-    }
-
-    inline Box recenter(const v2d &c) const {
-      return cwh(c, widthHeight);
-    }
-
-    inline Box recenterOn(const Box& other) const {
-      return recenter(other.center);
-    }
-
-    inline Box recenterY(float y) const {
-      return recenter(center.atY(y));
-    }
-
-    inline Box recenterX(float x) const {
-      return recenter(center.atX(x));
     }
 
     inline v2d clamp(const v2d &v) const {
-      return v.clamp(leftBottom, rightTop);
+      return v.clamp(leftBottom(), rightTop());
     }
 
     inline Box insert(const Box& other) const {
-      auto _lb = other.leftBottom.clamp(
-        leftBottom,
-        clamp(rightTop - other.widthHeight)
+      auto _lb = other.leftBottom().clamp(
+        leftBottom(),
+        clamp(rightTop() - other.widthHeight())
       );
 
-      auto _rt = other.rightTop.clamp(
-        clamp(_lb + other.widthHeight),
-        rightTop
+      auto _rt = other.rightTop().clamp(
+        clamp(_lb + other.widthHeight()),
+        rightTop()
       );
 
       return lbrt(_lb, _rt);
     }
 
-    inline Box alignLeftBottom(const Box &other) const {
-      return lbwh_raw(other.leftBottom, widthHeight);
+    inline Box atLeft(float left)     const { return lbwh_raw(leftBottom().atX(left), widthHeight()); }
+    inline Box atRight(float right)   const { return atLeft(right).offsetX(-width()); }
+    inline Box atCenterX(float x)     const { return cwh(center().atX(x), widthHeight()); }
+    inline Box atBottom(float bottom) const { return lbwh_raw(leftBottom().atY(bottom), widthHeight()); }
+    inline Box atTop(float top)       const { return atBottom(top).offsetY(-height()); }
+    inline Box atCenterY(float y)     const { return cwh(center().atY(y), widthHeight()); }
+
+    inline Box alignLeft(const Box &within)    const { return atLeft(within.left()); }
+    inline Box alignRight(const Box &within)   const { return atRight(within.right()); }
+    inline Box alignCenterX(const Box &within) const { return atCenterX(within.centerX()); }
+    inline Box alignBottom(const Box &within)  const { return atBottom(within.bottom()); }
+    inline Box alignTop(const Box &within)     const { return atTop(within.top()); }
+    inline Box alignCenterY(const Box &within) const { return atCenterY(within.centerY()); }
+
+    inline Box alignLeftBottom(const Box &within)  const { return alignLeft(within).alignBottom(within); }
+    inline Box alignRightBottom(const Box &within) const { return alignRight(within).alignBottom(within); }
+
+    inline float  minDimension() const { return widthHeight().minDimension(); }
+    inline Box    minSquare()    const { return cs(center(), minDimension()); }
+    inline Circle minCircle()    const { return Circle::cr(center(), minDimension() / 2.0f); }
+
+    inline Box justify(const Box &within, od::Justification j) const {
+      switch (j) {
+        case od::justifyLeft:   return alignLeft(within);
+        case od::justifyRight:  return alignRight(within);
+        case od::justifyCenter: return alignCenterX(within);
+      }
     }
 
-    inline Box alignRightBottom(const Box &other) const {
-      auto _wh = widthHeight;
-      auto _lb = other.leftBottom;
-      auto _rt = other.rightTop;
-      return lbrt_raw(
-        v2d::of(_rt.x() - _wh.x(), _lb.y()),
-        v2d::of(_rt.x(), _lb.y() + _wh.y())
-      );
+    inline Box align(const Box &within, od::Alignment a) const {
+      switch (a) {
+        case od::alignTop:    return alignTop(within);
+        case od::alignBottom: return alignBottom(within);
+        case od::alignMiddle: return alignCenterY(within);
+      }
     }
 
-    inline float minDimension() const {
-      return widthHeight.minDimension();
-    }
-
-    inline Box minSquare() const {
-      return cs(center, minDimension());
-    }
-
-    inline Box scaleDiscrete(int w, int h) const {
-      return scale(v2d::of(w, h));
+    inline Box justifyAlign(const Box &within, od::Justification j, od::Alignment a) const {
+      return justify(within, j).align(within, a);
     }
 
     inline bool containsX(float x) const {
-      return x > leftBottom.x() && x < rightTop.x();
+      return x > leftBottom().x() && x < rightTop().x();
     }
 
     inline void fill(od::FrameBuffer &fb, od::Color color) const {
-      fb.fill(color, leftBottom.x(), leftBottom.y(), rightTop.x(), rightTop.y());
+      fb.fill(color, leftBottom().x(), leftBottom().y(), rightTop().x(), rightTop().y());
     }
 
     inline void clear(od::FrameBuffer &fb) const {
-      fb.clear(leftBottom.x(), leftBottom.y(), rightTop.x(), rightTop.y());
+      fb.clear(leftBottom().x(), leftBottom().y(), rightTop().x(), rightTop().y());
     }
 
     inline void lineTopIn(od::FrameBuffer &fb, od::Color color, int dotting = 0) const {
-      fb.hline(color, leftBottom.x() + 1, rightTop.x() - 1, rightTop.y(), dotting);
+      fb.hline(color, leftBottom().x() + 1, rightTop().x() - 1, rightTop().y(), dotting);
     }
 
     inline void lineBottomIn(od::FrameBuffer &fb, od::Color color, int dotting = 0) const {
-      fb.hline(color, leftBottom.x() + 1, rightTop.x() - 1, leftBottom.y(), dotting);
+      fb.hline(color, leftBottom().x() + 1, rightTop().x() - 1, leftBottom().y(), dotting);
     }
 
     inline void trace(od::FrameBuffer &fb, od::Color color) const {
-      fb.box(color, leftBottom.x(), leftBottom.y(), rightTop.x(), rightTop.y());
+      fb.box(color, leftBottom().x(), leftBottom().y(), rightTop().x(), rightTop().y());
     }
 
     inline void outline(od::FrameBuffer &fb, od::Color color) const {
-      fb.box(color, leftBottom.x() - 1, leftBottom.y() - 1, rightTop.x() + 1, rightTop.y() + 1);
+      fb.box(color, leftBottom().x() - 1, leftBottom().y() - 1, rightTop().x() + 1, rightTop().y() + 1);
     }
 
-    inline float width()  const { return widthHeight.x(); }
-    inline float height() const { return widthHeight.y(); }
-
-    inline float left()   const { return leftBottom.x(); }
-    inline float bottom() const { return leftBottom.y(); }
-    inline float right()  const { return rightTop.x(); }
-    inline float top()    const { return rightTop.y(); }
-
-    inline Circle minCircle() const {
-      return Circle::cr(center, minDimension() / 2.0f);
-    }
-
-    const v2d leftBottom;
-    const v2d rightTop;
-    const v2d widthHeight;
-    const v2d center;
+    const v2d mLeftBottom;
+    const v2d mRightTop;
+    const v2d mWidthHeight;
+    const v2d mCenter;
   };
 
   struct Grid {
@@ -451,8 +419,8 @@ namespace graphics {
       mark(topLeft.quantize().inner(pad)),
       cols(_cols),
       rows(_rows),
-      cStep(topLeft.widthHeight.x()),
-      rStep(-topLeft.widthHeight.y()) { }
+      cStep(topLeft.widthHeight().x()),
+      rStep(-topLeft.widthHeight().y()) { }
 
     static inline Grid create(const Box& world, int cols, int rows, float pad) {
       float iCols = 1.0f / cols;
@@ -505,7 +473,7 @@ namespace graphics {
     }
 
     static inline IFader box(const Box &b) {
-      return IFader(b.center.x(), b.bottom(), b.top(), b.width());
+      return IFader(b.centerX(), b.bottom(), b.top(), b.width());
     }
 
     inline void draw(od::FrameBuffer &fb, od::Color color) const {
@@ -555,7 +523,7 @@ namespace graphics {
     }
 
     static inline HFader box(const Box &b) {
-      return HFader(b.center.y(), b.left(), b.right(), b.height() / 2.0f);
+      return HFader(b.centerY(), b.left(), b.right(), b.height() / 2.0f);
     }
 
     inline void draw(od::FrameBuffer &fb, od::Color color) const {
@@ -728,23 +696,27 @@ namespace graphics {
         mChartData.release();
       }
 
-      inline void draw(od::FrameBuffer &fb, const Box& world) const {
+      inline void draw(od::FrameBuffer &fb, const Box& world) {
         auto length  = mChartData.getChartSize();
         auto current = mChartData.getChartCurrentIndex();
         auto base    = mChartData.getChartBaseIndex();
 
         auto fullWidth = length * mBarWidth + (length - 1) * mBarSpace;
-        auto chart     = Box::cwh(world.center, v2d::of(fullWidth, world.height()));
+        auto chart     = Box::cwh(world.center(), v2d::of(fullWidth, world.height()));
 
         auto window  = chart.insert(world.recenterX(chart.left() + barCenter(current)));
         auto view    = window.recenterOn(world);
 
+        auto maxValue = 0.0f;
         for (int i = 0; i < length; i++) {
           auto cx = chart.left() + barCenter(i);
-          auto xy = view.center.atX(cx - window.left() + view.left());
+          auto xy = view.center().atX(cx - window.left() + view.left());
           if (!view.containsX(xy.x())) continue;
 
-          auto h  = mChartData.getChartValue(i) * world.height() / 2.0f;
+          auto v = mChartData.getChartValue(i);
+          maxValue = util::fmax(maxValue, util::fabs(v));
+
+          auto h  = v * mScale * world.height() / 2.0f;
           auto wh = v2d::of(mBarWidth, h);
 
           auto isCurrent = i == current;
@@ -753,6 +725,8 @@ namespace graphics {
           if (isBase) Box::cs(xy, mBarWidth + 2).trace(fb, GRAY5);
           if (isCurrent) Box::cs(xy, mBarWidth + 2).trace(fb, WHITE);
         }
+
+        mScale = 1.0f / util::fmax(maxValue, 0.1);
       }
 
     private:
@@ -768,6 +742,7 @@ namespace graphics {
 
       int mBarWidth;
       int mBarSpace;
+      float mScale;
   };
 
   class CircleChart {
@@ -824,6 +799,33 @@ namespace graphics {
 
       common::HasChartData &mChartData;
       float mSize;
+  };
+
+  class Text {
+    public:
+      inline Text(std::string str, int size) :
+          mValue(str),
+          mSize(size) {
+        int width, height;
+        od::getTextSize(mValue.c_str(), &width, &height, size);
+        mDimensions = v2d::of(width, height);
+      }
+
+      inline void draw(
+        od::FrameBuffer &fb,
+        od::Color color,
+        const Box &within,
+        od::Justification j,
+        od::Alignment a
+      ) const {
+        auto position = Box::lbwh_raw(v2d::of(0), mDimensions).justifyAlign(within, j, a);
+        fb.text(color, position.left(), position.bottom(), mValue.c_str(), mSize);
+      }
+
+    private:
+      std::string mValue;
+      int mSize;
+      v2d mDimensions;
   };
 
   class RenderedText {
@@ -888,5 +890,15 @@ namespace graphics {
     private:
       od::Parameter &mParameter;
       RenderedText mText;
+  };
+
+  class TextList {
+    public:
+    private:
+      std::vector<std::string> mRows;
+      int mSelectedIndex = 0;
+
+      int mTextSize;
+      od::Justification mJustification;
   };
 }

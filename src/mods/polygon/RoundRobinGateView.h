@@ -45,7 +45,7 @@ namespace polygon {
             boxCircle.fill(fb, primaryColor * fillColor);
             boxCircle.trace(fb, secondaryColor);
 
-            auto point = graphics::Point(box.center);
+            auto point = graphics::Point(box.center());
 
             if (mObservable.isVoiceArmed(index)) {
               point.diamond(fb, primaryColor);

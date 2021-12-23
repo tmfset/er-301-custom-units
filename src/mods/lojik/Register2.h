@@ -148,7 +148,7 @@ namespace lojik {
       }
 
       float getChartValue(int i) {
-        return mState.windowValueAt(i);
+        return mScaleQuantizer.quantizeValue(mState.windowValueAt(i));
       }
 
       const common::Scale& currentScale() {

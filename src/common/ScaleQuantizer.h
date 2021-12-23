@@ -34,15 +34,23 @@ namespace common {
       mLowerBound(lower),
       mUpperBound(upper) { }
 
-    bool inBounds(float cents) const {
+    static inline QuantizedPitch from(float cents, float previous, float next) {
+      return QuantizedPitch {
+        cents,
+        cents + (previous - cents) / 2.0f,
+        cents + (next - cents) / 2.0f
+      };
+    }
+
+    inline bool inBounds(float cents) const {
       return cents > mLowerBound && cents < mUpperBound;
     }
 
-    Pitch atOctave(int o) const {
+    inline Pitch atOctave(int o) const {
       return Pitch::from(o, mCents);
     }
 
-    float wrappedCents() const {
+    inline float wrappedCents() const {
       return util::fmod(mCents, CENTS_PER_OCTAVE);
     }
 
@@ -56,32 +64,39 @@ namespace common {
     public:
       inline Quantizer() {}
 
-      float process(float value) {
+      inline QuantizedPitch quantize(const Pitch &detected) const {
+        int upper = 0;
+        for (; upper < SPAN * 2; upper++) {
+          if (detected.cents < mCentValues[upper]) break;
+        }
+
+        auto lower = upper - 1;
+        auto upperDist = util::fabs(mCentValues[upper] - detected.cents);
+        auto lowerDist = util::fabs(mCentValues[lower] - detected.cents);
+
+        auto index = upperDist < lowerDist ? upper : lower;
+        auto value = mCentValues[index];
+
+        return QuantizedPitch::from(value, mCentValues[index - 1], mCentValues[index + 1]);
+      }
+
+      inline float quantizeValue(float value) const {
+        auto detected = Pitch::from(value);
+        return quantize(detected).atOctave(detected.octave).value();
+      }
+
+      inline float process(float value) {
         mDetected = Pitch::from(value);
         if (mQuantized.inBounds(mDetected.cents))
           return mQuantized.atOctave(mDetected.octave).value();
 
-        int upperIndex = 0;
-        for (; upperIndex < SPAN * 2; upperIndex++) {
-          if (mCentValues[upperIndex] > mDetected.cents) break;
-        }
-
-        auto lowerIndex = upperIndex - 1;
-
-        auto upperDist = fabs(mCentValues[upperIndex] - mDetected.cents);
-        auto lowerDist = fabs(mCentValues[lowerIndex] - mDetected.cents);
-
-        auto closestIndex = upperDist < lowerDist ? upperIndex : lowerIndex;
-        auto closestValue = mCentValues[closestIndex];
-
-        auto lowerBound = closestValue + (mCentValues[closestIndex - 1] - closestValue) / 2.0f;
-        auto upperBound = closestValue + (mCentValues[closestIndex + 1] - closestValue) / 2.0f;
-
-        mQuantized = QuantizedPitch { closestValue, lowerBound, upperBound };
+        mQuantized = quantize(mDetected);
         return mQuantized.atOctave(mDetected.octave).value();
       }
 
-      void configure(const Scale &scale) {
+      inline void configure(const Scale &scale) {
+        if (scale.isEmpty()) return;
+
         int total  = scale.size();
         int note   = 0;
         int octave = 0;
@@ -115,25 +130,29 @@ namespace common {
     public:
       inline ScaleQuantizer() {}
 
-      void setCurrent(int i) {
+      inline void setCurrent(int i) {
         mIndex = i;
         mRefresh = true;
       }
 
-      const Scale& current() const {
+      inline const Scale& current() const {
         return *mCurrent;
       }
 
-      float detectedCentValue() const {
+      inline float detectedCentValue() const {
         return mQuantizer.detected().cents;
       }
 
-      float detectedOctaveValue() const {
+      inline float detectedOctaveValue() const {
         return mQuantizer.detected().octave;
       }
 
-      float quantizedCentValue() const {
+      inline float quantizedCentValue() const {
         return mQuantizer.quantized().wrappedCents();
+      }
+
+      inline float quantizeValue(float value) const {
+        return mQuantizer.quantizeValue(value);
       }
 
       inline float process(float value) {
@@ -141,7 +160,7 @@ namespace common {
         return mQuantizer.process(value);
       }
 
-      void prepare() {
+      inline void prepare() {
         if (!mRefresh) return;
         mCurrent = &mScaleBook.scale(mIndex);
         mRefresh = false;
