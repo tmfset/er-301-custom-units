@@ -6,8 +6,6 @@
 #include <string>
 #include "util.h"
 
-#define CENTS_PER_OCTAVE 1200.0f
-
 namespace common {
   // class Scale {
   //   public:

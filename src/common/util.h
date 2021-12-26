@@ -11,6 +11,8 @@
 #define BUILDOPT_DEBUG_LEVEL 10
 #include <hal/log.h>
 
+#define CENTS_PER_OCTAVE 1200
+
 namespace util {
   namespace simd {
     #define c_inv_mant_mask ~0x7f800000u
@@ -364,8 +366,9 @@ namespace util {
       }
     }
 
-    inline void print_f(float x) {
+    inline void print_f(float x, bool newline = false) {
       logRaw("%f\n", x);
+      if (newline) logRaw("\n");
     }
 
     inline void print_u32(const uint32x4_t x, bool newline = false) {
@@ -520,6 +523,15 @@ namespace util {
   inline float fromDecibels(float x) {
     // 10^(x/20)
     return powf(10.0f, x * 0.05);
+  }
+
+  inline float toVoltage(float x)   { return x * FULLSCALE_IN_VOLTS; }
+  inline float fromVoltage(float x) { return x / FULLSCALE_IN_VOLTS; }
+  inline float toCents(float x)     { return x * CENTS_PER_OCTAVE; }
+  inline float fromCents(float x)   { return x / CENTS_PER_OCTAVE; }
+
+  inline float toOctave(float x) {
+    return (int)(x + FULLSCALE_IN_VOLTS) - FULLSCALE_IN_VOLTS;
   }
 
   inline uint32_t bcvt(const bool b) {
@@ -956,6 +968,39 @@ namespace util {
   }
 
   namespace four {
+    // Round towards zero
+    inline float32x4_t frtz(float32x4_t v) {
+      return vcvtq_f32_s32(vcvtq_s32_f32(v));
+    }
+
+    inline float32x4_t toVoltage(float32x4_t v)   { return v * vdupq_n_f32(FULLSCALE_IN_VOLTS); }
+    inline float32x4_t fromVoltage(float32x4_t v) { return v * vdupq_n_f32(1.0f / FULLSCALE_IN_VOLTS); }
+    inline float32x4_t toCents(float32x4_t v)     { return v * vdupq_n_f32(CENTS_PER_OCTAVE); }
+    inline float32x4_t fromCents(float32x4_t v)   { return v * vdupq_n_f32(1.0f / CENTS_PER_OCTAVE); }
+
+    inline float32x4_t toOctave(float32x4_t v) {
+      auto fiv = vdupq_n_f32(FULLSCALE_IN_VOLTS);
+      return frtz(v + fiv) - fiv;
+    }
+
+    inline uint32x4_t inRange(float32x4_t v, float32x4_t low, float32x4_t high) {
+      return vandq_u32(vcgtq_f32(v, low), vcltq_f32(v, high));
+    }
+
+    inline uint32_t usum(uint32x4_t v) {
+      auto t = vpadd_u32(vget_low_u32(v), vget_high_u32(v));
+      return vget_lane_u32(vpadd_u32(t, t), 0);
+    }
+
+    inline float32x4_t select(int32x4_t i, float* fs) {
+      return make(
+        fs[vgetq_lane_s32(i, 0)],
+        fs[vgetq_lane_s32(i, 1)],
+        fs[vgetq_lane_s32(i, 2)],
+        fs[vgetq_lane_s32(i, 3)]
+      );
+    }
+
     struct TrackAndHold {
       inline TrackAndHold(float initial) {
         mValue = vdupq_n_f32(initial);

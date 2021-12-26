@@ -4,6 +4,10 @@
 #include <hal/constants.h>
 #include "ScaleBook.h"
 
+#define BUILDOPT_VERBOSE
+#define BUILDOPT_DEBUG_LEVEL 10
+#include <hal/log.h>
+
 namespace common {
   struct Pitch {
     inline Pitch() {}
@@ -14,13 +18,13 @@ namespace common {
     }
 
     static inline Pitch from(float value) {
-      float voltage = FULLSCALE_IN_VOLTS * value;
-      int octave = util::fdr(voltage);
-      return from(octave, (voltage - (float)octave) * CENTS_PER_OCTAVE);
+      float voltage = util::toVoltage(value);
+      float octave  = util::toOctave(voltage);
+      return from(octave, util::toCents(voltage - octave));
     }
 
     inline float value() {
-      return (octave + cents / CENTS_PER_OCTAVE) / FULLSCALE_IN_VOLTS;
+      return util::fromVoltage(octave + util::fromCents(cents));
     }
 
     int octave = 0;
@@ -33,14 +37,6 @@ namespace common {
       mCents(cents),
       mLowerBound(lower),
       mUpperBound(upper) { }
-
-    static inline QuantizedPitch from(float cents, float previous, float next) {
-      return QuantizedPitch {
-        cents,
-        cents + (previous - cents) / 2.0f,
-        cents + (next - cents) / 2.0f
-      };
-    }
 
     inline void resetBounds() {
       mLowerBound = 2 * CENTS_PER_OCTAVE;
@@ -70,50 +66,67 @@ namespace common {
       inline Quantizer() {}
 
       inline QuantizedPitch quantize(const Pitch &detected) const {
-        int upper = 0;
-        for (; upper < SPAN * 2; upper++) {
-          if (detected.cents < mCentValues[upper]) break;
+        // Binary search for the upper bound.
+        int l = 0, h = SPAN - 1;
+        while (l < h) {
+          auto mid = (l + h) / 2;
+          if (mCentValues[mid] > detected.cents) h = mid;
+          else l = mid + 1;
         }
 
-        auto lower = upper - 1;
-        auto upperDist = util::fabs(mCentValues[upper] - detected.cents);
-        auto lowerDist = util::fabs(mCentValues[lower] - detected.cents);
+        return at(closest(detected.cents, h, h - 1));
+      }
 
-        auto index = upperDist < lowerDist ? upper : lower;
-        auto value = mCentValues[index];
+      // The quantized value at index i;
+      inline QuantizedPitch at(int i) const {
+        auto v = mCentValues[i];
+        auto l = mCentValues[i - 1];
+        auto h = mCentValues[i + 1];
+        return QuantizedPitch { v, (v + h) / 2.0f, (v + l) / 2.0f };
+      }
 
-        return QuantizedPitch::from(value, mCentValues[index - 1], mCentValues[index + 1]);
+      // The closest index to v, a or b
+      inline int closest(float v, int a, int b) const {
+        auto distA = util::fabs(mCentValues[a] - v);
+        auto distB = util::fabs(mCentValues[b] - v);
+        return distA < distB ? a : b;
       }
 
       inline float quantizeValue(float value) const {
+        if (mDisabled) return value;
+
         auto detected = Pitch::from(value);
         return quantize(detected).atOctave(detected.octave).value();
       }
 
       inline float process(float value) {
         mDetected = Pitch::from(value);
-        if (mQuantized.inBounds(mDetected.cents))
-          return mQuantized.atOctave(mDetected.octave).value();
+        if (mDisabled) return value;
 
-        mQuantized = quantize(mDetected);
+        if (!mQuantized.inBounds(mDetected.cents))
+          mQuantized = quantize(mDetected);
+
         return mQuantized.atOctave(mDetected.octave).value();
       }
 
       inline void configure(const Scale &scale) {
-        if (scale.isEmpty()) return;
+        mDisabled = scale.isEmpty();
+        if (mDisabled) return;
         mQuantized.resetBounds();
 
         int total  = scale.size();
         int note   = 0;
         int octave = 0;
 
-        for (int i = 0; i < SPAN; i++) {
+        auto hspan = SPAN >> 1;
+
+        for (int i = 0; i < hspan; i++) {
           auto centsUp   = scale.getCentValue(note);
           auto centsDown = scale.getCentValue(total - 1 - note);
 
           auto offset = CENTS_PER_OCTAVE * octave;
-          mCentValues[SPAN + i]     = centsUp + offset;
-          mCentValues[SPAN - 1 - i] = centsDown - (offset + CENTS_PER_OCTAVE);
+          mCentValues[hspan + i]     = centsUp + offset;
+          mCentValues[hspan - 1 - i] = centsDown - (offset + CENTS_PER_OCTAVE);
 
           note += 1;
           if (note >= total) {
@@ -127,18 +140,22 @@ namespace common {
       const QuantizedPitch& quantized() const { return mQuantized; }
 
     private:
-      float mCentValues[SPAN * 2];
+      bool mDisabled = true;
+      float mCentValues[SPAN];
       Pitch mDetected;
       QuantizedPitch mQuantized;
   };
 
   class ScaleQuantizer {
     public:
-      inline ScaleQuantizer() {}
+      inline ScaleQuantizer() {
+        prepare();
+      }
 
       inline void setCurrent(int i) {
-        mIndex = util::mod(i, mScaleBook.size());
-        mRefresh = true;
+        auto newIndex = util::mod(i, mScaleBook.size());
+        mRefresh = mIndex != newIndex;
+        mIndex = newIndex;
       }
 
       inline const Scale& current() const {
