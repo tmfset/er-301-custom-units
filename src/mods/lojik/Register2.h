@@ -32,9 +32,6 @@ namespace lojik {
         addInput(mCaptureGate);
         addInput(mShiftGate);
         addInput(mResetGate);
-
-        addOption(mSync);
-        addOption(mQuantize);
       }
 
       virtual ~Register2() { }
@@ -61,14 +58,6 @@ namespace lojik {
 
         const auto inputGain  = vdupq_n_f32(mInputGain.value());
         const auto inputBias  = vdupq_n_f32(mInputBias.value());
-        const auto quantize   = isQuantized();
-
-        const auto sync = vmvnq_u32(util::four::make_u32(
-          false,
-          mSync.getFlag(0),
-          mSync.getFlag(1),
-          mSync.getFlag(2)
-        ));
 
         float *out = mOut.buffer();
 
@@ -93,7 +82,7 @@ namespace lojik {
             auto jccsr = vld1q_u32(ccsr + index);
 
             auto _cTrig    = mClockTrig.read(jc);
-            auto _ccsrTrig = mCSRTrigger.read(jccsr, sync | jc);
+            auto _ccsrTrig = mCSRTrigger.read(jccsr, jc);
 
             bool doStep    = vgetq_lane_u32(_cTrig, 0);
             bool doCapture = vgetq_lane_u32(_ccsrTrig, 1);
@@ -132,9 +121,6 @@ namespace lojik {
       od::Inlet mCaptureGate  { "Capture" };
       od::Inlet mShiftGate    { "Shift" };
       od::Inlet mResetGate    { "Reset" };
-
-      od::Option mSync     { "Sync", 0b111 };
-      od::Option mQuantize { "Quantize", 2 };
 #endif
 
       int getChartSize() {
@@ -166,8 +152,6 @@ namespace lojik {
 
       void attach() { Object::attach(); }
       void release() { Object::release(); }
-
-      bool isQuantized() { return mQuantize.value() == 1; }
 
     private:
       template<int max>
