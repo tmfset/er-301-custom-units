@@ -54,6 +54,11 @@ namespace lojik {
         mState.setWindowStride(mStride.value());
         mState.setWindowLength(mLength.value());
 
+        if (mTriggerRandomizeWindow) {
+          mTriggerRandomizeWindow = false;
+          mState.randomizeWindow();
+        }
+
         const auto outputGain = vdupq_n_f32(mOutputGain.value());
         const auto outputBias = vdupq_n_f32(mOutputBias.value());
 
@@ -130,6 +135,10 @@ namespace lojik {
       od::Inlet mResetGate    { "Reset" };
 #endif
 
+      void triggerRandomizeWindow() {
+        mTriggerRandomizeWindow = true;
+      }
+
       int getChartSize() {
         return mState.windowLength();
       }
@@ -171,6 +180,12 @@ namespace lojik {
           inline void randomize() {
             for (int i = 0; i < max; i++) {
               mData[i] = od::Random::generateFloat(-1, 1);
+            }
+          }
+
+          inline void randomizeWindow() {
+            for (int i = 0; i < windowLength(); i++) {
+              mData[toAbsolute(i)] = od::Random::generateFloat(-1, 1);
             }
           }
 
@@ -219,6 +234,8 @@ namespace lojik {
           int mWindowStride   = 1;
           int mWindowLength   = max;
       };
+
+      bool mTriggerRandomizeWindow = false;
 
       common::ScaleQuantizer mScaleQuantizer;
 

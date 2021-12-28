@@ -28,12 +28,12 @@ function RegisterView:init(args)
   self:setClassName("RegisterView")
 
   local name     = args.name or app.logError("%s.init: name is missing.", self)
-  local register = args.register or app.logError("%s.init: register is missing.", self)
+  self.register = args.register or app.logError("%s.init: register is missing.", self)
   Base.init(self, name)
 
   local width = args.width or (2 * ply)
   local graphic = app.Graphic(0, 0, width, 64)
-  graphic:addChild(lojik.RegisterMainView(register, 0, 0, width, app.SCREEN_HEIGHT))
+  graphic:addChild(lojik.RegisterMainView(self.register, 0, 0, width, app.SCREEN_HEIGHT))
 
   self.graphic = graphic
   self:setControlGraphic(self.graphic)
@@ -41,6 +41,20 @@ function RegisterView:init(args)
     self:addSpotDescriptor {
       center = (i - 0.5) * ply
     }
+  end
+end
+
+function RegisterView:getFloatingMenuItems()
+  return {
+    "offset",
+    "shift",
+    "randomize"
+  }
+end
+
+function RegisterView:onFloatingMenuSelection(choice)
+  if choice == "randomize" then
+    self.register:triggerRandomizeWindow();
   end
 end
 

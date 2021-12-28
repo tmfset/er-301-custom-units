@@ -41,14 +41,25 @@ namespace lojik {
         auto left = interior.splitLeft(0.5);
         auto right = interior.splitRight(0.5);
 
-        auto leftCenter = left.bottomCenter();
-        mOffsetReadout.drawRightBottom(fb, WHITE, leftCenter.offsetX(-2), size);
-        mShiftReadout.drawLeftBottom(fb, WHITE, leftCenter.offsetX(2), size);
+        auto lc = left.bottomCenter().quantize();
+        mOffsetReadout.update(size);
+        mOffsetReadout.draw(fb, WHITE, lc.offsetX(-2), RIGHT_BOTTOM, mHighlightOffset);
 
-        auto rightCenter = right.bottomCenter();
-        mLengthReadout.drawRightBottom(fb, WHITE, rightCenter.offsetX(-2), size);
-        mStrideReadout.drawLeftBottom(fb, WHITE, rightCenter.offsetX(2), size);
+        mShiftReadout.update(size);
+        mShiftReadout.draw(fb, WHITE, lc.offsetX(2), LEFT_BOTTOM, mHighlightShift);
+
+        auto rc = right.bottomCenter().quantize();
+        mLengthReadout.update(size);
+        mLengthReadout.draw(fb, WHITE, rc.offsetX(-2), RIGHT_BOTTOM, mHighlightLength);
+
+        mStrideReadout.update(size);
+        mStrideReadout.draw(fb, WHITE, rc.offsetX(2), LEFT_BOTTOM, mHighlightStride);
       }
+
+      void setOffsetHighlight(bool v) { mHighlightOffset = v; }
+      void setShiftHighlight(bool v)  { mHighlightShift  = v; }
+      void setLengthHighlight(bool v) { mHighlightLength = v; }
+      void setStrideHighlight(bool v) { mHighlightStride = v; }
 
       graphics::HChart mChart;
       graphics::CircleChart mCircleChart;
@@ -58,5 +69,10 @@ namespace lojik {
       graphics::Readout mShiftReadout;
       graphics::Readout mLengthReadout;
       graphics::Readout mStrideReadout;
+
+      bool mHighlightOffset = false;
+      bool mHighlightShift  = false;
+      bool mHighlightLength = false;
+      bool mHighlightStride = false;
   };
 }

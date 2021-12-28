@@ -12,6 +12,17 @@
 using namespace common;
 
 namespace graphics {
+  struct JustifyAlign {
+    inline JustifyAlign(od::Justification j, od::Alignment a) :
+      justify(j), align(a) { }
+
+    od::Justification justify;
+    od::Alignment align;
+  };
+
+  #define RIGHT_BOTTOM graphics::JustifyAlign(od::justifyRight, od::alignBottom)
+  #define LEFT_BOTTOM  graphics::JustifyAlign(od::justifyLeft, od::alignBottom)
+
   struct Point {
     inline Point(float x, float y) : v(v2d::of(x, y)) { }
     inline Point(const v2d &_v) : v(_v) { }
@@ -206,6 +217,10 @@ namespace graphics {
       return cwh(c, v2d::of(s));
     }
 
+    static inline Box wh(const v2d &wh) {
+      return lbwh(v2d::of(0), wh);
+    }
+
     inline Box inner(const v2d &m)     const { return lbrt(leftBottom() + m, rightTop() - m); }
     inline Box inner(float x, float y) const { return inner(v2d::of(x, y)); }
     inline Box inner(float m)          const { return inner(v2d::of(m)); }
@@ -368,6 +383,14 @@ namespace graphics {
       }
     }
 
+    inline Box justify(float x, od::Justification j) const {
+      switch (j) {
+        case od::justifyLeft:   return atLeft(x);
+        case od::justifyRight:  return atRight(x);
+        case od::justifyCenter: return atCenterX(x);
+      }
+    }
+
     inline Box align(const Box &within, od::Alignment a) const {
       switch (a) {
         case od::alignTop:    return alignTop(within);
@@ -376,8 +399,20 @@ namespace graphics {
       }
     }
 
-    inline Box justifyAlign(const Box &within, od::Justification j, od::Alignment a) const {
-      return justify(within, j).align(within, a);
+    inline Box align(float y, od::Alignment a) const {
+      switch (a) {
+        case od::alignTop:    return atTop(y);
+        case od::alignBottom: return atBottom(y);
+        case od::alignMiddle: return atCenterY(y);
+      }
+    }
+
+    inline Box justifyAlign(const Box &within, JustifyAlign ja) const {
+      return justify(within, ja.justify).align(within, ja.align);
+    }
+
+    inline Box justifyAlign(const v2d &v, JustifyAlign ja) const {
+      return justify(v.x(), ja.justify).align(v.y(), ja.align);
     }
 
     inline bool containsX(float x) const {
@@ -404,8 +439,8 @@ namespace graphics {
       fb.box(color, leftBottom().x(), leftBottom().y(), rightTop().x(), rightTop().y());
     }
 
-    inline void outline(od::FrameBuffer &fb, od::Color color) const {
-      fb.box(color, leftBottom().x() - 1, leftBottom().y() - 1, rightTop().x() + 1, rightTop().y() + 1);
+    inline void outline(od::FrameBuffer &fb, od::Color color, int by = 1) const {
+      fb.box(color, leftBottom().x() - by, leftBottom().y() - by, rightTop().x() + by, rightTop().y() + by);
     }
 
     const v2d mLeftBottom;
@@ -803,68 +838,30 @@ namespace graphics {
 
   class Text {
     public:
-      inline Text(std::string str, int size) :
-          mValue(str),
-          mSize(size) {
+      inline void draw(
+        od::FrameBuffer &fb,
+        od::Color color,
+        const v2d &v,
+        JustifyAlign ja,
+        bool outline
+      ) const {
+        auto position = Box::wh(mDimensions).justifyAlign(v, ja);
+        fb.text(color, position.left(), position.bottom(), mValue.c_str(), mSize);
+        if (outline) position.outline(fb, WHITE, 2);
+      }
+
+      inline void update(std::string str, int size) {
+        mValue = str;
+        mSize = size;
+
         int width, height;
         od::getTextSize(mValue.c_str(), &width, &height, size);
         mDimensions = v2d::of(width, height);
       }
 
-      inline void draw(
-        od::FrameBuffer &fb,
-        od::Color color,
-        const Box &within,
-        od::Justification j,
-        od::Alignment a
-      ) const {
-        auto position = Box::lbwh_raw(v2d::of(0), mDimensions).justifyAlign(within, j, a);
-        fb.text(color, position.left(), position.bottom(), mValue.c_str(), mSize);
-      }
-
     private:
       std::string mValue;
       int mSize;
-      v2d mDimensions;
-  };
-
-  class RenderedText {
-    public:
-      void drawLeftBottom(od::FrameBuffer &fb, od::Color color, const v2d &left, int value, int size) {
-        draw(fb, color, Box::lbwh(left, mDimensions), value, size);
-      }
-
-      void drawRightBottom(od::FrameBuffer &fb, od::Color color, const v2d &right, int value, int size) {
-        draw(fb, color, Box::rbwh(right, mDimensions), value, size);
-      }
-
-    private:
-      void draw(od::FrameBuffer &fb, od::Color color, const Box &bounds, float value, int size) {
-        update(value, size);
-        fb.text(color, bounds.left(), bounds.bottom(), mText.c_str(), mSize);
-      }
-
-      void update(float value, int size) {
-        if (mValue == value && mSize == size) return;
-        mValue = value;
-
-        char tmp[8];
-        snprintf(tmp, sizeof(tmp), "%d", mValue);
-        mText = tmp;
-
-        writeDimensions(size);
-      }
-
-      void writeDimensions(int size) {
-        mSize = size;
-        int width, height;
-        od::getTextSize(mText.c_str(), &width, &height, mSize);
-        mDimensions = v2d::of(width, height);
-      }
-
-      int mValue;
-      int mSize;
-      std::string mText;
       v2d mDimensions;
   };
 
@@ -879,17 +876,27 @@ namespace graphics {
         mParameter.release();
       }
 
-      void drawLeftBottom(od::FrameBuffer &fb, od::Color color, const v2d &left, int size) {
-        mText.drawLeftBottom(fb, color, left, mParameter.value(), size);
+      void draw(
+        od::FrameBuffer &fb,
+        od::Color color,
+        const v2d &v,
+        JustifyAlign ja,
+        bool outline
+      ) const {
+        mText.draw(fb, color, v, ja, outline);
       }
 
-      void drawRightBottom(od::FrameBuffer &fb, od::Color color, const v2d &right, int size) {
-        mText.drawRightBottom(fb, color, right, mParameter.value(), size);
+      void update(int size) {
+        char tmp[8];
+        snprintf(tmp, sizeof(tmp), "%d", (int)mParameter.value());
+        std::string v = tmp;
+        mText.update(v, size);
       }
 
     private:
       od::Parameter &mParameter;
-      RenderedText mText;
+      od::DialState mDialState;
+      Text mText;
   };
 
   class TextList {
