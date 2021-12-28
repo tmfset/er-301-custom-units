@@ -16,6 +16,7 @@ namespace lojik {
       Register2() {
         addInput(mIn);
         addOutput(mOut);
+        addOutput(mQuantizeTrigger);
 
         addParameter(mOffset);
         addParameter(mShift);
@@ -53,13 +54,14 @@ namespace lojik {
         mState.setWindowStride(mStride.value());
         mState.setWindowLength(mLength.value());
 
-        mState.setOutputGain(mOutputGain.value());
-        mState.setOutputBias(mOutputBias.value());
+        const auto outputGain = vdupq_n_f32(mOutputGain.value());
+        const auto outputBias = vdupq_n_f32(mOutputBias.value());
 
         const auto inputGain  = vdupq_n_f32(mInputGain.value());
         const auto inputBias  = vdupq_n_f32(mInputBias.value());
 
         float *out = mOut.buffer();
+        float *qTrig = mQuantizeTrigger.buffer();
 
         for (int i = 0; i < FRAMELENGTH; i += 4) {
           auto _in = vld1q_f32(in + i) * inputGain + inputBias;
@@ -76,6 +78,7 @@ namespace lojik {
           uint32_t ccsr[16];
           vst4q_u32(ccsr, _ccsr);
 
+          float tmp[4];
           for (int j = 0; j < 4; j++) {
             auto index = j * 4;
             auto jc    = vld1q_dup_u32(ccsr + index);
@@ -96,15 +99,19 @@ namespace lojik {
             if (doReset)   mState.reset();
             if (doCapture) mState.setCurrent(ingb[j]);
 
-            auto value = mState.windowValue();
-            value = mScaleQuantizer.process(value);
-            out[i + j] = value;
+            tmp[j] = mState.windowValue();
           }
+
+          auto _tmp = vld1q_f32(tmp);
+          _tmp = _tmp * outputGain + outputBias;
+          _tmp = mScaleQuantizer.process(_tmp);
+          vst1q_f32(out + i, _tmp);
         }
       }
 
       od::Inlet  mIn  { "In" };
       od::Outlet mOut { "Out" };
+      od::Outlet mQuantizeTrigger { "Quantize Trigger" };
 
       od::Parameter mOffset { "Offset" };
       od::Parameter mShift  { "Shift" };
@@ -136,7 +143,7 @@ namespace lojik {
       }
 
       float getChartValue(int i) {
-        return mScaleQuantizer.quantizeValue(mState.windowValueAt(i));
+        return mState.windowValueAt(i);
       }
 
       const common::Scale& currentScale() {
@@ -172,9 +179,6 @@ namespace lojik {
           inline void setWindowStride(int s)   { mWindowStride = s; }
           inline void setWindowLength(int l)   { mWindowLength = l; }
 
-          inline void setOutputGain(float g) { mOutputGain = g; }
-          inline void setOutputBias(float b) { mOutputBias = b; }
-
           inline void advance() {
             mWindowIndex = util::mod(mWindowIndex + mWindowStride, mWindowLength);
           }
@@ -205,7 +209,7 @@ namespace lojik {
           }
 
           inline float valueAt(int i) const {
-            return mData[i] * mOutputGain + mOutputBias;
+            return mData[i];
           }
 
           float mData[max];
@@ -214,9 +218,6 @@ namespace lojik {
           int mWindowShift    = 0;
           int mWindowStride   = 1;
           int mWindowLength   = max;
-
-          float mOutputGain = 1;
-          float mOutputBias = 0;
       };
 
       common::ScaleQuantizer mScaleQuantizer;

@@ -983,13 +983,38 @@ namespace util {
       return frtz(v + fiv) - fiv;
     }
 
+    inline bool anyFalse(uint32x4_t v) {
+      auto t = vpmin_u32(vget_low_u32(v), vget_high_u32(v));
+      return vget_lane_u32(vpmin_u32(t, t), 0) == 0;
+    }
+
+    inline bool anyTrue(uint32x4_t v) {
+      auto t = vpmax_u32(vget_low_u32(v), vget_high_u32(v));
+      return vget_lane_u32(vpmax_u32(t, t), 0) != 0;
+    }
+
     inline uint32x4_t inRange(float32x4_t v, float32x4_t low, float32x4_t high) {
       return vandq_u32(vcgtq_f32(v, low), vcltq_f32(v, high));
     }
 
-    inline uint32_t usum(uint32x4_t v) {
-      auto t = vpadd_u32(vget_low_u32(v), vget_high_u32(v));
-      return vget_lane_u32(vpadd_u32(t, t), 0);
+    inline uint32x4_t inRange(float32x4_t v, float low, float high) {
+      return inRange(v, vdupq_n_f32(low), vdupq_n_f32(high));
+    }
+
+    inline uint32x4_t outOfRange(float32x4_t v, float32x4_t low, float32x4_t high) {
+      return vorrq_u32(vcltq_f32(v, low), vcgtq_f32(v, high));
+    }
+
+    inline uint32x4_t outOfRange(float32x4_t v, float low, float high) {
+      return outOfRange(v, vdupq_n_f32(low), vdupq_n_f32(high));
+    }
+
+    inline bool allInRange(float32x4_t v, float low, float high) {
+      return !anyFalse(inRange(v, low, high));
+    }
+
+    inline bool anyOutOfRange(float32x4_t v, float low, float high) {
+      return anyTrue(outOfRange(v, low, high));
     }
 
     inline float32x4_t select(int32x4_t i, float* fs) {
@@ -1086,6 +1111,37 @@ namespace util {
       }
 
       TrackAndHold mScale { 1 };
+    };
+
+    class Pitch {
+      public:
+        inline Pitch() {}
+        inline Pitch(float32x4_t o, float32x4_t c) : mOctave(o), mCents(c) { }
+
+        static inline Pitch from(float32x4_t value) {
+          auto voltage = toVoltage(value);
+          auto octave  = toOctave(voltage);
+          return Pitch { octave, toCents(voltage - octave) };
+        }
+
+        inline float32x4_t octave() const { return mOctave; }
+        inline float32x4_t cents()  const { return mCents; }
+
+        inline Pitch atCents(float32x4_t cents) const {
+          return Pitch(mOctave, cents);
+        }
+
+        inline Pitch atCents(float cents) const {
+          return atCents(vdupq_n_f32(cents));
+        }
+
+        inline float32x4_t value() const {
+          return fromVoltage(mOctave + fromCents(mCents));
+        }
+
+      private:
+        float32x4_t mOctave = vdupq_n_f32(0);
+        float32x4_t mCents = vdupq_n_f32(0);
     };
   }
 }
