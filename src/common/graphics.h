@@ -895,7 +895,6 @@ namespace graphics {
 
     private:
       od::Parameter &mParameter;
-      od::DialState mDialState;
       Text mText;
   };
 
