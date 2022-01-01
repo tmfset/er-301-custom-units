@@ -35,6 +35,9 @@ $(addsuffix -list,$(PROJECTS)):
 	$(eval PROJECT := $(@:-list=))
 	+$(MAKE) -f src/mods/$(PROJECT)/mod.mk list PKGNAME=$(PROJECT)
 
+emu:
+	@cd er-301; make -j emu && testing/darwin/emu/emu.elf
+
 am335x-docker:
 	docker build docker/er-301-am335x-build-env/ -t er-301-am335x-build-env --platform=linux/amd64
 
@@ -65,4 +68,4 @@ release-missing:
 clean:
 	rm -rf testing debug release
 
-.PHONY: all clean $(PROJECTS) $(addsuffix -install,$(PROJECTS)) $(addsuffix -install-sd,$(PROJECTS)) $(addsuffix -install-sd-testing,$(PROJECTS)) $(addsuffix -missing,$(PROJECTS)) am335x-docker release testing er-301-docker release-missing clean
+.PHONY: all clean $(PROJECTS) $(addsuffix -install,$(PROJECTS)) $(addsuffix -install-sd,$(PROJECTS)) $(addsuffix -install-sd-testing,$(PROJECTS)) $(addsuffix -missing,$(PROJECTS)) emu am335x-docker release testing er-301-docker release-missing clean
