@@ -34,7 +34,7 @@ namespace lojik {
 
         mKeyboard.draw(fb, top);
 
-        mChart.draw(fb, bottom);
+        mChart.draw(fb, bottom, 3, 2);
 
         auto size = 8;
 

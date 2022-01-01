@@ -3,7 +3,7 @@
 namespace lojik {
   RegisterMainView::RegisterMainView(Register2 &data, int left, int bottom, int width, int height) :
       od::Graphic(left, bottom, width, height),
-      mChart(data, 3, 2),
+      mChart(data),
       mCircleChart(data, 0.5),
       mKeyboard(data, 1),
       mOffsetReadout(*data.getParameter("Offset")),

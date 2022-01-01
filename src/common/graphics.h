@@ -109,6 +109,107 @@ namespace graphics {
     const v2d v;
   };
 
+  class Range {
+    public:
+      static inline Range from(float left, float right) {
+        return _from(util::fmin(left, right), util::fmax(left, right));
+      }
+
+      static inline Range fromLeft(float left, float width) {
+        return _fromLeft(left, util::fmax(0, width));
+      }
+      inline Range fromLeft(float width) const {
+        return fromLeft(left(), width);
+      }
+
+      static inline Range fromRight(float right, float width) {
+        return _fromRight(right, util::fmax(0, width));
+      }
+      inline Range fromRight(float width) const {
+        return fromRight(right(), width);
+      }
+
+      static inline Range fromSide(float side, float width) {
+        return width > 0 ? _fromLeft(side, width) : _fromRight(side, width);
+      }
+
+      static inline Range fromCenterSpan(float center, float span) {
+        return _fromCenterSpan(center, util::fabs(span));
+      }
+      static inline Range fromCenterWidth(float center, float width) {
+        return _fromCenterWidth(center, util::fabs(width));
+      }
+
+      inline Range atCenter(float c) const {
+        return _fromCenterSpan(c, halfWidth());
+      }
+
+      inline float clamp(float v) const {
+        return util::fclamp(v, left(), right());
+      }
+      inline Range clamp(const Range &other) const {
+        return _from(clamp(other.left()), clamp(other.right()));
+      }
+      inline Range clampLeft(const Range &other) const {
+        return _fromLeft(clamp(other.left()), other.width());
+      }
+      inline Range clampRight(const Range &other) const {
+        return _fromRight(clamp(other.right()), other.width());
+      }
+
+      inline Range insert(const Range &other) const {
+        return _fromLeft(util::max(0, width() - other.width()))
+          .clampLeft(other)
+          .fromLeft(util::fmin(width(), other.width()));
+      }
+
+      inline bool contains(float v) const {
+        return v >= left() && v <= right();
+      }
+
+      inline float left()      const { return mLeft; }
+      inline float right()     const { return mRight; }
+      inline float width()     const { return mWidth; }
+      inline float halfWidth() const { return mHalfWidth; }
+
+    private:
+      static inline Range _from(float left, float right) {
+        return Range { left, right };
+      }
+
+      static inline Range _fromLeft(float left, float width) {
+        return Range { left, left + width };
+      }
+      inline Range _fromLeft(float width) const {
+        return _fromLeft(left(), width);
+      }
+
+      static inline Range _fromRight(float right, float width) {
+        return Range { right - width, right };
+      }
+      inline Range _fromRight(float width) const {
+        return _fromRight(right(), width);
+      }
+
+      static inline Range _fromCenterSpan(float center, float span)   {
+        return Range { center - span, center + span };
+      }
+      static inline Range _fromCenterWidth(float center, float width) {
+        return _fromCenterSpan(center, width / 2.0f);
+      }
+
+      inline Range(float left, float right) :
+        mLeft(left),
+        mRight(right),
+        mWidth(mRight - mLeft),
+        mHalfWidth(mWidth / 2.0f) { }
+
+      float mLeft = 0;
+      float mRight = 0;
+      float mWidth = 0;
+      float mHalfWidth = 0;
+  };
+
   class Line {
     public:
       inline Line(const v2d &f, const v2d &t) :
@@ -328,6 +429,9 @@ namespace graphics {
 
     inline float top()       const { return rightTop().y(); }
     inline v2d   topCenter() const { return center().atY(top()); }
+
+    inline Range horizontal() const { return Range::from(left(), right()); }
+    inline Range vertical()   const { return Range::from(bottom(), top()); }
 
     inline Box intersect(const Box& other) const {
       return lbrt(
@@ -718,12 +822,60 @@ namespace graphics {
     float mPad;
   };
 
+  class ListWindow {
+    public:
+      static inline ListWindow from(Range window, float itemSize, float itemPad) {
+        return ListWindow { window, itemSize, itemPad, 0 };
+      }
+
+      inline ListWindow atOffset(float offset) const {
+        return ListWindow { mWindow, mItemSize, mItemPad, offset };
+      }
+
+      inline ListWindow centerAt(int index, int total) const {
+        auto global  = Range::fromLeft(0, globalStart(total));
+        auto window  = mWindow.atCenter(globalCenter(index));
+        auto bounded = global.insert(window);
+        return atOffset(-bounded.left());
+      }
+
+      inline float relativeStart(int index) const {
+        return mWindow.left() + globalStart(index) + mGlobalOffset;
+      }
+
+      inline float relativeCenter(int index) const {
+        return mWindow.left() + globalCenter(index) + mGlobalOffset;
+      }
+
+      inline bool contains(float v) const {
+        return mWindow.contains(v);
+      }
+
+    private:
+      inline ListWindow(Range window, float itemSize, float itemPad, float globalOffset) :
+        mWindow(window),
+        mItemSize(itemSize),
+        mItemPad(itemPad),
+        mGlobalOffset(globalOffset) { }
+
+      inline float globalStart(int i) const {
+        return (mItemSize + mItemPad) * i;
+      }
+
+      inline float globalCenter(int i) const {
+        return globalStart(i) + mItemSize / 2.0f;
+      }
+
+      Range mWindow;
+      float mItemSize = 0;
+      float mItemPad = 0;
+      float mGlobalOffset = 0;
+  };
+
   class HChart {
     public:
-      inline HChart(common::HasChartData &data, int barWidth, int barSpace) :
-          mChartData(data),
-          mBarWidth(barWidth),
-          mBarSpace(barSpace) {
+      inline HChart(common::HasChartData &data) :
+          mChartData(data) {
         mChartData.attach();
       }
 
@@ -731,53 +883,31 @@ namespace graphics {
         mChartData.release();
       }
 
-      inline void draw(od::FrameBuffer &fb, const Box& world) {
+      inline void draw(od::FrameBuffer &fb, const Box& world, int width, int pad) {
         auto length  = mChartData.getChartSize();
         auto current = mChartData.getChartCurrentIndex();
         auto base    = mChartData.getChartBaseIndex();
 
-        auto fullWidth = length * mBarWidth + (length - 1) * mBarSpace;
-        auto chart     = Box::cwh(world.center(), v2d::of(fullWidth, world.height()));
+        auto window = ListWindow::from(world.horizontal(), width, pad)
+          .centerAt(current, length);
 
-        auto window  = chart.insert(world.recenterX(chart.left() + barCenter(current)));
-        auto view    = window.recenterOn(world);
-
-        auto maxValue = 0.0f;
         for (int i = 0; i < length; i++) {
-          auto cx = chart.left() + barCenter(i);
-          auto xy = view.center().atX(cx - window.left() + view.left());
-          if (!view.containsX(xy.x())) continue;
+          auto xy = world.center().atX(window.relativeCenter(i));
+          if (!window.contains(xy.x())) continue;
 
-          auto v = mChartData.getChartValue(i);
-          maxValue = util::fmax(maxValue, util::fabs(v));
-
-          auto h  = v * mScale * world.height() / 2.0f;
-          auto wh = v2d::of(mBarWidth, h);
+          auto value = mChartData.getChartValue(i);
+          auto wh = v2d::of(width, value * world.height() / 2.0f);
 
           auto isCurrent = i == current;
           auto isBase    = i == base;
           Box::cwr(xy, wh).fill(fb, isCurrent ? GRAY12 : GRAY10);
-          if (isBase) Box::cs(xy, mBarWidth + 2).trace(fb, GRAY5);
-          if (isCurrent) Box::cs(xy, mBarWidth + 2).trace(fb, WHITE);
+          if (isBase) Box::cs(xy, width + 2).trace(fb, GRAY5);
+          if (isCurrent) Box::cs(xy, width + 2).trace(fb, WHITE);
         }
-
-        mScale = 1.0f / util::fmax(maxValue, 0.1);
       }
 
     private:
-      inline float barStart(int i) const {
-        return mBarWidth * i + mBarSpace * i;
-      }
-
-      inline float barCenter(int i) const {
-        return barStart(i) + mBarWidth / 2.0f;
-      }
-
       common::HasChartData &mChartData;
-
-      int mBarWidth;
-      int mBarSpace;
-      float mScale;
   };
 
   class CircleChart {
@@ -900,11 +1030,30 @@ namespace graphics {
 
   class TextList {
     public:
-    private:
-      std::vector<std::string> mRows;
-      int mSelectedIndex = 0;
+      inline TextList(od::Parameter &parameter) :
+          mParameter(parameter) {
+        mParameter.attach();
+      }
 
-      int mTextSize;
-      od::Justification mJustification;
+      inline ~TextList() {
+        mParameter.release();
+      }
+
+      void draw(
+        od::FrameBuffer &fb,
+        od::Color color,
+        const Box &box,
+        JustifyAlign ja
+      ) {
+        if (mRows.empty()) return;
+
+        float currentTop = box.top();
+        float bottom = box.bottom();
+        //while (currentTop > )
+      }
+    private:
+      od::Parameter &mParameter;
+      std::vector<Text> mRows;
+      int mSelectedIndex = 0;
   };
 }
