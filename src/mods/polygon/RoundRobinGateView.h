@@ -26,7 +26,7 @@ namespace polygon {
         Graphic::draw(fb);
 
         auto world = graphics::Box::extractWorld(*this);
-        auto grid  = graphics::Grid::create(world.inner(2), mObservable.groups(), 4, 1);
+        auto grid  = graphics::Grid::create(world.pad(2), mObservable.groups(), 4, 1);
 
         for (int c = 0; c < grid.cols; c++) {
           for (int r = 0; r < grid.rows; r++) {

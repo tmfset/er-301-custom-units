@@ -18,20 +18,20 @@ namespace common {
 
       static v2d zero() { return v2d(); };
 
-      inline v2d negate() const {
-        return of(-mX, -mY);
-      }
+      inline v2d invert() const { return of(1.0f / mX, 1.0f / mY); }
 
-      inline v2d operator-() const {
-        return negate();
-      }
+      inline v2d negate() const { return of(-mX, -mY); }
+      inline v2d operator-() const { return negate(); }
 
       inline v2d offset(const v2d &by) const { return of(mX + by.mX, mY + by.mY); }
       inline v2d operator+(const v2d &by) const { return offset(by); }
       inline v2d operator-(const v2d &by) const { return offset(-by); }
 
-      inline v2d scale(const v2d &by) const { return of(mX * by.mX, mY * by.mY); }
-      inline v2d scale(float by) const { return scale(of(by)); }
+      inline v2d scale(const v2d &by)    const { return of(mX * by.mX, mY * by.mY); }
+      inline v2d scale(float x, float y) const { return scale(of(x, y)); }
+      inline v2d scale(float by)         const { return scale(of(by)); }
+      inline v2d scaleX(float by)        const { return of(mX * by, mY); }
+      inline v2d scaleY(float by)        const { return of(mX, mY * by); }
 
       inline v2d operator*(const v2d &by) const { return scale(by); }
       inline v2d operator*(float by) const { return scale(by); }

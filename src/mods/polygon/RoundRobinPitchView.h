@@ -53,7 +53,7 @@ namespace polygon {
         const float voices = mObservable.voices();
 
         auto world = graphics::Box::extractWorld(*this);
-        auto leftPane  = world.splitLeft(0.3f).inner(2, 5);
+        auto leftPane  = world.splitLeft(0.3f).pad(2, 5);
         auto rightPane = world.splitRight(0.7f).padRight(6);
 
         auto pFader = graphics::IFader::box(leftPane);

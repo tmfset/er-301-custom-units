@@ -250,7 +250,7 @@ function Register:onLoadViews()
       register = self.objects.register
     }
   }, {
-    expanded = { "length", "stride", "offset", "shift", "register", "scale", "outputGain", "outputBias" }
+    expanded = { "inputGain", "register", "outputGain" }
   }
   -- return {
   --   wave1 = OutputScope {

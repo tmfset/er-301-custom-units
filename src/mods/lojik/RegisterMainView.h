@@ -31,16 +31,14 @@ namespace lojik {
 
         auto world = graphics::Box::extractWorld(*this);
 
-        //auto interior = world.inner(2);
-
-        auto top = world.splitTop(0.5);
-        auto bottom = world.splitBottom(0.5).withHeight(12);
+        auto top = world.splitTop(0.333);
+        auto bottom = world.splitBottom(0.666);
 
         //mCircleChart.draw(fb, left.scaleHeight(0.75));
 
-        mKeyboard.draw(fb, top);
+        mChart.draw(fb, bottom.padY(10), 4, 2);
 
-        mChart.draw(fb, bottom, 3, 2);
+        mKeyboard.draw(fb, top, 0.85);
 
         //mScaleList.draw(fb, world, 10);
 

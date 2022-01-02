@@ -5,7 +5,7 @@ namespace lojik {
       od::Graphic(left, bottom, width, height),
       mChart(data),
       mCircleChart(data, 0.5),
-      mKeyboard(data, 1),
+      mKeyboard(data),
       mScaleList(data),
       mOffsetReadout(0, 0, 20, 8),
       mShiftReadout(0, 0, 20, 8),

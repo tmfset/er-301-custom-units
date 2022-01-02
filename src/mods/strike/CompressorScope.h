@@ -23,7 +23,7 @@ namespace strike {
         od::Graphic::draw(fb);
 
         auto world = graphics::Box::extractWorld(*this);
-        auto frame = world.inner(10);
+        auto frame = world.pad(10);
 
         drawThreshold(fb, frame, GRAY10);
 
