@@ -7,11 +7,10 @@
 #include <hal/simd.h>
 #include <util.h>
 #include <ScaleQuantizer.h>
-#include <HasChartData.h>
-#include <HasScaleData.h>
+#include <interfaces.h>
 
 namespace lojik {
-  class Register2 : public od::Object, public common::HasChartData, public common::HasScaleData {
+  class Register2 : public od::Object, public common::HasChart, public common::HasScale, public common::HasScaleBook {
     public:
       Register2() {
         addInput(mIn);
@@ -139,32 +138,26 @@ namespace lojik {
         mTriggerRandomizeWindow = true;
       }
 
-      int getChartSize() {
-        return mState.windowLength();
-      }
-
-      int getChartCurrentIndex() {
-        return mState.windowIndex();
-      }
-
-      int getChartBaseIndex() {
-        return mState.windowBaseIndex();
-      }
-
-      float getChartValue(int i) {
-        return mState.windowValueAt(i);
-      }
-
       const common::Scale& currentScale() {
         return mScaleQuantizer.current();
       }
 
-      int getScaleSize() { return currentScale().size(); }
-      float getScaleCentValue(int i) { return currentScale().getCentValue(i); }
+      int   getChartSize()         { return mState.windowLength(); }
+      int   getChartCurrentIndex() { return mState.windowIndex(); }
+      int   getChartBaseIndex()    { return mState.windowBaseIndex(); }
+      float getChartValue(int i)   { return mState.windowValueAt(i); }
 
-      float getDetectedCentValue() { return mScaleQuantizer.detectedCentValue(); }
-      int   getDetectedOctaveValue() { return mScaleQuantizer.detectedOctaveValue(); }
-      float getQuantizedCentValue() { return mScaleQuantizer.quantizedCentValue(); }
+      std::string getScaleName()           { return currentScale().name(); }
+      int         getScaleSize()           { return currentScale().size(); }
+      float       getScaleCentValue(int i) { return currentScale().getCentValue(i); }
+      float       getDetectedCentValue()   { return mScaleQuantizer.detectedCentValue(); }
+      int         getDetectedOctaveValue() { return mScaleQuantizer.detectedOctaveValue(); }
+      float       getQuantizedCentValue()  { return mScaleQuantizer.quantizedCentValue(); }
+
+      int         getScaleBookIndex() { return mScaleQuantizer.getCurrentIndex(); }
+      int         getScaleBookSize()  { return mScaleQuantizer.getScaleBookSize(); }
+      std::string getScaleName(int i) { return mScaleQuantizer.getScale(i).name(); }
+      int         getScaleSize(int i) { return mScaleQuantizer.getScale(i).size(); }
 
       void attach() { Object::attach(); }
       void release() { Object::release(); }

@@ -6,6 +6,7 @@ namespace lojik {
       mChart(data),
       mCircleChart(data, 0.5),
       mKeyboard(data, 1),
+      mScaleList(data),
       mOffsetReadout(*data.getParameter("Offset")),
       mShiftReadout(*data.getParameter("Shift")),
       mLengthReadout(*data.getParameter("Length")),

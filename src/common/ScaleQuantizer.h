@@ -90,6 +90,18 @@ namespace common {
         return *mCurrent;
       }
 
+      inline int getCurrentIndex() const {
+        return mIndex;
+      }
+
+      inline int getScaleBookSize() const {
+        return mScaleBook.size();
+      }
+
+      inline const Scale& getScale(int i) const {
+        return mScaleBook.scale(i);
+      }
+
       inline float detectedCentValue()   const { return vgetq_lane_f32(mDetected.cents(), 3); }
       inline int   detectedOctaveValue() const { return vgetq_lane_f32(mDetected.octave(), 3); }
       inline float quantizedCentValue()  const { return util::fmod(mQuantizedCents, CENTS_PER_OCTAVE); }

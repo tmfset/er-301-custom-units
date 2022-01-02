@@ -3,7 +3,6 @@
 #include <od/graphics/Graphic.h>
 #include <od/graphics/controls/Readout.h>
 #include <math.h>
-#include <HasChartData.h>
 #include <util.h>
 #include <graphics.h>
 #include <slew.h>
@@ -28,13 +27,15 @@ namespace lojik {
         auto interior = world.inner(2);
 
         auto top = interior.divideTop(0.5);
-        auto bottom = interior.divideBottom(0.5).withHeight(9).quantizeCenter();
+        auto bottom = interior.divideBottom(0.5).withHeight(12).quantizeCenter();
 
         //mCircleChart.draw(fb, left.scaleHeight(0.75));
 
         mKeyboard.draw(fb, top);
 
         mChart.draw(fb, bottom, 3, 2);
+
+        //mScaleList.draw(fb, world, 10);
 
         auto size = 8;
 
@@ -64,6 +65,8 @@ namespace lojik {
       graphics::HChart mChart;
       graphics::CircleChart mCircleChart;
       graphics::HKeyboard mKeyboard;
+
+      graphics::ScaleList mScaleList;
 
       graphics::Readout mOffsetReadout;
       graphics::Readout mShiftReadout;

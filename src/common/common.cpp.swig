@@ -2,11 +2,9 @@
 %{
 #undef SWIGLUA
 
-#include <HasChartData.h>
-#include <HasScaleData.h>
+#include <interfaces.h>
 
 #define SWIGLUA
 %}
 
-%include <HasChartData.h>
-%include <HasScaleData.h>
+%include <interfaces.h>

@@ -2,8 +2,7 @@
 
 #include <od/graphics/text/Utils.h>
 #include "util.h"
-#include "HasChartData.h"
-#include "HasScaleData.h"
+#include "interfaces.h"
 #include <slew.h>
 #include <vector>
 #include "v2d.h"
@@ -20,8 +19,11 @@ namespace graphics {
     od::Alignment align;
   };
 
-  #define RIGHT_BOTTOM graphics::JustifyAlign(od::justifyRight, od::alignBottom)
-  #define LEFT_BOTTOM  graphics::JustifyAlign(od::justifyLeft, od::alignBottom)
+  #define RIGHT_BOTTOM  graphics::JustifyAlign(od::justifyRight, od::alignBottom)
+  #define LEFT_BOTTOM   graphics::JustifyAlign(od::justifyLeft, od::alignBottom)
+  #define LEFT_MIDDLE   graphics::JustifyAlign(od::justifyLeft, od::alignMiddle)
+  #define CENTER_BOTTOM graphics::JustifyAlign(od::justifyCenter, od::alignBottom)
+  #define CENTER_MIDDLE graphics::JustifyAlign(od::justifyCenter, od::alignMiddle)
 
   struct Point {
     inline Point(float x, float y) : v(v2d::of(x, y)) { }
@@ -143,6 +145,9 @@ namespace graphics {
       inline Range atCenter(float c) const {
         return _fromCenterSpan(c, halfWidth());
       }
+      inline Range atCenter(const Range &other) const {
+        return atCenter(other.center());
+      }
 
       inline float clamp(float v) const {
         return util::fclamp(v, left(), right());
@@ -171,6 +176,7 @@ namespace graphics {
       inline float right()     const { return mRight; }
       inline float width()     const { return mWidth; }
       inline float halfWidth() const { return mHalfWidth; }
+      inline float center()    const { return left() + halfWidth(); }
 
     private:
       static inline Range _from(float left, float right) {
@@ -248,6 +254,10 @@ namespace graphics {
 
     inline Circle grow(float by) const {
       return cr(center, radius + by);
+    }
+
+    inline Circle quantize() const {
+      return cr(center.quantize(), radius);
     }
 
     inline v2d pointAtTheta(float theta) const {
@@ -596,6 +606,35 @@ namespace graphics {
     const float rStep;
   };
 
+  class Text {
+    public:
+      inline void draw(
+        od::FrameBuffer &fb,
+        od::Color color,
+        const v2d &v,
+        JustifyAlign ja,
+        bool outline
+      ) const {
+        auto position = Box::wh(mDimensions).justifyAlign(v, ja);
+        fb.text(color, position.left(), position.bottom(), mValue.c_str(), mSize);
+        if (outline) position.outline(fb, WHITE, 2);
+      }
+
+      inline void update(std::string str, int size) {
+        mValue = str;
+        mSize = size;
+
+        int width, height;
+        od::getTextSize(mValue.c_str(), &width, &height, size);
+        mDimensions = v2d::of(width, height);
+      }
+
+    private:
+      std::string mValue;
+      int mSize;
+      v2d mDimensions;
+  };
+
   struct IFader {
     inline IFader(float _x, float _bottom, float _top, float _width) :
       x(_x),
@@ -710,13 +749,13 @@ namespace graphics {
     }
 
     static inline v2d keyPosition(const v2d &runRise, float key) {
-      float offset = key > 4 ? 1 : 0;
-      return runRise * v2d::of(key + offset, isBlackKey(util::fhr(key)) ? 1 : 0);
+      float offset = key > 4.0f ? 1.0f : 0.0f;
+      return runRise * v2d::of(key + offset, isBlackKey(util::fhr(key)) ? 1.0f : 0.0f);
     }
 
     static inline v2d keyPositionInt(const v2d &runRise, int key) {
-      float offset = key > 4 ? 1 : 0;
-      return runRise * v2d::of(key + offset, isBlackKey(key) ? 1 : 0);
+      float offset = key > 4.0f ? 1.0f : 0.0f;
+      return runRise * v2d::of((float)key + offset, isBlackKey(key) ? 1.0f : 0.0f);
     }
 
     static inline v2d keyPositionInterpolate(const v2d &runRise, float key) {
@@ -724,7 +763,7 @@ namespace graphics {
       // 10.2 -> 10, 11
       // 11.2 -> 11, 12
       // 11.6 -> -1, 0
-      key = key > 11.5 ? key - 12 : key;
+      key = key > 11.5 ? key - 12.0f : key;
       auto keyLow = util::fdr(key);
       auto keyHigh = util::fur(key);
       auto low = keyPositionInt(runRise, keyLow);
@@ -732,16 +771,21 @@ namespace graphics {
       return low.lerp(high, key - keyLow);
     }
 
+    static Circle scale(const Circle &base, float value) {
+      float amount = util::flerpi(0.7f, 1.0f, util::fabs(value - (util::fdr(value) + 0.5)) * 2.0f);
+      return base.scale(amount);
+    }
+
     static inline void draw(
       od::FrameBuffer &fb,
-      common::HasScaleData &data,
+      common::HasScale &data,
       const Circle &base,
       const v2d &runRise
     ) {
       auto detected  = data.getDetectedCentValue() / 100.0f;
       auto quantized = data.getQuantizedCentValue() / 100.0f;
       base.offset(keyPositionInterpolate(runRise, detected)).fill(fb, GRAY3);
-      base.offset(keyPositionInterpolate(runRise, quantized)).fill(fb, GRAY10);
+      scale(base, quantized).offset(keyPositionInterpolate(runRise, quantized)).fill(fb, GRAY10);
 
       auto octave = data.getDetectedOctaveValue();
       auto offset = runRise.atY(0).scale(1.5).rotateCW();
@@ -755,13 +799,13 @@ namespace graphics {
       int length = data.getScaleSize();
       for (int i = 0; i < length; i++) {
         float key = data.getScaleCentValue(i) / 100.0f;
-        base.offset(keyPositionInterpolate(runRise, key)).trace(fb, GRAY13);
+        scale(base, key).offset(keyPositionInterpolate(runRise, key)).trace(fb, GRAY13);
       }
     }
   };
 
   struct HKeyboard {
-    inline HKeyboard(common::HasScaleData &data, float pad) :
+    inline HKeyboard(common::HasScale &data, float pad) :
         mScaleData(data),
         mPad(pad) {
       mScaleData.attach();
@@ -783,16 +827,21 @@ namespace graphics {
         fb,
         mScaleData,
         aligned.inner(mPad).minCircle(),
-        v2d::of(radius, diameter)
+        v2d::of(radius, diameter).quantize()
       );
+
+      auto name = mScaleData.getScaleName();
+      auto text = Text();
+      text.update(mScaleData.getScaleName(), 8);
+      text.draw(fb, WHITE, world.bottomCenter().quantize(), CENTER_MIDDLE, false);
     }
 
-    common::HasScaleData &mScaleData;
+    common::HasScale &mScaleData;
     const float mPad;
   };
 
   struct IKeyboard {
-    inline IKeyboard(common::HasScaleData &data, float pad) :
+    inline IKeyboard(common::HasScale &data, float pad) :
         mScaleData(data),
         mPad(pad) {
       mScaleData.attach();
@@ -818,7 +867,7 @@ namespace graphics {
       );
     }
 
-    common::HasScaleData &mScaleData;
+    common::HasScale &mScaleData;
     float mPad;
   };
 
@@ -836,15 +885,25 @@ namespace graphics {
         auto global  = Range::fromLeft(0, globalStart(total));
         auto window  = mWindow.atCenter(globalCenter(index));
         auto bounded = global.insert(window);
-        return atOffset(-bounded.left());
+
+        return ListWindow {
+          bounded.atCenter(mWindow),
+          mItemSize,
+          mItemPad,
+          -bounded.left()
+        };
       }
 
       inline float relativeStart(int index) const {
         return mWindow.left() + globalStart(index) + mGlobalOffset;
       }
 
-      inline float relativeCenter(int index) const {
+      inline float leftRelativeCenter(int index) const {
         return mWindow.left() + globalCenter(index) + mGlobalOffset;
+      }
+
+      inline float rightRelativeCenter(int index) const {
+        return mWindow.right() - globalCenter(index) - mGlobalOffset;
       }
 
       inline bool contains(float v) const {
@@ -874,7 +933,7 @@ namespace graphics {
 
   class HChart {
     public:
-      inline HChart(common::HasChartData &data) :
+      inline HChart(common::HasChart &data) :
           mChartData(data) {
         mChartData.attach();
       }
@@ -892,7 +951,7 @@ namespace graphics {
           .centerAt(current, length);
 
         for (int i = 0; i < length; i++) {
-          auto xy = world.center().atX(window.relativeCenter(i));
+          auto xy = world.center().atX(window.leftRelativeCenter(i));
           if (!window.contains(xy.x())) continue;
 
           auto value = mChartData.getChartValue(i);
@@ -907,12 +966,12 @@ namespace graphics {
       }
 
     private:
-      common::HasChartData &mChartData;
+      common::HasChart &mChartData;
   };
 
   class CircleChart {
     public:
-      inline CircleChart(common::HasChartData &data, float size) :
+      inline CircleChart(common::HasChart &data, float size) :
           mChartData(data),
           mSize(size) {
         mChartData.attach();
@@ -962,37 +1021,8 @@ namespace graphics {
         return center.grow(span * amount).pointAtTheta(delta * (float)i);
       }
 
-      common::HasChartData &mChartData;
+      common::HasChart &mChartData;
       float mSize;
-  };
-
-  class Text {
-    public:
-      inline void draw(
-        od::FrameBuffer &fb,
-        od::Color color,
-        const v2d &v,
-        JustifyAlign ja,
-        bool outline
-      ) const {
-        auto position = Box::wh(mDimensions).justifyAlign(v, ja);
-        fb.text(color, position.left(), position.bottom(), mValue.c_str(), mSize);
-        if (outline) position.outline(fb, WHITE, 2);
-      }
-
-      inline void update(std::string str, int size) {
-        mValue = str;
-        mSize = size;
-
-        int width, height;
-        od::getTextSize(mValue.c_str(), &width, &height, size);
-        mDimensions = v2d::of(width, height);
-      }
-
-    private:
-      std::string mValue;
-      int mSize;
-      v2d mDimensions;
   };
 
   class Readout {
@@ -1028,32 +1058,46 @@ namespace graphics {
       Text mText;
   };
 
-  class TextList {
+  class ScaleList {
     public:
-      inline TextList(od::Parameter &parameter) :
-          mParameter(parameter) {
-        mParameter.attach();
+      inline ScaleList(common::HasScaleBook &data) : mData(data) {
+        mData.attach();
       }
 
-      inline ~TextList() {
-        mParameter.release();
+      inline ~ScaleList() {
+        mData.release();
       }
 
       void draw(
         od::FrameBuffer &fb,
-        od::Color color,
-        const Box &box,
-        JustifyAlign ja
+        const Box &world,
+        int size
       ) {
-        if (mRows.empty()) return;
+        auto length = mData.getScaleBookSize();
+        auto current = mData.getScaleBookIndex();
 
-        float currentTop = box.top();
-        float bottom = box.bottom();
-        //while (currentTop > )
+        auto window = ListWindow::from(world.vertical(), size, 2)
+          .centerAt(current, length);
+
+        for (int i = 0; i < length; i++) {
+          auto xy = world.leftCenter().atY(window.rightRelativeCenter(i));
+          if (!window.contains(xy.y())) continue;
+
+          auto name = mData.getScaleName(i);
+          //auto size = mData.getScaleSize(i);
+
+          auto isCurrent = i == current;
+
+          auto wh = world.widthHeight().atY(size);
+          //auto box = Box::lw(xy, wh);
+          //if (isCurrent) Box::cwh(xy, wh).trace(fb, WHITE);
+
+          auto text = Text();
+          text.update(name, size);
+          text.draw(fb, WHITE, xy, LEFT_MIDDLE, isCurrent);
+        }
       }
     private:
-      od::Parameter &mParameter;
-      std::vector<Text> mRows;
-      int mSelectedIndex = 0;
+      common::HasScaleBook &mData;
   };
 }
