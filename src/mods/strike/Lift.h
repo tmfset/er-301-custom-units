@@ -2,8 +2,8 @@
 
 #include <od/objects/Object.h>
 #include <sstream>
-#include <slew.h>
-#include <filter.h>
+#include <dsp/slew.h>
+#include <dsp/filter.h>
 
 namespace strike {
   class Lift : public od::Object {

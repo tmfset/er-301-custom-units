@@ -3,7 +3,7 @@
 #include <od/config.h>
 #include <hal/simd.h>
 #include <hal/neon.h>
-#include "util.h"
+#include "../util.h"
 
 namespace env {
   namespace four {

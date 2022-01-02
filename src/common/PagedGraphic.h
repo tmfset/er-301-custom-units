@@ -2,7 +2,7 @@
 
 #include <hal/constants.h>
 #include <od/graphics/Graphic.h>
-#include "slew.h"
+#include "dsp/slew.h"
 
 namespace common {
   class PagedGraphic : public od::Graphic {

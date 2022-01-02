@@ -2,7 +2,7 @@
 
 #include <od/objects/Object.h>
 #include <od/config.h>
-#include <osc.h>
+#include <dsp/osc.h>
 #include <sense.h>
 
 namespace strike {

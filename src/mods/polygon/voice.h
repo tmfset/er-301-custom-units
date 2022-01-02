@@ -1,11 +1,11 @@
 #pragma once
 
 #include <od/config.h>
-#include <osc.h>
-#include <filter.h>
-#include <env.h>
+#include <dsp/osc.h>
+#include <dsp/filter.h>
+#include <dsp/env.h>
 #include <array>
-#include "util.h"
+#include <util.h>
 #include <hal/simd.h>
 #include <hal/neon.h>
 #include <memory>

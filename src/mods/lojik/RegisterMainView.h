@@ -5,7 +5,7 @@
 #include <math.h>
 #include <util.h>
 #include <graphics.h>
-#include <slew.h>
+#include <dsp/slew.h>
 #include <Register2.h>
 
 namespace lojik {

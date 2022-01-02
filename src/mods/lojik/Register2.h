@@ -6,7 +6,7 @@
 #include <od/config.h>
 #include <hal/simd.h>
 #include <util.h>
-#include <ScaleQuantizer.h>
+#include <dsp/quantizer.h>
 #include <interfaces.h>
 
 namespace lojik {

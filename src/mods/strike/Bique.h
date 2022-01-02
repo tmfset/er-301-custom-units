@@ -5,7 +5,7 @@
 #include <sstream>
 #include <vector>
 #include <util.h>
-#include <filter.h>
+#include <dsp/filter.h>
 
 namespace strike {
   class Bique : public od::Object {

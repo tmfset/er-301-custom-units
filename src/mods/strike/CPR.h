@@ -5,8 +5,8 @@
 #include <sstream>
 #include <vector>
 #include <util.h>
-#include <compressor.h>
-#include <filter.h>
+#include <dsp/compressor.h>
+#include <dsp/filter.h>
 
 #define BUILDOPT_VERBOSE
 #define BUILDOPT_DEBUG_LEVEL 10

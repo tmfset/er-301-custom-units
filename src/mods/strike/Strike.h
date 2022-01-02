@@ -5,8 +5,8 @@
 #include <sstream>
 #include <vector>
 #include <util.h>
-#include <osc.h>
-#include <filter.h>
+#include <dsp/osc.h>
+#include <dsp/filter.h>
 #include <stdlib.h>
 
 namespace strike {

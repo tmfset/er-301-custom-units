@@ -6,9 +6,9 @@
 #include <voice.h>
 #include <array>
 #include <sstream>
-#include "util.h"
+#include <util.h>
 #include "Observable.h"
-#include "filter.h"
+#include <dsp/filter.h>
 
 #define BUILDOPT_VERBOSE
 #define BUILDOPT_DEBUG_LEVEL 10

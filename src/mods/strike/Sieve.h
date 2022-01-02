@@ -3,7 +3,7 @@
 #include <od/objects/Object.h>
 #include <od/config.h>
 #include <util.h>
-#include <filter.h>
+#include <dsp/filter.h>
 
 namespace strike {
 

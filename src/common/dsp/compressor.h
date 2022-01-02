@@ -2,8 +2,8 @@
 
 #include <od/config.h>
 #include <hal/simd.h>
-#include <util.h>
-#include <filter.h>
+#include "../util.h"
+#include "filter.h"
 
 namespace compressor {
   struct Slew {

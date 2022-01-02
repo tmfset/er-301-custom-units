@@ -3,7 +3,7 @@
 #include <od/graphics/text/Utils.h>
 #include "util.h"
 #include "interfaces.h"
-#include <slew.h>
+#include "dsp/slew.h"
 #include <vector>
 #include "v2d.h"
 #include <stdio.h>
@@ -457,25 +457,28 @@ namespace graphics {
       inline Box justify(const Box &within, od::Justification j) const {
         switch (j) {
           case od::justifyLeft:   return alignLeft(within);
-          case od::justifyRight:  return alignRight(within);
           case od::justifyCenter: return alignCenterX(within);
+          case od::justifyRight:  return alignRight(within);
         }
+        return alignLeft(within);
       }
 
       inline Box justify(float x, od::Justification j) const {
         switch (j) {
           case od::justifyLeft:   return atLeft(x);
-          case od::justifyRight:  return atRight(x);
           case od::justifyCenter: return atCenterX(x);
+          case od::justifyRight:  return atRight(x);
         }
+        return atLeft(x);
       }
 
       inline Box align(const Box &within, od::Alignment a) const {
         switch (a) {
-          case od::alignTop:    return alignTop(within);
           case od::alignBottom: return alignBottom(within);
           case od::alignMiddle: return alignCenterY(within);
+          case od::alignTop:    return alignTop(within);
         }
+        return alignBottom(within);
       }
 
       inline Box align(float y, od::Alignment a) const {
@@ -484,6 +487,7 @@ namespace graphics {
           case od::alignBottom: return atBottom(y);
           case od::alignMiddle: return atCenterY(y);
         }
+        return atTop(y);
       }
 
       inline Box justifyAlign(const Box &within, JustifyAlign ja) const {
@@ -1068,7 +1072,7 @@ namespace graphics {
           auto name = mData.getScaleName(i);
           //auto size = mData.getScaleSize(i);
 
-          auto wh = world.widthHeight().atY(size);
+          //auto wh = world.widthHeight().atY(size);
           auto xy = world.leftCenter().atY(y);
 
           auto isCurrent = i == current;

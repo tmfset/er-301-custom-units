@@ -2,7 +2,7 @@
 
 #include <od/objects/Object.h>
 #include <od/config.h>
-#include <osc.h>
+#include <dsp/osc.h>
 
 namespace strike {
   #define FORMANT_FIXED 1
