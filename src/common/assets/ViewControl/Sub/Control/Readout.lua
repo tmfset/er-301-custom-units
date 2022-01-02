@@ -1,13 +1,14 @@
-local app = app
-local Class = require "Base.Class"
+local app     = app
+local ply     = app.SECTION_PLY
+
+local Class   = require "Base.Class"
 local Encoder = require "Encoder"
-local Base = require "polygon.SubControl"
-local ply = app.SECTION_PLY
+local Base    = require "common.assets.ViewControl.Sub.Control"
 
-local SubReadout = Class {}
-SubReadout:include(Base)
+local Readout = Class {}
+Readout:include(Base)
 
-function SubReadout:init(args)
+function Readout:init(args)
   Base.init(self, args)
 
   local param = args.parameter or app.logError("%s.addReadout: missing parameter.", self)
@@ -31,7 +32,7 @@ function SubReadout:init(args)
   self.encoderState  = args.encoderState or Encoder.Coarse
 end
 
-function SubReadout:doKeyboardSet()
+function Readout:doKeyboardSet()
   local Decimal = require "Keyboard.Decimal"
 
   local keyboard = Decimal {
@@ -52,29 +53,29 @@ function SubReadout:doKeyboardSet()
   keyboard:show()
 end
 
-function SubReadout:onFocus()
+function Readout:onFocus()
   if not self:hasParentFocus("encoder") then self:focusParent() end
   self.readout:save()
 end
 
-function SubReadout:getCursorController()
+function Readout:getCursorController()
   return self.readout
 end
 
-function SubReadout:onZero()
+function Readout:onZero()
   self.readout:zero()
 end
 
-function SubReadout:onCancel(focused)
+function Readout:onCancel(focused)
   self.readout:restore()
 end
 
-function SubReadout:onRelease(focused)
+function Readout:onRelease(focused)
   if focused then self:doKeyboardSet() end
 end
 
-function SubReadout:onEncoder(change, shifted)
+function Readout:onEncoder(change, shifted)
   self.readout:encoder(change, shifted, self.encoderState == Encoder.Fine)
 end
 
-return SubReadout
+return Readout

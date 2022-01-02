@@ -1,11 +1,11 @@
-local app = app
+local app   = app
 local Class = require "Base.Class"
-local Base = require "polygon.SubControl"
+local Base  = require "common.assets.ViewControl.Sub.Control"
 
-local SubChain = Class {}
-SubChain:include(Base)
+local Chain = Class {}
+Chain:include(Base)
 
-function SubChain:init(args)
+function Chain:init(args)
   args.name = args.name or "empty"
   Base.init(self, args)
 
@@ -22,20 +22,20 @@ function SubChain:init(args)
   self.branch:subscribe("contentChanged", self)
 end
 
-function SubChain:contentChanged(chain)
+function Chain:contentChanged(chain)
   if not chain == self.branch then return end
   local outlet = chain:getMonitoringOutput(1)
   self.scope:watchOutlet(outlet)
   self.button:setText(chain:mnemonic())
 end
 
-function SubChain:onRemove()
+function Chain:onRemove()
   self.branch:unsubscribe("contentChanged", self)
 end
 
-function SubChain:onRelease()
+function Chain:onRelease()
   self:unfocusParent()
   self.branch:show()
 end
 
-return SubChain
+return Chain

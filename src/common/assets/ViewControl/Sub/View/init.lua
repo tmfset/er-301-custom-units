@@ -1,10 +1,10 @@
-local app = app
+local app   = app
+local ply   = app.SECTION_PLY
 local Class = require "Base.Class"
-local ply = app.SECTION_PLY
 
-local SubView = Class {}
+local View = Class {}
 
-function SubView:init(args)
+function View:init(args)
   self.name = args.name or app.logError("%s.init: missing name.", self)
   self.graphic = app.Graphic(0, 0, 128, 64)
 
@@ -20,11 +20,11 @@ function SubView:init(args)
   self.controls = {}
 end
 
-function SubView:setViewControl(viewControl)
+function View:setViewControl(viewControl)
   self.viewControl = viewControl
 end
 
-function SubView:addControl(position, control)
+function View:addControl(position, control)
   if self.controls[position] then
     app.logError("%s.register: control already exists in position %s", self, position)
     return
@@ -33,35 +33,35 @@ function SubView:addControl(position, control)
   self.controls[position] = control
 end
 
-function SubView:addGraphic(graphic)
+function View:addGraphic(graphic)
   self.graphic:addChild(graphic)
 end
 
-function SubView:hasFocus(str)
+function View:hasFocus(str)
   return self.viewControl:hasFocus(str)
 end
 
-function SubView:focus()
+function View:focus()
   return self.viewControl:focus()
 end
 
-function SubView:unfocus()
+function View:unfocus()
   return self.viewControl:unfocus()
 end
 
-function SubView:getControl(position)
+function View:getControl(position)
   return self.controls[position]
 end
 
-function SubView:getFocusedControl()
+function View:getFocusedControl()
   if self.position then return self:getControl(self.position) end
 end
 
-function SubView:clearFocusedPosition()
+function View:clearFocusedPosition()
   self.viewControl:setSubCursorController(nil)
 end
 
-function SubView:setFocusedPosition(position)
+function View:setFocusedPosition(position)
   local newControl = self:getControl(position)
   if not newControl then return end
 
@@ -73,55 +73,55 @@ function SubView:setFocusedPosition(position)
   self.viewControl:setSubCursorController(cursorController)
 end
 
-function SubView:isPositionFocused(position)
+function View:isPositionFocused(position)
   return self.position == position
 end
 
-function SubView:onRemove()
+function View:onRemove()
   for _, control in pairs(self.controls) do
     control:onRemove()
   end
 end
 
-function SubView:onFocused() end
+function View:onFocused() end
 
-function SubView:onCursorEnter()
+function View:onCursorEnter()
   for _, control in pairs(self.controls) do
     control:onCursorEnter()
   end
 end
 
-function SubView:zeroPressed()
+function View:zeroPressed()
   local control = self:getFocusedControl()
   if control then control:onZero() end
   return true
 end
 
-function SubView:cancelReleased()
+function View:cancelReleased()
   local control = self:getFocusedControl()
   if control then control:onCancel() end
   return true
 end
 
-function SubView:spotReleased(spot, shifted) end
+function View:spotReleased(spot, shifted) end
 
-function SubView:subReleased(i)
+function View:subReleased(i)
   local control = self:getControl(i)
   if control then control:onRelease(self:isPositionFocused(i)) end
   self:setFocusedPosition(i)
   return true
 end
 
-function SubView:subPressed(i)
+function View:subPressed(i)
   local control = self:getControl(i)
   if control then control:onPress(self:isPositionFocused(i)) end
   return true
 end
 
-function SubView:encoder(change, shifted)
+function View:encoder(change, shifted)
   local control = self:getFocusedControl()
   if control then control:onEncoder(change, shifted) end
   return true
 end
 
-return SubView
+return View

@@ -1,5 +1,6 @@
 %module polygon_libpolygon
 %include <od/glue/mod.cpp.swig>
+%include <common.cpp.swig>
 
 %{
 
@@ -8,7 +9,6 @@
 #include <Polygon.h>
 #include <RoundRobinGateView.h>
 #include <RoundRobinPitchView.h>
-#include <PagedSubView.h>
 
 #define SWIGLUA
 
@@ -17,7 +17,6 @@
 %include <Polygon.h>
 %include <RoundRobinGateView.h>
 %include <RoundRobinPitchView.h>
-%include <PagedSubView.h>
 %include <Observable.h>
 
 %template(Quartet) polygon::Polygon<1>;

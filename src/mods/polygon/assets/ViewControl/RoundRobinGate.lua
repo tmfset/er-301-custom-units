@@ -2,8 +2,8 @@ local app     = app
 local polygon = require "polygon.libpolygon"
 local Class   = require "Base.Class"
 
-local Base        = require "polygon.PagedViewControl"
-local SubViewGate = require "polygon.SubViewGate"
+local Base = require "common.assets.ViewControl.Split.Paged"
+local Gate = require "common.assets.ViewControl.Sub.View.Gate"
 
 local ply = app.SECTION_PLY
 
@@ -22,7 +22,7 @@ function RoundRobinGate:init(args)
   local threshold = self.polygon:getParameter("Gate Threshold")
   local onReleaseFire = function () self.polygon:releaseManualGates() end
 
-  self:addSubView(SubViewGate {
+  self:addSubView(Gate {
     name          = "Round Robin",
     branch        = self.branch,
     threshold     = threshold,
@@ -31,7 +31,7 @@ function RoundRobinGate:init(args)
   })
 
   for i, voice in ipairs(args.voices) do
-    self:addSubView(SubViewGate {
+    self:addSubView(Gate {
       name          = "Voice "..i,
       branch        = voice.gateBranch,
       threshold     = threshold,

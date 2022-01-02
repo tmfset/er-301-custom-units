@@ -1,13 +1,13 @@
 local app   = app
 local Class = require "Base.Class"
 
-local Base       = require "polygon.SubView"
-local SubReadout = require "polygon.SubReadout"
-local SubChain   = require "polygon.SubChain"
-local SubButton  = require "polygon.SubButton"
+local Base    = require "common.assets.ViewControl.Sub.View"
+local Readout = require "common.assets.ViewControl.Sub.Control.Readout"
+local Chain   = require "common.assets.ViewControl.Sub.Control.Chain"
+local Button  = require "common.assets.ViewControl.Sub.Control.Button"
 
-local SubGateView = Class {}
-SubGateView:include(Base)
+local Gate = Class {}
+Gate:include(Base)
 
 local overlay = (function ()
   local instructions = app.DrawingInstructions()
@@ -53,7 +53,7 @@ local overlay = (function ()
   return instructions
 end)()
 
-function SubGateView:addDrawing()
+function Gate:addDrawing()
   local drawing = app.Drawing(0, 0, 128, 64)
   drawing:add(overlay)
   self.graphic:addChild(drawing)
@@ -64,12 +64,12 @@ function SubGateView:addDrawing()
   self.graphic:addChild(label)
 end
 
-function SubGateView:init(args)
+function Gate:init(args)
   Base.init(self, args)
 
   self:addDrawing()
 
-  SubChain {
+  Chain {
     parent   = self,
     position = 1,
     name     = "empty",
@@ -78,7 +78,7 @@ function SubGateView:init(args)
     row      = app.GRID5_LINE4
   }
 
-  SubReadout {
+  Readout {
     parent        = self,
     position      = 2,
     name          = "thresh",
@@ -89,7 +89,7 @@ function SubGateView:init(args)
     row           = app.GRID5_CENTER4
   }
 
-  SubButton {
+  Button {
     parent    = self,
     position  = 3,
     name      = "fire",
@@ -98,4 +98,4 @@ function SubGateView:init(args)
   }
 end
 
-return SubGateView
+return Gate

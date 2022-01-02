@@ -1,13 +1,14 @@
 #pragma once
 
+#include <hal/constants.h>
 #include <od/graphics/Graphic.h>
 #include "slew.h"
 
-namespace polygon {
-  class PagedSubView : public od::Graphic {
+namespace common {
+  class PagedGraphic : public od::Graphic {
     public:
-      PagedSubView() : od::Graphic(0, 0, 128, 64) { }
-      virtual ~PagedSubView() {}
+      PagedGraphic(int left, int bottom, int width, int height) : od::Graphic(left, bottom, width, height) { }
+      virtual ~PagedGraphic() {}
 
       void switchPage() {
         mPage = (mPage + 1) % mChildren.size();
@@ -44,7 +45,7 @@ namespace polygon {
         const auto offset    = mPage - page;
         const auto isCurrent = offset == 0;
 
-        if (isCurrent && isEvenFrame()) {
+        if (isCurrent && isFillFrame()) {
           fb.fillCircle(color, mWidth, center, size);
         } else {
           fb.circle(color, mWidth, center + offset * (size * 2.0f + pad), size);
@@ -52,16 +53,17 @@ namespace polygon {
       }
 
       inline void advanceFrame() {
-        mFrame = (mFrame + 1) % 20;
+        mFrame = (mFrame + 1) % (int)GRAPHICS_REFRESH_RATE;
       }
 
-      inline bool isEvenFrame() const {
-        return (mFrame % 2) == 0;
+      inline bool isFillFrame() const {
+        //return mFrame > 1;
+        return true;
       }
 
       int mPage = 0;
       int mFrame = 0;
-      slew::SlewRate mPageSlewRate { 0.1, GRAPHICS_REFRESH_PERIOD };
+      slew::SlewRate mPageSlewRate = slew::SlewRate::fromRate(0.1, GRAPHICS_REFRESH_PERIOD);
       slew::Slew mPageSlew;
   };
 }

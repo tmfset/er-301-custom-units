@@ -107,6 +107,7 @@ $(PACKAGE_DIR): $(LIB_FILE) $(ASSETS)
 	@rsync -ru $(MOD_ASSETS_DIR)/ $@/
 	@rsync -ru $(COMMON_ASSETS_DIR)/ $@/
 	@find $@ -type f -name "*.lua" -print0 | xargs -0 sed -i.bak 's/common\.assets/$(PKGNAME)/g'
+	@find $@ -type f -name "*.lua" -print0 | xargs -0 sed -i.bak 's/common\.lib/$(PKGNAME).$(LIBNAME)/g'
 	@find $@ -type f -name "*.bak" -print0 | xargs -0 rm
 
 .PHONY: $(PACKAGE_DIR)

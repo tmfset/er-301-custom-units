@@ -1,16 +1,16 @@
 local app   = app
 local Class = require "Base.Class"
 
-local Base      = require "polygon.SubViewPitch"
-local SubToggle = require "polygon.SubToggle"
+local Base   = require "common.assets.ViewControl.Sub.View.Pitch"
+local Toggle = require "common.assets.ViewControl.Sub.Control.Toggle"
 
-local SubViewPitchTrack = Class {}
-SubViewPitchTrack:include(Base)
+local PitchTrack = Class {}
+PitchTrack:include(Base)
 
-function SubViewPitchTrack:init(args)
+function PitchTrack:init(args)
   Base.init(self, args)
 
-  SubToggle {
+  Toggle {
     parent    = self,
     position  = 3,
     name      = "track",
@@ -22,4 +22,4 @@ function SubViewPitchTrack:init(args)
   }
 end
 
-return SubViewPitchTrack
+return PitchTrack

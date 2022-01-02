@@ -2,9 +2,9 @@ local app     = app
 local polygon = require "polygon.libpolygon"
 local Class   = require "Base.Class"
 
-local Base              = require "polygon.PagedViewControl"
-local SubViewPitch      = require "polygon.SubViewPitch"
-local SubViewPitchTrack = require "polygon.SubViewPitchTrack"
+local Base       = require "common.assets.ViewControl.Split.Paged"
+local Pitch      = require "common.assets.ViewControl.Sub.View.Pitch"
+local PitchTrack = require "common.assets.ViewControl.Sub.View.PitchTrack"
 
 local ply = app.SECTION_PLY
 
@@ -22,7 +22,7 @@ function RoundRobinPitch:init(args)
 
   local biasMap = args.biasMap or app.logError("%s.init: missing bias map.", self)
 
-  self:addSubView(SubViewPitchTrack {
+  self:addSubView(PitchTrack {
     name   = "Round Robin",
     branch = self.branch,
     tune   = args.tune,
@@ -30,7 +30,7 @@ function RoundRobinPitch:init(args)
   })
 
   for i, voice in ipairs(args.voices) do
-    self:addSubView(SubViewPitch {
+    self:addSubView(Pitch {
       name   = "Voice "..i,
       branch = voice.pitchBranch,
       tune   = voice.pitchOffset

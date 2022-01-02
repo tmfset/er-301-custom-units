@@ -1,16 +1,16 @@
 local app   = app
 local Class = require "Base.Class"
 
-local Base       = require "polygon.SubView"
-local SubReadout = require "polygon.SubReadout"
+local Base    = require "common.assets.ViewControl.Sub.View"
+local Readout = require "common.assets.ViewControl.Sub.Control.Readout"
 
-local SubViewParameter = Class {}
-SubViewParameter:include(Base)
+local Parameter = Class {}
+Parameter:include(Base)
 
-function SubViewParameter:init(args)
+function Parameter:init(args)
   Base.init(self, args)
 
-  SubReadout {
+  Readout {
     parent        = self,
     position      = 1,
     name          = args.param1.name,
@@ -21,7 +21,7 @@ function SubViewParameter:init(args)
     row           = app.GRID5_CENTER4
   }
 
-  SubReadout {
+  Readout {
     parent        = self,
     position      = 2,
     name          = args.param2.name,
@@ -32,7 +32,7 @@ function SubViewParameter:init(args)
     row           = app.GRID5_CENTER4
   }
 
-  SubReadout {
+  Readout {
     parent        = self,
     position      = 3,
     name          = args.param3.name,
@@ -44,4 +44,4 @@ function SubViewParameter:init(args)
   }
 end
 
-return SubViewParameter
+return Parameter

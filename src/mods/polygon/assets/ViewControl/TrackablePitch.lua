@@ -3,8 +3,8 @@ local Class   = require "Base.Class"
 local Encoder = require "Encoder"
 local Settings = require "Settings"
 
-local Base              = require "polygon.SplitViewControl"
-local SubViewPitchTrack = require "polygon.SubViewPitchTrack"
+local Base       = require "common.assets.ViewControl.Split"
+local PitchTrack = require "common.assets.ViewControl.Sub.View.PitchTrack"
 
 local TrackablePitch = Class {
   type = "TrackablePitch",
@@ -28,7 +28,7 @@ function TrackablePitch:init(args)
     readoutParam = faderParam
   end
 
-  self:addSubView(SubViewPitchTrack {
+  self:addSubView(PitchTrack {
     name   = args.name,
     branch = self.branch,
     tune   = faderParam,

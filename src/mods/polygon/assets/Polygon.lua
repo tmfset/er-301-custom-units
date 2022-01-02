@@ -10,10 +10,10 @@ local GainBias    = require "Unit.ViewControl.GainBias"
 local Pitch       = require "Unit.ViewControl.Pitch"
 local OutputScope = require "Unit.ViewControl.OutputScope"
 
-local OutputMeter     = require "polygon.OutputMeter"
-local RoundRobinGate  = require "polygon.RoundRobinGate"
-local RoundRobinPitch = require "polygon.RoundRobinPitch"
-local TrackablePitch  = require "polygon.TrackablePitch"
+local OutputMeter     = require "polygon.ViewControl.OutputMeter"
+local RoundRobinGate  = require "polygon.ViewControl.RoundRobinGate"
+local RoundRobinPitch = require "polygon.ViewControl.RoundRobinPitch"
+local TrackablePitch  = require "polygon.ViewControl.TrackablePitch"
 
 local Polygon = Class {}
 Polygon:include(Unit)

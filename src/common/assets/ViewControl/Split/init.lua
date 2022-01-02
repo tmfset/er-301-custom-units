@@ -1,15 +1,15 @@
-local app = app
+local app   = app
 local Class = require "Base.Class"
-local Base = require "Unit.ViewControl.EncoderControl"
+local Base  = require "Unit.ViewControl.EncoderControl"
 
-local SplitViewControl = Class {}
-SplitViewControl:include(Base)
+local Split = Class {}
+Split:include(Base)
 
-function SplitViewControl:init(args)
+function Split:init(args)
   Base.init(self, args.name)
 end
 
-function SplitViewControl:addSubView(subView)
+function Split:addSubView(subView)
   if self._subview then
     app.logError("%s.addSubView: subView already set.", self)
     return
@@ -20,7 +20,7 @@ function SplitViewControl:addSubView(subView)
   self.subGraphic = subView.graphic
 end
 
-function SplitViewControl:subView()
+function Split:subView()
   if not self._subView then
     app.logError("%s.subView: missing sub view", self)
   end
@@ -28,41 +28,41 @@ function SplitViewControl:subView()
   return self._subView
 end
 
-function SplitViewControl:onFocused()
+function Split:onFocused()
   self:subView():onFocused()
   Base.onFocused(self)
 end
 
-function SplitViewControl:onCursorEnter()
+function Split:onCursorEnter()
   self:subView():onCursorEnter()
   Base.onCursorEnter(self)
 end
 
-function SplitViewControl:zeroPressed()
+function Split:zeroPressed()
   return self:subView():zeroPressed()
 end
 
-function SplitViewControl:cancelReleased()
+function Split:cancelReleased()
   return self:subView():cancelReleased()
 end
 
-function SplitViewControl:subReleased(i, shifted)
+function Split:subReleased(i, shifted)
   if shifted then return false end
   return self:subView():subReleased(i, shifted)
 end
 
-function SplitViewControl:subPressed(i, shifted)
+function Split:subPressed(i, shifted)
   if shifted then return false end
   return self:subView():subPressed(i)
 end
 
-function SplitViewControl:encoder(change, shifted)
+function Split:encoder(change, shifted)
   return self:subView():encoder(change, shifted)
 end
 
-function SplitViewControl:unfocusSubView()
+function Split:unfocusSubView()
   self:subView():clearFocusedPosition()
   self:unfocus()
 end
 
-return SplitViewControl
+return Split
