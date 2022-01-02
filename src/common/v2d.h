@@ -75,11 +75,15 @@ namespace common {
       inline v2d rotateCW() const { return of(mY, -mX); }
       inline v2d rotateCCW() const { return of(-mY, mX); }
 
-      inline v2d atX(float _x) const { return of(_x, mY); }
-      inline v2d atY(float _y) const { return of(mX, _y); }
+      inline v2d atX(float x)      const { return of(x, mY); }
+      inline v2d atX(const v2d &v) const { return atX(v.x()); }
+      inline v2d atY(float y)      const { return of(mX, y); }
+      inline v2d atY(const v2d &v) const { return atY(v.y()); }
 
-      inline v2d offsetX(float by) const { return atX(mX + by); }
-      inline v2d offsetY(float by) const { return atY(mY + by); }
+      inline v2d offsetX(float by)     const { return atX(mX + by); }
+      inline v2d offsetX(const v2d &v) const { return offsetX(v.x()); }
+      inline v2d offsetY(float by)     const { return atY(mY + by); }
+      inline v2d offsetY(const v2d &v) const { return offsetY(v.y()); }
 
       inline float x() const { return mX; }
       inline float y() const { return mY; }
