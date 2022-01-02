@@ -16,18 +16,25 @@ namespace lojik {
       virtual ~RegisterMainView() { }
 
     private:
+      inline void configureReadout(
+        od::Readout &readout,
+        od::Parameter *parameter
+      ) {
+        own(readout);
+        addChild(&readout);
+        readout.setParameter(parameter);
+        readout.setPrecision(0);
+      }
+
       void draw(od::FrameBuffer &fb) {
         Graphic::draw(fb);
 
-        auto world = graphics::Box::lbwh_raw(
-          v2d::of(mWorldLeft, mWorldBottom),
-          v2d::of(mWidth, mHeight)
-        );
+        auto world = graphics::Box::extractWorld(*this);
 
-        auto interior = world.inner(2);
+        //auto interior = world.inner(2);
 
-        auto top = interior.divideTop(0.5);
-        auto bottom = interior.divideBottom(0.5).withHeight(12).quantizeCenter();
+        auto top = world.splitTop(0.5);
+        auto bottom = world.splitBottom(0.5).withHeight(12);
 
         //mCircleChart.draw(fb, left.scaleHeight(0.75));
 
@@ -39,22 +46,20 @@ namespace lojik {
 
         auto size = 8;
 
-        auto left = interior.splitLeft(0.5);
-        auto right = interior.splitRight(0.5);
+        auto local = world.atLeftBottom(0, 2);
 
-        auto lc = left.bottomCenter().quantize();
-        mOffsetReadout.update(size);
-        mOffsetReadout.draw(fb, WHITE, lc.offsetX(-2), RIGHT_BOTTOM, mHighlightOffset);
+        auto left = local.splitLeft(0.5);
+        left.splitLeftPad(0.5, 2).applyTo(mOffsetReadout);
+        left.splitRightPad(0.5, 2).applyTo(mShiftReadout);
 
-        mShiftReadout.update(size);
-        mShiftReadout.draw(fb, WHITE, lc.offsetX(2), LEFT_BOTTOM, mHighlightShift);
+        auto right = local.splitRight(0.5);
+        right.splitLeftPad(0.5, 2).applyTo(mLengthReadout);
+        right.splitRightPad(0.5, 2).applyTo(mStrideReadout);
 
-        auto rc = right.bottomCenter().quantize();
-        mLengthReadout.update(size);
-        mLengthReadout.draw(fb, WHITE, rc.offsetX(-2), RIGHT_BOTTOM, mHighlightLength);
-
-        mStrideReadout.update(size);
-        mStrideReadout.draw(fb, WHITE, rc.offsetX(2), LEFT_BOTTOM, mHighlightStride);
+        mOffsetReadout.setJustification(od::justifyRight);
+        mShiftReadout.setJustification(od::justifyLeft);
+        mLengthReadout.setJustification(od::justifyRight);
+        mStrideReadout.setJustification(od::justifyLeft);
       }
 
       void setOffsetHighlight(bool v) { mHighlightOffset = v; }
@@ -68,10 +73,10 @@ namespace lojik {
 
       graphics::ScaleList mScaleList;
 
-      graphics::Readout mOffsetReadout;
-      graphics::Readout mShiftReadout;
-      graphics::Readout mLengthReadout;
-      graphics::Readout mStrideReadout;
+      od::Readout mOffsetReadout;
+      od::Readout mShiftReadout;
+      od::Readout mLengthReadout;
+      od::Readout mStrideReadout;
 
       bool mHighlightOffset = false;
       bool mHighlightShift  = false;

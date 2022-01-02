@@ -22,11 +22,7 @@ namespace strike {
       virtual void draw(od::FrameBuffer &fb) {
         od::Graphic::draw(fb);
 
-        auto world = graphics::Box::lbwh_raw(
-          v2d::of(mWorldLeft, mWorldBottom),
-          v2d::of(mWidth, mHeight)
-        );
-
+        auto world = graphics::Box::extractWorld(*this);
         auto frame = world.inner(10);
 
         drawThreshold(fb, frame, GRAY10);

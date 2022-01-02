@@ -8,6 +8,9 @@ namespace common {
       inline v2d() : mX(0), mY(0) {}
       inline v2d(float x, float y) : mX(x), mY(y) { }
 
+      static inline v2d ofX(float x) { return v2d(x, 0); }
+      static inline v2d ofY(float y) { return v2d(0, y); }
+
       static inline v2d of(float x, float y) { return v2d(x, y); }
       static inline v2d of(float v) { return of(v, v); }
 

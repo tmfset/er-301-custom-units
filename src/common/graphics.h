@@ -22,6 +22,7 @@ namespace graphics {
   #define RIGHT_BOTTOM  graphics::JustifyAlign(od::justifyRight, od::alignBottom)
   #define LEFT_BOTTOM   graphics::JustifyAlign(od::justifyLeft, od::alignBottom)
   #define LEFT_MIDDLE   graphics::JustifyAlign(od::justifyLeft, od::alignMiddle)
+  #define LEFT_TOP      graphics::JustifyAlign(od::justifyLeft, od::alignTop)
   #define CENTER_BOTTOM graphics::JustifyAlign(od::justifyCenter, od::alignBottom)
   #define CENTER_MIDDLE graphics::JustifyAlign(od::justifyCenter, od::alignMiddle)
 
@@ -342,33 +343,16 @@ namespace graphics {
       return cs(center(), size);
     }
 
+    inline Box padLeft(float by) const {
+      return lbrt(leftBottom() + v2d::ofX(by), rightTop());
+    }
+
     inline Box padRight(float by) const {
-      return lbrt(leftBottom(), rightTop() - v2d::of(by, 0));
+      return lbrt(leftBottom(), rightTop() - v2d::ofX(by));
     }
 
     inline Box topLeftCorner(float w, float h) const {
-      auto _wh = widthHeight() * v2d::of(w, h);
-      auto _lb = leftBottom();
-      auto _rt = rightTop();
-
-      return lbrt_raw(
-        v2d::of(_lb.x(), _rt.y() - _wh.y()),
-        v2d::of(_lb.x() + _wh.x(), _rt.y())
-      );
-    }
-
-    inline Box divideTop(float by) const {
-      auto _wh = widthHeight();
-      auto _lb = leftBottom();
-      auto _rt = rightTop();
-      return lbrt_raw(v2d::of(_lb.x(), _rt.y() - _wh.y() * by), _rt);
-    }
-
-    inline Box divideBottom(float by) const {
-      auto _wh = widthHeight();
-      auto _lb = leftBottom();
-      auto _rt = rightTop();
-      return lbrt_raw(_lb, v2d::of(_rt.x(), _lb.y() + _wh.y() * by));
+      return wh(widthHeight() * v2d::of(w, h)).justifyAlign(*this, LEFT_TOP);
     }
 
     inline Box withWidth(float w) const {
@@ -380,17 +364,27 @@ namespace graphics {
     }
 
     inline Box splitLeft(float by) const {
-      auto _wh = widthHeight();
-      auto _lb = leftBottom();
-      auto _rt = rightTop();
-      return lbrt_raw(_lb, v2d::of(_lb.x() + _wh.y() * by, _rt.y()));
+      return lbrt_raw(leftBottom(), rightTop().atX(left() + width() * by));
+    }
+
+    inline Box splitLeftPad(float by, float pad) const {
+      return splitLeft(by).padRight(pad);
+    }
+
+    inline Box splitBottom(float by) const {
+      return lbrt_raw(leftBottom(), rightTop().atY(top() - height() * by));
     }
 
     inline Box splitRight(float by) const {
-      auto _wh = widthHeight();
-      auto _lb = leftBottom();
-      auto _rt = rightTop();
-      return lbrt_raw(v2d::of(_rt.x() - _wh.x() * by, _lb.y()), _rt);
+      return lbrt_raw(leftBottom().atX(right() - width() * by), rightTop());
+    }
+
+    inline Box splitRightPad(float by, float pad) const {
+      return splitRight(by).padLeft(pad);
+    }
+
+    inline Box splitTop(float by) const {
+      return lbrt_raw(leftBottom().atY(bottom() + height() * by), rightTop());
     }
 
     inline Box withWidthFromLeft(float _width) const {
@@ -468,6 +462,10 @@ namespace graphics {
       return lbrt(_lb, _rt);
     }
 
+    inline Box atLeftBottom(v2d lb) const { return lbwh_raw(lb, widthHeight()); }
+    inline Box atLeftBottom(float l, float b) const { return atLeftBottom(v2d::of(l, b)); }
+    inline Box zeroLeftBottom()     const { return atLeftBottom(v2d::zero()); }
+
     inline Box atLeft(float left)     const { return lbwh_raw(leftBottom().atX(left), widthHeight()); }
     inline Box atRight(float right)   const { return atLeft(right).offsetX(-width()); }
     inline Box atCenterX(float x)     const { return cwh(center().atX(x), widthHeight()); }
@@ -488,6 +486,22 @@ namespace graphics {
     inline float  minDimension() const { return widthHeight().minDimension(); }
     inline Box    minSquare()    const { return cs(center(), minDimension()); }
     inline Circle minCircle()    const { return Circle::cr(center(), minDimension() / 2.0f); }
+
+    static inline Box extractFrom(const od::Rect &rect) {
+      return lbrt_raw(
+        v2d::of(rect.left, rect.bottom),
+        v2d::of(rect.right, rect.top)
+      );
+    }
+
+    static inline Box extractWorld(od::Graphic &graphic) {
+      return extractFrom(graphic.getWorldRect());
+    }
+
+    inline void applyTo(od::Graphic &graphic) const {
+      graphic.setPosition(left(), bottom());
+      graphic.setSize(width(), height());
+    }
 
     inline Box justify(const Box &within, od::Justification j) const {
       switch (j) {

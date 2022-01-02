@@ -25,10 +25,7 @@ namespace polygon {
       void draw(od::FrameBuffer &fb) {
         Graphic::draw(fb);
 
-        auto world = graphics::Box::lbwh_raw(
-          v2d::of(mWorldLeft, mWorldBottom),
-          v2d::of(mWidth, mHeight)
-        );
+        auto world = graphics::Box::extractWorld(*this);
         auto grid  = graphics::Grid::create(world.inner(2), mObservable.groups(), 4, 1);
 
         for (int c = 0; c < grid.cols; c++) {
