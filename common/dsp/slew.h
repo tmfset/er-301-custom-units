@@ -2,7 +2,8 @@
 
 #include <od/config.h>
 #include <hal/simd.h>
-#include "util.h"
+#include <math.h>
+#include "../util.h"
 
 namespace slew {
   struct SlewRate {
