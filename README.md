@@ -13,27 +13,12 @@ git submodule update --init
 
 ### Make Commands
 
-Build everything:
-```
-make -j all
-```
 
-Build a single module:
-```
-make -j <mod>
-```
-
-Build and copy to the emulator dir at `~/.od/front/ER-301/packages`
-```
-make -j <mod>-install
-```
-
-Build and package everything for release:
-```
-make release
-```
-
-Copy a release package to the SD card:
-```
-make <mod>-install-sd
-```
+| Command | Description |
+|----|----|
+| `make -j all` | Build everything |
+| `make -j <mod>` | Build a single module |
+| `make -j <mod>-install` | Build and copy to the emulator dir at `~/.od/front/ER-301/packages` |
+| `make emu` | Build and start the emulator |
+| `make release` | Build and package everything for release |
+| `make <mod>-install-sd` | Copy a release package to the SD card |
