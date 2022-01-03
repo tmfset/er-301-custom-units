@@ -17,8 +17,9 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v2
-      with:
-        submodules: true
+
+    - name: Checkout Submodules
+      run: git submodule update --init --recursive
 
     - name: Build Release
       run: make -j all ARCH=am335x PROFILE=release
