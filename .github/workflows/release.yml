@@ -24,6 +24,6 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         path: release/am335x/*.pkg
-        name: packages.zip
+        name: packages
         if-no-files-found: error
         retention-days: 5
