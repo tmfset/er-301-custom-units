@@ -1,10 +1,10 @@
 local app   = app
 local Class = require "Base.Class"
 
-local Base    = require "common.assets.ViewControl.Sub.View"
-local Readout = require "common.assets.ViewControl.Sub.Control.Readout"
-local Chain   = require "common.assets.ViewControl.Sub.Control.Chain"
-local Button  = require "common.assets.ViewControl.Sub.Control.Button"
+local Base    = require "common.assets.ViewControl.SubView"
+local Readout = require "common.assets.ViewControl.SubControl.Readout"
+local Chain   = require "common.assets.ViewControl.SubControl.Chain"
+local Button  = require "common.assets.ViewControl.SubControl.Button"
 
 local Gate = Class {}
 Gate:include(Base)

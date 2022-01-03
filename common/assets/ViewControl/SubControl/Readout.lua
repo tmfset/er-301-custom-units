@@ -3,7 +3,7 @@ local ply     = app.SECTION_PLY
 
 local Class   = require "Base.Class"
 local Encoder = require "Encoder"
-local Base    = require "common.assets.ViewControl.Sub.Control"
+local Base    = require "common.assets.ViewControl.SubControl"
 
 local Readout = Class {}
 Readout:include(Base)

@@ -2,9 +2,9 @@ local app     = app
 local Class   = require "Base.Class"
 local Encoder = require "Encoder"
 
-local Base    = require "common.assets.ViewControl.Sub.View"
-local Readout = require "common.assets.ViewControl.Sub.Control.Readout"
-local Chain   = require "common.assets.ViewControl.Sub.Control.Chain"
+local Base    = require "common.assets.ViewControl.SubView"
+local Readout = require "common.assets.ViewControl.SubControl.Readout"
+local Chain   = require "common.assets.ViewControl.SubControl.Chain"
 
 local col2 = app.BUTTON2_CENTER
 local col3 = app.BUTTON3_CENTER

@@ -1,6 +1,6 @@
 local app   = app
 local Class = require "Base.Class"
-local Base  = require "common.assets.ViewControl.Sub.Control"
+local Base  = require "common.assets.ViewControl.SubControl"
 
 local Button = Class {}
 Button:include(Base)

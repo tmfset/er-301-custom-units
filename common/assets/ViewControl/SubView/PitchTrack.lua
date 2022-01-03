@@ -1,8 +1,8 @@
 local app   = app
 local Class = require "Base.Class"
 
-local Base   = require "common.assets.ViewControl.Sub.View.Pitch"
-local Toggle = require "common.assets.ViewControl.Sub.Control.Toggle"
+local Base   = require "common.assets.ViewControl.SubView.Pitch"
+local Toggle = require "common.assets.ViewControl.SubControl.Toggle"
 
 local PitchTrack = Class {}
 PitchTrack:include(Base)
