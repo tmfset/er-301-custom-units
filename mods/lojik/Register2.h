@@ -10,6 +10,8 @@
 #include <graphics/interfaces/all.h>
 
 namespace lojik {
+  #define REGISTER_MAX 128
+
   class Register2 : public od::Object, public graphics::HasChart, public graphics::HasScale, public graphics::HasScaleBook {
     public:
       Register2() {
@@ -234,7 +236,6 @@ namespace lojik {
 
       util::four::Trigger mClockTrig;
       util::four::SyncTrigger mCSRTrigger;
-      State<128> mState;
-
+      State<REGISTER_MAX> mState;
   };
 }

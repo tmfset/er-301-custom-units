@@ -246,8 +246,21 @@ function Register:onLoadViews()
       initialBias   = 0
     },
     register = RegisterView {
-      name = "register",
-      register = self.objects.register
+      name     = "register",
+      register = self.objects.register,
+      offset = {
+        branch         = self.branches.offset,
+        gainBias       = self.objects.offset,
+        gainEncoderMap = self.intMap(-self.max, self.max),
+        biasEncoderMap = self.intMap(0, self.max),
+        precision      = 0
+      },
+      shift = {
+        branch         = self.branches.shift,
+        gainBias       = self.objects.shift,
+        gainEncoderMap = self.intMap(-self.max, self.max),
+        biasEncoderMap = self.intMap(0, self.max),
+      }
     }
   }, {
     expanded = { "inputGain", "register", "outputGain" }

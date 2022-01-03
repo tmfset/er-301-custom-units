@@ -19,6 +19,10 @@ namespace lojik {
 
       virtual ~RegisterMainView() { }
 
+      void setCursorSelection(int i) {
+        mCursorSelection = i;
+      }
+
     private:
       inline void configureReadout(
         od::Readout &readout,
@@ -48,7 +52,7 @@ namespace lojik {
 
         auto size = 8;
 
-        auto local = world.atLeftBottom(0, 2);
+        auto local = world.withHeight(8).atLeftBottom(0, 2);
 
         auto left = local.splitLeft(0.5);
         left.splitLeftPad(0.5, 2).applyTo(mOffsetReadout);
@@ -62,12 +66,34 @@ namespace lojik {
         mShiftReadout.setJustification(od::justifyLeft);
         mLengthReadout.setJustification(od::justifyRight);
         mStrideReadout.setJustification(od::justifyLeft);
+
+        // if (mCursorSelection == 0) mCursorState.show = false;
+        // else switch (mCursorSelection) {
+        //   case 1: break;
+        //   case 2: break;
+        //   case 3: break;
+        //   case 4: break;
+        // }
+
+        // if (mCursorSelection == 0) {
+        //   mCursorState.orientation = od::cursorDown;
+        //   mCursorState.x = world.topCenter().x();
+        //   mCursorState.y = world.topCenter().y();
+        // } else {
+        //   mCursorState.orientation = od::cursorDown;
+        //   mCursorState.x = 
+        // }
+
+        if (highlightOffset()) graphics::Box::extractWorld(mOffsetReadout).trace(fb, WHITE);
+        if (highlightShift())  graphics::Box::extractWorld(mShiftReadout).trace(fb, WHITE);
+        if (highlighLength())  graphics::Box::extractWorld(mLengthReadout).trace(fb, WHITE);
+        if (highlightStride()) graphics::Box::extractWorld(mStrideReadout).trace(fb, WHITE);
       }
 
-      void setOffsetHighlight(bool v) { mHighlightOffset = v; }
-      void setShiftHighlight(bool v)  { mHighlightShift  = v; }
-      void setLengthHighlight(bool v) { mHighlightLength = v; }
-      void setStrideHighlight(bool v) { mHighlightStride = v; }
+      inline bool highlightOffset() const { return mCursorSelection == 1; }
+      inline bool highlightShift()  const { return mCursorSelection == 2; }
+      inline bool highlighLength()  const { return mCursorSelection == 3; }
+      inline bool highlightStride() const { return mCursorSelection == 4; }
 
       graphics::HChart mChart;
       graphics::CircleChart mCircleChart;
@@ -80,9 +106,6 @@ namespace lojik {
       od::Readout mLengthReadout;
       od::Readout mStrideReadout;
 
-      bool mHighlightOffset = false;
-      bool mHighlightShift  = false;
-      bool mHighlightLength = false;
-      bool mHighlightStride = false;
+      int mCursorSelection = 0;
   };
 }
