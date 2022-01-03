@@ -11,15 +11,14 @@ jobs:
     runs-on: ubuntu-latest
 
     container:
-      image: tomjfiset/er-301-am335x-build-env:1.1.0
+      image: tomjfiset/er-301-am335x-build-env:1.1.2
       options: --platform=linux/amd64
 
     steps:
     - name: Checkout
       uses: actions/checkout@v2
-
-    - name: Checkout Submodules
-      run: git submodule update --init --recursive
+      with:
+        submodules: true
 
     - name: Build Release
       run: make -j all ARCH=am335x PROFILE=release

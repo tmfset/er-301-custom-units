@@ -2,7 +2,7 @@
 
 PROJECTS = lojik sloop strike polygon
 
-docker_image = tomjfiset/er-301-am335x-build-env:1.1.0
+docker_image = tomjfiset/er-301-am335x-build-env:1.1.2
 
 all: $(PROJECTS)
 
@@ -43,7 +43,7 @@ am335x-docker:
 
 release:
 	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units --platform=linux/amd64 $(docker_image)  \
-		make -j 4 all ARCH=am335x PROFILE=release
+		make -j all ARCH=am335x PROFILE=release
 
 testing:
 	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units --platform=linux/amd64 $(docker_image) \
