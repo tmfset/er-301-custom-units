@@ -20,6 +20,7 @@ ifndef ARCH
 endif
 
 ifeq ($(ARCH),am335x)
+  TI_INSTALL_DIR := /root/ti
   include $(SDKPATH)/scripts/am335x.mk
 endif
 

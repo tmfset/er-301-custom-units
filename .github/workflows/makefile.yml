@@ -9,7 +9,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    #container: tomjfiset/er-301-am335x-build-env:1.1.2
+    container: tomjfiset/er-301-am335x-build-env:1.1.2
 
     steps:
     - name: Checkout
@@ -18,4 +18,4 @@ jobs:
         submodules: true
 
     - name: Build Release
-      run: make release
+      run: make -j all ARCH=am335x PROFILE=release
