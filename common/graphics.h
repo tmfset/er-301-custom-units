@@ -1,5 +1,6 @@
 #pragma once
 
+#include <od/graphics/constants.h>
 #include <od/graphics/text/Utils.h>
 #include "util.h"
 #include "interfaces.h"
