@@ -15,7 +15,10 @@ jobs:
       options: --platform=linux/amd64
 
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        submodules: true
 
     - name: Build Release
       run: make -j all ARCH=am335x PROFILE=release
