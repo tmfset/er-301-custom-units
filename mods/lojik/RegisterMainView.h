@@ -3,8 +3,12 @@
 #include <od/graphics/Graphic.h>
 #include <od/graphics/controls/Readout.h>
 #include <math.h>
-#include <util.h>
-#include <graphics.h>
+#include <util/math.h>
+#include <graphics/primitives/all.h>
+#include <graphics/composites/BarChart.h>
+#include <graphics/composites/CircleChart.h>
+#include <graphics/composites/Keyboard.h>
+#include <graphics/composites/ScaleList.h>
 #include <dsp/slew.h>
 #include <Register2.h>
 

@@ -5,7 +5,7 @@
 #include <dsp/filter.h>
 #include <dsp/env.h>
 #include <array>
-#include <util.h>
+#include <util/math.h>
 #include <hal/simd.h>
 #include <hal/neon.h>
 #include <memory>

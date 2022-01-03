@@ -1,6 +1,6 @@
-#include "interfaces.h"
+#include "all.h"
 
-namespace common {
+namespace graphics {
   HasChart::HasChart() { }
   HasChart::~HasChart() { }
 

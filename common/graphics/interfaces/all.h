@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace common {
+namespace graphics {
   class HasChart {
     public:
       HasChart();

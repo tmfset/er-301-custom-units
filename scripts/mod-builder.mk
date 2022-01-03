@@ -68,7 +68,7 @@ CFLAGS.debug   = -g -DBUILDOPT_TESTING
 # Do you need any additional preprocess SYMBOLS?
 SYMBOLS =
 
-INCLUDES  = $(MOD_DIR) $(COMMON_DIR)
+INCLUDES  = $(MOD_DIR) $(COMMON_DIR)/
 INCLUDES += $(SDKPATH) $(SDKPATH)/arch/$(ARCH) $(SDKPATH)/emu
 
 CFLAGS += $(CFLAGS.common) $(CFLAGS.$(ARCH)) $(CFLAGS.$(PROFILE))

@@ -2,7 +2,7 @@
 
 #include <od/audio/Slices.h>
 #include <vector>
-#include <util.h>
+#include <util/math.h>
 
 namespace sloop {
   #define MAX_CLOCK_MARKS 1024

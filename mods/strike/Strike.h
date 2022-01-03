@@ -4,7 +4,7 @@
 #include <od/config.h>
 #include <sstream>
 #include <vector>
-#include <util.h>
+#include <util/math.h>
 #include <dsp/osc.h>
 #include <dsp/filter.h>
 #include <stdlib.h>

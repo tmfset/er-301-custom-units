@@ -1,9 +1,9 @@
 #pragma once
 
-#include <od/config.h>
 #include <hal/simd.h>
-#include <util.h>
+#include <od/config.h>
 #include <od/AudioThread.h>
+#include <util/math.h>
 
 namespace filter {
   enum Processing {

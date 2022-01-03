@@ -10,7 +10,7 @@
 #include <Slew.h>
 #include <sstream>
 #include <vector>
-#include <util.h>
+#include <util/math.h>
 
 namespace sloop {
 

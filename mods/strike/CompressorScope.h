@@ -5,9 +5,9 @@
 #include <od/graphics/text/Label.h>
 #include <od/extras/FastEWMA.h>
 #include <od/AudioThread.h>
-#include <graphics.h>
-#include <SimpleScope.h>
-#include <CPR.h>
+#include <graphics/primitives/all.h>
+#include "SimpleScope.h"
+#include "CPR.h"
 
 namespace strike {
   class CompressorScope : public od::Graphic {

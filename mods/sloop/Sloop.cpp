@@ -1,7 +1,7 @@
 #include <Sloop.h>
 #include <SyncLatch.h>
 #include <Slew.h>
-#include <util.h>
+#include <util/math.h>
 #include <hal/simd.h>
 
 #define BUILDOPT_VERBOSE

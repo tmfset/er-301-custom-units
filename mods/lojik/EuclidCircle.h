@@ -3,7 +3,7 @@
 #include <od/graphics/Graphic.h>
 #include <math.h>
 #include <Euclid.h>
-#include <util.h>
+#include <util/math.h>
 
 #define BUILDOPT_VERBOSE
 #define BUILDOPT_DEBUG_LEVEL 10

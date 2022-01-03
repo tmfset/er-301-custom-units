@@ -4,7 +4,7 @@
 #include <od/objects/Object.h>
 #include <hal/simd.h>
 #include <sense.h>
-#include <util.h>
+#include <util/math.h>
 
 namespace lojik {
   class TLatch : public od::Object {

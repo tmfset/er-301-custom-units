@@ -3,7 +3,7 @@
 #include <od/objects/measurement/FifoProbe.h>
 #include <od/graphics/Graphic.h>
 #include <od/AudioThread.h>
-#include <util.h>
+#include <util/math.h>
 
 namespace strike {
   class SimpleScope : public od::Graphic {

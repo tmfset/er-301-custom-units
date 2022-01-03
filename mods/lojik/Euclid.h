@@ -4,7 +4,7 @@
 #include <od/objects/Object.h>
 #include <hal/simd.h>
 #include <vector>
-#include "util.h"
+#include <util/math.h>
 #include <OneTime.h>
 #include <sense.h>
 

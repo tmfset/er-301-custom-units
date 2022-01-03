@@ -1,12 +1,8 @@
 #pragma once
 
-#include <math.h>
 #include <hal/simd.h>
-#include <util.h>
 
-#define BUILDOPT_VERBOSE
-#define BUILDOPT_DEBUG_LEVEL 10
-#include <hal/log.h>
+#include <util/math.h>
 
 namespace osc {
   class Frequency {

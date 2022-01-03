@@ -5,7 +5,7 @@
 #include <hal/simd.h>
 #include <sense.h>
 #include <OneTime.h>
-#include <util.h>
+#include <util/math.h>
 
 #define WAIT_MODE_LOW  1
 #define WAIT_MODE_HIGH 2

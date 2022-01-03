@@ -3,7 +3,7 @@
 #include <od/graphics/sampling/TapeHeadDisplay.h>
 #include <math.h>
 #include <Sloop.h>
-#include <util.h>
+#include <util/math.h>
 
 namespace sloop {
   class SloopHeadMainDisplay : public od::TapeHeadDisplay {

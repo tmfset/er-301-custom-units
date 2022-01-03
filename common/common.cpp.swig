@@ -2,11 +2,11 @@
 %{
 #undef SWIGLUA
 
-#include <interfaces.h>
-#include <PagedGraphic.h>
+#include <graphics/interfaces/all.h>
+#include <graphics/PagedGraphic.h>
 
 #define SWIGLUA
 %}
 
-%include <interfaces.h>
-%include <PagedGraphic.h>
+%include <graphics/interfaces/all.h>
+%include <graphics/PagedGraphic.h>

@@ -3,9 +3,8 @@
 #include <od/config.h>
 #include <od/constants.h>
 #include <od/objects/Object.h>
-#include <hal/simd.h>
-#include <math.h>
-#include <util.h>
+
+#include <util/math.h>
 
 namespace lojik {
   class Pulse : public od::Object {

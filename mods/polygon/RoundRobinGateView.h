@@ -3,8 +3,9 @@
 #include "Observable.h"
 #include <od/graphics/Graphic.h>
 #include <od/extras/LinearRamp.h>
-#include "util.h"
-#include "graphics.h"
+#include <util/math.h>
+#include <graphics/primitives/all.h>
+#include <graphics/composites/Grid.h>
 
 using namespace polygon;
 

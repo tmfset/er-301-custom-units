@@ -5,12 +5,12 @@
 #include <od/constants.h>
 #include <od/config.h>
 #include <hal/simd.h>
-#include <util.h>
+#include <util/math.h>
 #include <dsp/quantizer.h>
-#include <interfaces.h>
+#include <graphics/interfaces/all.h>
 
 namespace lojik {
-  class Register2 : public od::Object, public common::HasChart, public common::HasScale, public common::HasScaleBook {
+  class Register2 : public od::Object, public graphics::HasChart, public graphics::HasScale, public graphics::HasScaleBook {
     public:
       Register2() {
         addInput(mIn);

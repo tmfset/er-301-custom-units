@@ -6,8 +6,8 @@
 #include <hal/constants.h>
 #include <od/config.h>
 
-#include "../util.h"
-#include "../v2d.h"
+#include <util/math.h>
+#include <util/v2d.h>
 
 namespace common {
   struct Scale {
@@ -216,6 +216,6 @@ namespace common {
 
       util::four::Pitch mDetected;
       float mQuantizedCents;
-      common::v2d mQuantizedBounds;
+      v2d mQuantizedBounds;
   };
 }

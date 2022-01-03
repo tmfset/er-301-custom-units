@@ -6,7 +6,7 @@
 #include <voice.h>
 #include <array>
 #include <sstream>
-#include <util.h>
+#include <util/math.h>
 #include "Observable.h"
 #include <dsp/filter.h>
 

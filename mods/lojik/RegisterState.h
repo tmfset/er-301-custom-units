@@ -1,8 +1,8 @@
 #pragma once
 
-#include <util.h>
-#include <od/extras/Random.h>
 #include <vector>
+#include <od/extras/Random.h>
+#include <util/math.h>
 
 #define REGISTER_MAX 1024
 

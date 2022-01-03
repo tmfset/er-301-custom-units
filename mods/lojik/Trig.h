@@ -4,7 +4,7 @@
 #include <hal/simd.h>
 #include <od/objects/Object.h>
 #include <sense.h>
-#include <util.h>
+#include <util/math.h>
 
 namespace lojik {
   class Trig : public od::Object {
