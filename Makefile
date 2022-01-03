@@ -9,31 +9,31 @@ all: $(PROJECTS)
 asm: $(addsuffix -asm,$(PROJECTS))
 
 $(PROJECTS):
-	+$(MAKE) -f src/mods/$@/mod.mk PKGNAME=$@
+	+$(MAKE) -f mods/$@/mod.mk PKGNAME=$@
 
 $(addsuffix -install,$(PROJECTS)): $(@:-install=)
 	$(eval PROJECT := $(@:-install=))
-	+$(MAKE) -f src/mods/$(PROJECT)/mod.mk install PKGNAME=$(PROJECT)
+	+$(MAKE) -f mods/$(PROJECT)/mod.mk install PKGNAME=$(PROJECT)
 
 $(addsuffix -install-sd,$(PROJECTS)):
 	$(eval PROJECT := $(@:-install-sd=))
-	+$(MAKE) -f src/mods/$(PROJECT)/mod.mk install-sd PKGNAME=$(PROJECT) ARCH=am335x PROFILE=release
+	+$(MAKE) -f mods/$(PROJECT)/mod.mk install-sd PKGNAME=$(PROJECT) ARCH=am335x PROFILE=release
 
 $(addsuffix -install-sd-testing,$(PROJECTS)):
 	$(eval PROJECT := $(@:-install-sd-testing=))
-	+$(MAKE) -f src/mods/$(PROJECT)/mod.mk install-sd PKGNAME=$(PROJECT) ARCH=am335x PROFILE=testing
+	+$(MAKE) -f mods/$(PROJECT)/mod.mk install-sd PKGNAME=$(PROJECT) ARCH=am335x PROFILE=testing
 
 $(addsuffix -missing,$(PROJECTS)):
 	$(eval PROJECT := $(@:-missing=))
-	+$(MAKE) -f src/mods/$(PROJECT)/mod.mk missing PKGNAME=$(PROJECT)
+	+$(MAKE) -f mods/$(PROJECT)/mod.mk missing PKGNAME=$(PROJECT)
 
 $(addsuffix -asm,$(PROJECTS)):
 	$(eval PROJECT := $(@:-asm=))
-	+$(MAKE) -f src/mods/$(PROJECT)/mod.mk asm PKGNAME=$(PROJECT)
+	+$(MAKE) -f mods/$(PROJECT)/mod.mk asm PKGNAME=$(PROJECT)
 
 $(addsuffix -list,$(PROJECTS)):
 	$(eval PROJECT := $(@:-list=))
-	+$(MAKE) -f src/mods/$(PROJECT)/mod.mk list PKGNAME=$(PROJECT)
+	+$(MAKE) -f mods/$(PROJECT)/mod.mk list PKGNAME=$(PROJECT)
 
 emu:
 	@cd er-301; make -j emu && testing/darwin/emu/emu.elf
