@@ -1,6 +1,6 @@
 local app = app
 local lojik = require "lojik.liblojik"
-local EuclidCircle = require "lojik.EuclidCircle"
+local EuclidCircle = require "lojik.ViewControl.EuclidCircle"
 local Class = require "Base.Class"
 local Unit = require "Unit"
 local GainBias = require "Unit.ViewControl.GainBias"

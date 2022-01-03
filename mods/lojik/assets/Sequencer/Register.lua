@@ -9,7 +9,7 @@ local Task = require "Unit.MenuControl.Task"
 local FlagSelect = require "Unit.MenuControl.FlagSelect"
 local OutputScope = require "Unit.ViewControl.OutputScope"
 local UnitShared = require "common.assets.UnitShared"
-local RegisterShared = require "lojik.RegisterShared"
+local RegisterShared = require "lojik.Sequencer.RegisterShared"
 
 local Register = Class {}
 Register:include(Unit)

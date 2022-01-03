@@ -6,87 +6,84 @@ return {
   author  = "tomf",
   units   = {
     {
-      title = "Register",
-      moduleName = "Register",
-      keywords = "sequencer, register"
+      title      = "Register",
+      moduleName = "Sequencer.Register",
+      keywords   = "sequencer, register"
     },
     {
-      title = "Register2",
-      moduleName = "Register2",
-      keywords = "sequencer, register"
+      title      = "Register2",
+      moduleName = "Sequencer.Register2",
+      keywords   = "sequencer, register"
     },
     {
-      title = "Turing",
-      moduleName = "Turing",
-      keywords = "sequencer, turing"
+      title      = "Turing",
+      moduleName = "Sequencer.Turing",
+      keywords   = "sequencer, turing"
     },
     {
-      title = "Seq",
-      moduleName = "Seq",
-      keywords = "sequencer"
-    },
-
-    {
-      title = "Latch",
-      moduleName = "Latch",
-      keywords = "latch"
+      title      = "Seq",
+      moduleName = "Sequencer.Seq",
+      keywords   = "sequencer"
     },
     {
-      title = "DLatch",
-      moduleName = "DLatch",
-      keywords = "latch"
+      title      = "Latch",
+      moduleName = "Latch.Latch",
+      keywords   = "latch"
     },
     {
-      title = "TLatch",
-      moduleName = "TLatch",
-      keywords = "latch"
+      title      = "DLatch",
+      moduleName = "Latch.DLatch",
+      keywords   = "latch"
     },
     {
-      title = "Pick",
-      moduleName = "Pick",
-      keywords = "pick"
+      title      = "TLatch",
+      moduleName = "Latch.TLatch",
+      keywords   = "latch"
     },
-
     {
-      title = "Pulse",
+      title      = "Pick",
+      moduleName = "Latch.Pick",
+      keywords   = "pick"
+    },
+    {
+      title      = "Pulse",
       moduleName = "Pulse",
-      keywords = "pulse, square"
+      keywords   = "pulse, square"
     },
     {
-      title = "Wait",
-      moduleName = "Wait",
-      keywords = "divide, delay"
+      title      = "Wait",
+      moduleName = "Divide.Wait",
+      keywords   = "divide, delay"
     },
     {
-      title = "Euclid",
-      moduleName = "Euclid",
-      keyword = "rhythm, clock"
+      title      = "Euclid",
+      moduleName = "Divide.Euclid",
+      keyword    = "rhythm, clock"
     },
     {
-      title = "Chance",
-      moduleName = "Chance",
-      keyword = "rhythm, clock"
-    },
-
-    {
-      title = "And",
-      moduleName = "And",
-      keywords = "and"
+      title      = "Chance",
+      moduleName = "Divide.Chance",
+      keyword    = "rhythm, clock"
     },
     {
-      title = "Or",
-      moduleName = "Or",
-      keywords = "or"
+      title      = "And",
+      moduleName = "Logic.And",
+      keywords   = "and"
     },
     {
-      title = "Not",
-      moduleName = "Not",
-      keywords = "not"
+      title      = "Or",
+      moduleName = "Logic.Or",
+      keywords   = "or"
     },
     {
-      title = "Trig",
-      moduleName = "Trig",
-      keywords = "trig"
+      title      = "Not",
+      moduleName = "Logic.Not",
+      keywords   = "not"
+    },
+    {
+      title      = "Trig",
+      moduleName = "Logic.Trig",
+      keywords   = "trig"
     }
   }
 }
