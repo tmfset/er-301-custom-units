@@ -1,0 +1,17 @@
+name: Makefile CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build-release:
+    runs-on: tomjfiset/er-301-am335x-build-env:1.1.0
+
+    steps:
+    - uses: actions/checkout@v2
+      
+    - name: Build Release
+      run: make -j all ARCH=am335x PROFILE=release
