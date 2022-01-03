@@ -1,4 +1,5 @@
 # er-301-custom-units
+[![Release](https://github.com/tmfset/er-301-custom-units/actions/workflows/release.yml/badge.svg)](https://github.com/tmfset/er-301-custom-units/actions/workflows/release.yml)
 
 A collection of _bespoke_ units for the ER-301 built using C++ and the **Middle Layer SDK**.
 
