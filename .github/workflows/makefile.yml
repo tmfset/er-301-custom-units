@@ -7,11 +7,15 @@ on:
     branches: [ master ]
 
 jobs:
-  build-release:
-    runs-on: tomjfiset/er-301-am335x-build-env:1.1.0
+  build:
+    runs-on: ubuntu-latest
+
+    container:
+      image: tomjfiset/er-301-am335x-build-env:1.1.0
+      options: --platform=linux/amd64
 
     steps:
     - uses: actions/checkout@v2
-      
+
     - name: Build Release
       run: make -j all ARCH=am335x PROFILE=release
