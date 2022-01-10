@@ -94,4 +94,9 @@ function GainBias:init(args)
   }
 end
 
+function GainBias:onFocused()
+  self:setFocusedPosition(3)
+  Base.onFocused(self)
+end
+
 return GainBias

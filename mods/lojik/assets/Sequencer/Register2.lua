@@ -260,101 +260,23 @@ function Register:onLoadViews()
         gainBias       = self.objects.shift,
         gainEncoderMap = self.intMap(-self.max, self.max),
         biasEncoderMap = self.intMap(0, self.max),
+      },
+      length = {
+        branch         = self.branches.length,
+        gainBias       = self.objects.length,
+        gainEncoderMap = self.intMap(-self.max, self.max),
+        biasEncoderMap = self.intMap(0, self.max),
+      },
+      stride = {
+        branch         = self.branches.stride,
+        gainBias       = self.objects.stride,
+        gainEncoderMap = self.intMap(-self.max, self.max),
+        biasEncoderMap = self.intMap(0, self.max),
       }
     }
   }, {
     expanded = { "inputGain", "register", "outputGain" }
   }
-  -- return {
-  --   wave1 = OutputScope {
-  --     monitor = self,
-  --     width   = 1 * app.SECTION_PLY
-  --   },
-  --   wave3 = OutputScope {
-  --     monitor = self,
-  --     width   = 3 * app.SECTION_PLY
-  --   },
-  --   clock   = self:gateView("clock", "Advance"),
-  --   capture = self:gateView("capture", "Enable Write"),
-  --   shift   = self:gateView("shift", "Enable Shift"),
-  --   reset   = self:gateView("reset", "Enable Reset"),
-  --   length  = GainBias {
-  --     button        = "length",
-  --     description   = "Length",
-  --     branch        = self.branches.length,
-  --     gainbias      = self.objects.length,
-  --     range         = self.objects.lengthRange,
-  --     gainMap       = self.intMap(-self.max, self.max),
-  --     biasMap       = self.intMap(1, self.max),
-  --     biasPrecision = 0,
-  --     initialBias   = 4
-  --   },
-  --   stride  = GainBias {
-  --     button        = "stride",
-  --     description   = "Stride",
-  --     branch        = self.branches.stride,
-  --     gainbias      = self.objects.stride,
-  --     range         = self.objects.strideRange,
-  --     gainMap       = self.intMap(-self.max / 4, self.max / 4),
-  --     biasMap       = self.intMap(-self.max / 4, self.max / 4),
-  --     biasPrecision = 0,
-  --     initialBias   = 1
-  --   },
-  --   scatter   = GainBias {
-  --     button        = "scatter",
-  --     description   = "Scatter",
-  --     branch        = self.branches.scatter,
-  --     gainbias      = self.objects.scatter,
-  --     range         = self.objects.scatter,
-  --     biasMap       = Encoder.getMap("[0,1]"),
-  --     biasUnits     = app.unitNone,
-  --     biasPrecision = 2,
-  --     initialBias   = self.initialScatter
-  --   },
-  --   drift   = GainBias {
-  --     button        = "drift",
-  --     description   = "Drift",
-  --     branch        = self.branches.drift,
-  --     gainbias      = self.objects.drift,
-  --     range         = self.objects.drift,
-  --     biasMap       = Encoder.getMap("[0,1]"),
-  --     biasUnits     = app.unitNone,
-  --     biasPrecision = 2,
-  --     initialBias   = self.initialDrift
-  --   },
-  --   gain   = GainBias {
-  --     button        = "gain",
-  --     description   = "Input Gain",
-  --     branch        = self.branches.gain,
-  --     gainbias      = self.objects.gain,
-  --     range         = self.objects.gain,
-  --     biasMap       = Encoder.getMap("[0,1]"),
-  --     biasUnits     = app.unitNone,
-  --     biasPrecision = 2,
-  --     initialBias   = self.initialGain
-  --   },
-  --   bias   = GainBias {
-  --     button        = "bias",
-  --     description   = "Input Bias",
-  --     branch        = self.branches.bias,
-  --     gainbias      = self.objects.bias,
-  --     range         = self.objects.bias,
-  --     biasMap       = Encoder.getMap("[-1,1]"),
-  --     biasUnits     = app.unitNone,
-  --     biasPrecision = 2,
-  --     initialBias   = self.initialBias
-  --   }
-  -- }, {
-  --   expanded  = { "clock", "capture", "length", "stride", "drift" },
-
-  --   clock     = { "clock",   "wave1", "shift", "reset" },
-  --   capture   = { "capture", "wave1", "gain", "bias", "scatter" },
-  --   length    = { "length",  "wave1", "stride", "drift" },
-  --   stride    = { "stride",  "wave3" },
-  --   drift     = { "drift",   "wave3" },
-
-  --   collapsed = { "length" }
-  -- }
 end
 
 return Register

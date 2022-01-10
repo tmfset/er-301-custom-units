@@ -9,7 +9,7 @@ all: $(PROJECTS)
 asm: $(addsuffix -asm,$(PROJECTS))
 
 $(PROJECTS):
-	+$(MAKE) -f mods/$@/mod.mk PKGNAME=$@
+	+$(MAKE) -j -f mods/$@/mod.mk PKGNAME=$@
 
 $(addsuffix -install,$(PROJECTS)): $(@:-install=)
 	$(eval PROJECT := $(@:-install=))

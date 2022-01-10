@@ -19,8 +19,14 @@ namespace lojik {
 
       virtual ~RegisterMainView() { }
 
-      void setCursorSelection(int i) {
-        mCursorSelection = i;
+      inline od::Readout* getCursorController(int i) {
+        switch (i) {
+          case 0: return &mOffsetReadout;
+          case 1: return &mShiftReadout;
+          case 2: return &mLengthReadout;
+          case 3: return &mStrideReadout;
+        }
+        return nullptr;
       }
 
     private:
@@ -32,6 +38,20 @@ namespace lojik {
         addChild(&readout);
         readout.setParameter(parameter);
         readout.setPrecision(0);
+      }
+
+      inline void configureReadouts() {
+        mOffsetReadout.setJustification(od::justifyRight);
+        mOffsetReadout.mCursorState.orientation = od::cursorRight;
+
+        mShiftReadout.setJustification(od::justifyLeft);
+        mShiftReadout.mCursorState.orientation = od::cursorLeft;
+
+        mLengthReadout.setJustification(od::justifyRight);
+        mLengthReadout.mCursorState.orientation = od::cursorRight;
+
+        mStrideReadout.setJustification(od::justifyLeft);
+        mStrideReadout.mCursorState.orientation = od::cursorLeft;
       }
 
       void draw(od::FrameBuffer &fb) {
@@ -61,39 +81,7 @@ namespace lojik {
         auto right = local.splitRight(0.5);
         right.splitLeftPad(0.5, 2).applyTo(mLengthReadout);
         right.splitRightPad(0.5, 2).applyTo(mStrideReadout);
-
-        mOffsetReadout.setJustification(od::justifyRight);
-        mShiftReadout.setJustification(od::justifyLeft);
-        mLengthReadout.setJustification(od::justifyRight);
-        mStrideReadout.setJustification(od::justifyLeft);
-
-        // if (mCursorSelection == 0) mCursorState.show = false;
-        // else switch (mCursorSelection) {
-        //   case 1: break;
-        //   case 2: break;
-        //   case 3: break;
-        //   case 4: break;
-        // }
-
-        // if (mCursorSelection == 0) {
-        //   mCursorState.orientation = od::cursorDown;
-        //   mCursorState.x = world.topCenter().x();
-        //   mCursorState.y = world.topCenter().y();
-        // } else {
-        //   mCursorState.orientation = od::cursorDown;
-        //   mCursorState.x = 
-        // }
-
-        if (highlightOffset()) graphics::Box::extractWorld(mOffsetReadout).trace(fb, WHITE);
-        if (highlightShift())  graphics::Box::extractWorld(mShiftReadout).trace(fb, WHITE);
-        if (highlighLength())  graphics::Box::extractWorld(mLengthReadout).trace(fb, WHITE);
-        if (highlightStride()) graphics::Box::extractWorld(mStrideReadout).trace(fb, WHITE);
       }
-
-      inline bool highlightOffset() const { return mCursorSelection == 1; }
-      inline bool highlightShift()  const { return mCursorSelection == 2; }
-      inline bool highlighLength()  const { return mCursorSelection == 3; }
-      inline bool highlightStride() const { return mCursorSelection == 4; }
 
       graphics::HChart mChart;
       graphics::CircleChart mCircleChart;
@@ -105,7 +93,5 @@ namespace lojik {
       od::Readout mShiftReadout;
       od::Readout mLengthReadout;
       od::Readout mStrideReadout;
-
-      int mCursorSelection = 0;
   };
 }

@@ -15,5 +15,6 @@ namespace lojik {
     configureReadout(mShiftReadout, data.getParameter("Shift"));
     configureReadout(mLengthReadout, data.getParameter("Length"));
     configureReadout(mStrideReadout, data.getParameter("Stride"));
+    configureReadouts();
   }
 }
