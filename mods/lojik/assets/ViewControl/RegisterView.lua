@@ -21,35 +21,35 @@ function RegisterView:init(args)
   self.register = args.register or app.logError("%s.init: missing register instance.", self)
 
   self:addSubView(GainBias {
-    name           = "Offset",
-    branch         = args.offset.branch,
-    gainBias       = args.offset.gainBias,
-    gainEncoderMap = args.offset.gainEncoderMap,
-    biasEncoderMap = args.offset.biasEncoderMap,
+    name        = "Offset",
+    branch      = args.offset.branch,
+    gainBias    = args.offset.gainBias,
+    gainDialMap = args.offset.gainDialMap,
+    biasDialMap = args.offset.biasDialMap,
   })
 
   self:addSubView(GainBias {
-    name           = "Shift",
-    branch         = args.shift.branch,
-    gainBias       = args.shift.gainBias,
-    gainEncoderMap = args.shift.gainEncoderMap,
-    biasEncoderMap = args.shift.biasEncoderMap,
+    name        = "Shift",
+    branch      = args.shift.branch,
+    gainBias    = args.shift.gainBias,
+    gainDialMap = args.shift.gainDialMap,
+    biasDialMap = args.shift.biasDialMap,
   })
 
   self:addSubView(GainBias {
-    name           = "Length",
-    branch         = args.length.branch,
-    gainBias       = args.length.gainBias,
-    gainEncoderMap = args.length.gainEncoderMap,
-    biasEncoderMap = args.length.biasEncoderMap,
+    name        = "Length",
+    branch      = args.length.branch,
+    gainBias    = args.length.gainBias,
+    gainDialMap = args.length.gainDialMap,
+    biasDialMap = args.length.biasDialMap,
   })
 
   self:addSubView(GainBias {
-    name           = "Stride",
-    branch         = args.stride.branch,
-    gainBias       = args.stride.gainBias,
-    gainEncoderMap = args.stride.gainEncoderMap,
-    biasEncoderMap = args.stride.biasEncoderMap,
+    name        = "Stride",
+    branch      = args.stride.branch,
+    gainBias    = args.stride.gainBias,
+    gainDialMap = args.stride.gainDialMap,
+    biasDialMap = args.stride.biasDialMap,
   })
 
   local width = args.width or 2

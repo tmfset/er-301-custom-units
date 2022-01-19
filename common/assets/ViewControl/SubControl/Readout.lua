@@ -1,6 +1,8 @@
 local app     = app
 local ply     = app.SECTION_PLY
 
+local common  = require "common.lib"
+local DialMap = require "common.assets.DialMap"
 local Class   = require "Base.Class"
 local Encoder = require "Encoder"
 local Base    = require "common.assets.ViewControl.SubControl"
@@ -14,15 +16,15 @@ function Readout:init(args)
   local param = args.parameter or app.logError("%s.addReadout: missing parameter.", self)
   param:enableSerialization()
 
-  local units      = args.units or app.unitNone
-  local encoderMap = args.encoderMap or Encoder.getMap("default")
-  local precision  = args.precision or 2
-  local column     = args.column or app.BUTTON1_CENTER
-  local row        = args.row or app.GRID5_CENTER1
+  local units     = args.units     or common.unitNone
+  local dialMap   = args.dialMap   or DialMap.punit.default
+  local precision = args.precision or 2
+  local column    = args.column    or app.BUTTON1_CENTER
+  local row       = args.row       or app.GRID5_CENTER1
 
-  self.readout = app.Readout(0, 0, ply, 10)
+  self.readout = common.ParameterReadout(0, 0, ply, 10)
   self.readout:setParameter(param)
-  self.readout:setAttributes(units, encoderMap)
+  self.readout:setAttributes(units, dialMap)
   self.readout:setPrecision(precision)
   self.readout:setCenter(column, row)
   self:addGraphic(self.readout)

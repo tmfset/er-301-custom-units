@@ -2,6 +2,8 @@ local app     = app
 local Class   = require "Base.Class"
 local Encoder = require "Encoder"
 
+local common  = require "common.lib"
+local DialMap = require "common.assets.DialMap"
 local Base    = require "common.assets.ViewControl.SubView"
 local Readout = require "common.assets.ViewControl.SubControl.Readout"
 local Chain   = require "common.assets.ViewControl.SubControl.Chain"
@@ -78,8 +80,8 @@ function Pitch:init(args)
     position      = 2,
     name          = "tune",
     parameter     = args.tune,
-    encoderMap    = Encoder.getMap("cents"),
-    units         = app.unitCents,
+    dialMap       = DialMap.cents.threeOctaves,
+    units         = common.unitCents,
     precision     = 0,
     editMessage   = "Pitch offset.",
     commitMessage = "Updated pitch offset.",

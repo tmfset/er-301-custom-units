@@ -514,6 +514,18 @@ namespace util {
     return fdr(v + 1);
   }
 
+  inline int ceil(float v) {
+    int iv = (int)v;
+    if (v < 0) return iv;
+    if (v > iv) return iv + 1;
+    return iv;
+  }
+
+  // Float round to precision
+  inline float frt(float v, float rounding) {
+    return fhr(v / rounding) * rounding;
+  }
+
   inline float toDecibels(float x) {
     // 20 * ln(x) / ln(10)
     x = fmax(x, 0.001);
@@ -533,6 +545,9 @@ namespace util {
   inline float toOctave(float x) {
     return (int)(x + FULLSCALE_IN_VOLTS) - FULLSCALE_IN_VOLTS;
   }
+
+  inline float toPercent(float input)   { return input * 100.0f; }
+  inline float fromPercent(float input) { return input * 0.01f; }
 
   inline uint32_t bcvt(const bool b) {
     return b ? 0xffffffff : 0;

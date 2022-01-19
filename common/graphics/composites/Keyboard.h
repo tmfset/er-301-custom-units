@@ -106,7 +106,7 @@ namespace graphics {
       auto color = size == 0 ? GRAY5 : GRAY13;
 
       Text(mScaleData.getScaleName(), 8)
-        .draw(fb, color, world.bottomCenter(), CENTER_TOP, false, true);
+        .draw(fb, color, world, CENTER_BOTTOM, false, true);
     }
 
     HasScale &mScaleData;

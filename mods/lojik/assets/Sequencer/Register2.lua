@@ -8,6 +8,7 @@ local MenuHeader = require "Unit.MenuControl.Header"
 local Task = require "Unit.MenuControl.Task"
 local FlagSelect = require "Unit.MenuControl.FlagSelect"
 local OutputScope = require "Unit.ViewControl.OutputScope"
+local DialMap = require "common.assets.DialMap"
 local UnitShared = require "common.assets.UnitShared"
 local RegisterShared = require "lojik.Sequencer.RegisterShared"
 local RegisterView = require "lojik.ViewControl.RegisterView"
@@ -249,29 +250,29 @@ function Register:onLoadViews()
       name     = "register",
       register = self.objects.register,
       offset = {
-        branch         = self.branches.offset,
-        gainBias       = self.objects.offset,
-        gainEncoderMap = self.intMap(-self.max, self.max),
-        biasEncoderMap = self.intMap(0, self.max),
-        precision      = 0
+        branch      = self.branches.offset,
+        gainBias    = self.objects.offset,
+        gainDialMap = DialMap.count.span(self.max)(4, 1, 0.25, 0.25),
+        biasDialMap = DialMap.count.zeroTo(self.max)(4, 1, 0.25, 0.25),
+        precision   = 0
       },
       shift = {
-        branch         = self.branches.shift,
-        gainBias       = self.objects.shift,
-        gainEncoderMap = self.intMap(-self.max, self.max),
-        biasEncoderMap = self.intMap(0, self.max),
+        branch      = self.branches.shift,
+        gainBias    = self.objects.shift,
+        gainDialMap = DialMap.count.span(self.max)(4, 1, 0.25, 0.25),
+        biasDialMap = DialMap.count.zeroTo(self.max)(4, 1, 0.25, 0.25)
       },
       length = {
-        branch         = self.branches.length,
-        gainBias       = self.objects.length,
-        gainEncoderMap = self.intMap(-self.max, self.max),
-        biasEncoderMap = self.intMap(0, self.max),
+        branch      = self.branches.length,
+        gainBias    = self.objects.length,
+        gainDialMap = DialMap.count.span(self.max)(4, 1, 0.25, 0.25),
+        biasDialMap = DialMap.count.zeroTo(self.max)(4, 1, 0.25, 0.25)
       },
       stride = {
-        branch         = self.branches.stride,
-        gainBias       = self.objects.stride,
-        gainEncoderMap = self.intMap(-self.max, self.max),
-        biasEncoderMap = self.intMap(0, self.max),
+        branch      = self.branches.stride,
+        gainBias    = self.objects.stride,
+        gainDialMap = DialMap.count.span(self.max)(4, 1, 0.25, 0.25),
+        biasDialMap = DialMap.count.zeroTo(self.max)(4, 1, 0.25, 0.25)
       }
     }
   }, {

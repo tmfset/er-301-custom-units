@@ -35,13 +35,13 @@ namespace graphics {
           auto name = mData.getScaleName(i);
           //auto size = mData.getScaleSize(i);
 
-          //auto wh = world.widthHeight().atY(size);
+          auto wh = world.widthHeight().atY(size);
           auto xy = world.leftCenter().atY(y);
 
           auto isCurrent = i == current;
-          //auto box = Box::lw(xy, wh);
+          auto box = Box::lbwh(xy, wh);
           //if (isCurrent) Box::cwh(xy, wh).trace(fb, WHITE);
-          Text(name, size).draw(fb, WHITE, xy, LEFT_MIDDLE, isCurrent);
+          Text(name, size).draw(fb, WHITE, box, LEFT_MIDDLE, isCurrent);
         }
       }
     private:
