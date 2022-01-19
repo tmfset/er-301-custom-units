@@ -23,6 +23,7 @@ function RegisterView:init(args)
   self:addSubView(GainBias {
     name        = "Offset",
     branch      = args.offset.branch,
+    precision   = 0,
     gainBias    = args.offset.gainBias,
     gainDialMap = args.offset.gainDialMap,
     biasDialMap = args.offset.biasDialMap,
@@ -31,6 +32,7 @@ function RegisterView:init(args)
   self:addSubView(GainBias {
     name        = "Shift",
     branch      = args.shift.branch,
+    precision   = 0,
     gainBias    = args.shift.gainBias,
     gainDialMap = args.shift.gainDialMap,
     biasDialMap = args.shift.biasDialMap,
@@ -39,6 +41,7 @@ function RegisterView:init(args)
   self:addSubView(GainBias {
     name        = "Length",
     branch      = args.length.branch,
+    precision   = 0,
     gainBias    = args.length.gainBias,
     gainDialMap = args.length.gainDialMap,
     biasDialMap = args.length.biasDialMap,
@@ -47,6 +50,7 @@ function RegisterView:init(args)
   self:addSubView(GainBias {
     name        = "Stride",
     branch      = args.stride.branch,
+    precision   = 0,
     gainBias    = args.stride.gainBias,
     gainDialMap = args.stride.gainDialMap,
     biasDialMap = args.stride.biasDialMap,

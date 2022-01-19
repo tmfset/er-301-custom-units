@@ -105,8 +105,9 @@ namespace graphics {
       auto size = mScaleData.getScaleSize();
       auto color = size == 0 ? GRAY5 : GRAY13;
 
-      Text(mScaleData.getScaleName(), 8)
-        .draw(fb, color, world, CENTER_BOTTOM, false, true);
+      auto text = Text(mScaleData.getScaleName(), 8);
+      text.setJustifyAlign(CENTER_BOTTOM);
+      text.draw(fb, color, world);
     }
 
     HasScale &mScaleData;

@@ -53,6 +53,7 @@ namespace graphics {
         Graphic::draw(fb);
         auto world = Box::extractWorld(*this);
         mText.draw(fb, WHITE, world);
+        // Set mCursorState!
       }
 #endif
 

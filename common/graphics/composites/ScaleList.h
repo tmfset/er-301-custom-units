@@ -40,8 +40,11 @@ namespace graphics {
 
           auto isCurrent = i == current;
           auto box = Box::lbwh(xy, wh);
-          //if (isCurrent) Box::cwh(xy, wh).trace(fb, WHITE);
-          Text(name, size).draw(fb, WHITE, box, LEFT_MIDDLE, isCurrent);
+
+          auto text = Text(name, size);
+          text.setJustifyAlign(LEFT_MIDDLE);
+          text.setOutline(isCurrent);
+          text.draw(fb, WHITE, box);
         }
       }
     private:
