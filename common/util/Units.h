@@ -3,6 +3,7 @@
 #include <od/constants.h>
 #include <string>
 #include <util/math.h>
+#include <stdio.h>
 
 namespace util {
   enum Units {
