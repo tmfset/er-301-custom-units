@@ -2,6 +2,9 @@
 
 namespace graphics {
   struct JustifyAlign {
+    inline JustifyAlign() :
+      JustifyAlign(od::justifyLeft, od::alignMiddle) { }
+
     inline JustifyAlign(od::Justification j, od::Alignment a) :
       justify(j), align(a) { }
 

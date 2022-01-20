@@ -247,6 +247,19 @@ namespace graphics {
         fb.box(color, leftBottom().x() - by, leftBottom().y() - by, rightTop().x() + by, rightTop().y() + by);
       }
 
+      inline void pointAtMe(od::CursorState &state, int offset = 10) const {
+        v2d xy;
+        switch (state.orientation) {
+          case od::cursorDown:  xy = topCenter().offset(0, offset);      break;
+          case od::cursorUp:    xy = bottomCenter().offset(0, -offset);  break;
+          case od::cursorLeft:  xy = rightCenter().offset(offset, 0); break;
+          case od::cursorRight: xy = leftCenter().offset(-offset, 0); break;
+        }
+
+        state.x = xy.x();
+        state.y = xy.y();
+      }
+
     private:
       inline Box(const v2d &leftBottom, const v2d &rightTop) :
         mLeftBottom(leftBottom),

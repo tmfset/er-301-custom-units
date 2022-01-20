@@ -22,7 +22,8 @@ class v2d {
     inline v2d negate() const { return of(-mX, -mY); }
     inline v2d operator-() const { return negate(); }
 
-    inline v2d offset(const v2d &by) const { return of(mX + by.mX, mY + by.mY); }
+    inline v2d offset(float x, float y) const { return offset(of(x, y)); }
+    inline v2d offset(const v2d &by)    const { return of(mX + by.mX, mY + by.mY); }
     inline v2d operator+(const v2d &by) const { return offset(by); }
     inline v2d operator-(const v2d &by) const { return offset(-by); }
 

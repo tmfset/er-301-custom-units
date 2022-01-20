@@ -18,6 +18,10 @@ namespace graphics {
         update(str, size);
       }
 
+      void setFontSize(int size) {
+        mSize = size;
+      }
+
       void setJustifyAlign(JustifyAlign ja) {
         mJustifyAlign = ja;
       }
@@ -27,14 +31,14 @@ namespace graphics {
       }
 
       void setOutline(bool outline) {
-        mOutline = false;
+        mOutline = outline;
       }
 
       inline Box bounds(const Box &world) const {
         return Box::wh(mDimensions).justifyAlign(world, mJustifyAlign);
       }
 
-      inline void draw(
+      inline Box draw(
         od::FrameBuffer &fb,
         od::Color color,
         const Box &world
@@ -43,6 +47,7 @@ namespace graphics {
         if (mClear) _bounds.clear(fb);
         fb.text(color, _bounds.left(), _bounds.bottom(), mValue.c_str(), mSize);
         if (mOutline) _bounds.outline(fb, WHITE, 2);
+        return _bounds;
       }
 
       inline void update(std::string str) {
@@ -159,14 +164,18 @@ namespace graphics {
         mText.setOutline(outline);
       }
 
+      void setFontSize(int size) {
+        mText.setFontSize(size);
+      }
+
       inline Box bounds(const Box &world) {
         return mText.bounds(world);
       }
 
-      inline void draw(od::FrameBuffer &fb, od::Color color, Box &world) {
+      inline Box draw(od::FrameBuffer &fb, od::Color color, Box &world) {
         prepareToSuppressZeros();
         refresh();
-        mText.draw(fb, color, world);
+        return mText.draw(fb, color, world);
       }
 
     private:

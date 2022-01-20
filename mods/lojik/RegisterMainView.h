@@ -9,6 +9,7 @@
 #include <graphics/composites/CircleChart.h>
 #include <graphics/composites/Keyboard.h>
 #include <graphics/composites/ScaleList.h>
+#include <graphics/composites/ParameterReadout.h>
 #include <dsp/slew.h>
 #include <Register2.h>
 
@@ -19,7 +20,7 @@ namespace lojik {
 
       virtual ~RegisterMainView() { }
 
-      inline od::Readout* getCursorController(int i) {
+      inline graphics::ParameterReadout* getCursorController(int i) {
         switch (i) {
           case 0: return &mOffsetReadout;
           case 1: return &mShiftReadout;
@@ -31,27 +32,29 @@ namespace lojik {
 
     private:
       inline void configureReadout(
-        od::Readout &readout,
+        graphics::ParameterReadout &readout,
         od::Parameter *parameter
       ) {
         own(readout);
         addChild(&readout);
         readout.setParameter(parameter);
         readout.setPrecision(0);
+        readout.setFontSize(8);
       }
 
       inline void configureReadouts() {
-        mOffsetReadout.setJustification(od::justifyRight);
+        mOffsetReadout.setJustifyAlign(RIGHT_MIDDLE);
+        mOffsetReadout.setCursorOrientation(od::cursorRight);
         mOffsetReadout.mCursorState.orientation = od::cursorRight;
 
-        mShiftReadout.setJustification(od::justifyLeft);
-        mShiftReadout.mCursorState.orientation = od::cursorLeft;
+        mShiftReadout.setJustifyAlign(LEFT_MIDDLE);
+        mShiftReadout.setCursorOrientation(od::cursorLeft);
 
-        mLengthReadout.setJustification(od::justifyRight);
-        mLengthReadout.mCursorState.orientation = od::cursorRight;
+        mLengthReadout.setJustifyAlign(RIGHT_MIDDLE);
+        mLengthReadout.setCursorOrientation(od::cursorRight);
 
-        mStrideReadout.setJustification(od::justifyLeft);
-        mStrideReadout.mCursorState.orientation = od::cursorLeft;
+        mStrideReadout.setJustifyAlign(LEFT_MIDDLE);
+        mStrideReadout.setCursorOrientation(od::cursorLeft);
       }
 
       void draw(od::FrameBuffer &fb) {
@@ -89,9 +92,9 @@ namespace lojik {
 
       graphics::ScaleList mScaleList;
 
-      od::Readout mOffsetReadout;
-      od::Readout mShiftReadout;
-      od::Readout mLengthReadout;
-      od::Readout mStrideReadout;
+      graphics::ParameterReadout mOffsetReadout;
+      graphics::ParameterReadout mShiftReadout;
+      graphics::ParameterReadout mLengthReadout;
+      graphics::ParameterReadout mStrideReadout;
   };
 }

@@ -39,6 +39,18 @@ namespace graphics {
         mDisplay.setValueInUnits(value, false);
       }
 
+      void setFontSize(int size) {
+        mText.setFontSize(size);
+      }
+
+      void setJustifyAlign(graphics::JustifyAlign ja) {
+        mText.setJustifyAlign(ja);
+      }
+
+      void setCursorOrientation(od::CursorOrientation orientation) {
+        mCursorState.orientation = orientation;
+      }
+
       void save()    { mDialState.save(); }
       void zero()    { mDialState.zero(); }
       void restore() { mDialState.restore(); }
@@ -51,9 +63,10 @@ namespace graphics {
 #ifndef SWIGLUA
       void draw(od::FrameBuffer &fb) {
         Graphic::draw(fb);
+
         auto world = Box::extractWorld(*this);
-        mText.draw(fb, WHITE, world);
-        // Set mCursorState!
+        auto bounds = mText.draw(fb, WHITE, world);
+        bounds.pointAtMe(mCursorState);
       }
 #endif
 
