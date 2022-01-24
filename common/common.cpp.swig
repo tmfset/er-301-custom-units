@@ -7,8 +7,6 @@
 
 #include <graphics/composites/ParameterReadout.h>
 
-#include <dsp/objects/CircularParameter.h>
-
 #include <ui/DialMap.h>
 #include <ui/LinearDialMap.h>
 
@@ -19,7 +17,6 @@
 
 %include <graphics/interfaces/all.h>
 %include <graphics/PagedGraphic.h>
-%include <dsp/objects/CircularParameter.h>
 %include <ui/DialMap.h>
 %include <ui/LinearDialMap.h>
 %include <graphics/composites/ParameterReadout.h>

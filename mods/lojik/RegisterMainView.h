@@ -31,13 +31,9 @@ namespace lojik {
       }
 
     private:
-      inline void configureReadout(
-        graphics::ParameterReadout &readout,
-        od::Parameter *parameter
-      ) {
+      inline void configureReadout(graphics::ParameterReadout &readout) {
         own(readout);
         addChild(&readout);
-        readout.setParameter(parameter);
         readout.setPrecision(0);
         readout.setFontSize(8);
       }
@@ -45,7 +41,6 @@ namespace lojik {
       inline void configureReadouts() {
         mOffsetReadout.setJustifyAlign(RIGHT_MIDDLE);
         mOffsetReadout.setCursorOrientation(od::cursorRight);
-        mOffsetReadout.mCursorState.orientation = od::cursorRight;
 
         mShiftReadout.setJustifyAlign(LEFT_MIDDLE);
         mShiftReadout.setCursorOrientation(od::cursorLeft);

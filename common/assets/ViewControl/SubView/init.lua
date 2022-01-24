@@ -118,6 +118,12 @@ function View:subPressed(i)
   return true
 end
 
+function View:dialPressed()
+  local control = self:getFocusedControl()
+  if control then control:onDialPress() end
+  return true
+end
+
 function View:encoder(change, shifted)
   local control = self:getFocusedControl()
   if control then control:onEncoder(change, shifted) end

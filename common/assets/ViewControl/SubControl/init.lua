@@ -42,6 +42,7 @@ function Control:onZero() end
 function Control:onCancel() end
 function Control:onPress(focused) end
 function Control:onRelease(focused) end
+function Control:onDialPress() end
 function Control:onEncoder(change, shifted) end
 
 return Control

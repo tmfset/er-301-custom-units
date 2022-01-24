@@ -459,10 +459,11 @@ namespace util {
 
   inline float fabs(float v) { return v >= 0 ? v : -v; }
 
-  inline int    max(  int a,   int b) { return a > b ? a : b; }
-  inline float fmax(float a, float b) { return a > b ? a : b; }
-  inline int    min(  int a,   int b) { return a < b ? a : b; }
-  inline float fmin(float a, float b) { return a < b ? a : b; }
+  inline auto max(int a, int b) -> int { return a > b ? a : b; }
+  inline auto min(int a, int b) -> int { return a < b ? a : b; }
+  inline auto fmax(float a, float b) -> float { return a > b ? a : b; }
+  inline auto fmin(float a, float b) -> float { return a < b ? a : b; }
+
   inline float fcenter(float low, float high) { return high - ((high - low) / 2.0f); }
 
   inline int    clamp(  int v,  int _min,  int _max) { return min(max(v, _min), _max); }
@@ -499,23 +500,23 @@ namespace util {
   // }
 
   // Float down-round
-  inline int fdr(float v) {
-    int iv = v;
+  inline auto fdr(float v) -> int {
+    auto iv = (int)v;
     return v < 0 ? iv - 1 : iv;
   }
 
   // Float half-round
-  inline int fhr(float v) {
+  inline auto fhr(float v) -> int {
     return fdr(v + 0.5);
   }
 
   // Float up-round
-  inline int fur(float v) {
+  inline auto fur(float v) -> int {
     return fdr(v + 1);
   }
 
-  inline int ceil(float v) {
-    int iv = (int)v;
+  inline auto ceil(float v) -> int {
+    auto iv = (int)v;
     if (v < 0) return iv;
     if (v > iv) return iv + 1;
     return iv;

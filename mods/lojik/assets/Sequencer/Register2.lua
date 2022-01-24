@@ -54,15 +54,10 @@ function Register:onLoadGraph(channelCount)
   connect(shiftGate,   "Out", register, "Shift")
   connect(resetGate,   "Out", register, "Reset")
 
-  register:getCircularParameter("Offset"):tie(offset:getParameter("Out"))
-  register:getCircularParameter("Shift"):tie(shift:getParameter("Out"))
-  register:getCircularParameter("Length"):tie(length:getParameter("Out"))
-  register:getCircularParameter("Stride"):tie(stride:getParameter("Out"))
-
-  --tie(register, "Offset", offset, "Out")
-  --tie(register, "Shift",  shift,  "Out")
-  --tie(register, "Length", length, "Out")
-  --tie(register, "Stride", stride, "Out")
+  tie(register, "Offset", offset, "Out")
+  tie(register, "Shift",  shift,  "Out")
+  tie(register, "Length", length, "Out")
+  tie(register, "Stride", stride, "Out")
   tie(register, "Quantize Scale", scale, "Out")
 
   tie(register, "Output Gain", outputGain, "Out")
@@ -257,27 +252,27 @@ function Register:onLoadViews()
       offset = {
         branch      = self.branches.offset,
         gainBias    = self.objects.offset,
-        gainDialMap = DialMap.count.span(self.max)(4, 1, 0.25, 0.25),
-        biasDialMap = DialMap.count.zeroTo(self.max)(4, 1, 0.25, 0.25),
+        gainDialMap = DialMap.count.span(self.max, 0, true)(4, 1, 0.1, 0.01),
+        biasDialMap = DialMap.count.zeroTo(self.max, 0, true)(4, 1, 0.1, 0.01),
         precision   = 0
       },
       shift = {
         branch      = self.branches.shift,
         gainBias    = self.objects.shift,
-        gainDialMap = DialMap.count.span(self.max)(4, 1, 0.25, 0.25),
-        biasDialMap = DialMap.count.zeroTo(self.max)(4, 1, 0.25, 0.25)
+        gainDialMap = DialMap.count.span(self.max, 0, true)(4, 1, 0.1, 0.01),
+        biasDialMap = DialMap.count.zeroTo(self.max, 0, true)(4, 1, 0.1, 0.01)
       },
       length = {
         branch      = self.branches.length,
         gainBias    = self.objects.length,
-        gainDialMap = DialMap.count.span(self.max)(4, 1, 0.25, 0.25),
-        biasDialMap = DialMap.count.zeroTo(self.max)(4, 1, 0.25, 0.25)
+        gainDialMap = DialMap.count.span(self.max)(4, 1, 0.1, 0.01),
+        biasDialMap = DialMap.count.zeroTo(self.max)(4, 1, 0.1, 0.01)
       },
       stride = {
         branch      = self.branches.stride,
         gainBias    = self.objects.stride,
-        gainDialMap = DialMap.count.span(self.max)(4, 1, 0.25, 0.25),
-        biasDialMap = DialMap.count.zeroTo(self.max)(4, 1, 0.25, 0.25)
+        gainDialMap = DialMap.count.span(self.max, 0, true)(4, 1, 0.1, 0.01),
+        biasDialMap = DialMap.count.zeroTo(self.max, 0, true)(4, 1, 0.1, 0.01)
       }
     }
   }, {

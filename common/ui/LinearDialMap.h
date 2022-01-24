@@ -27,8 +27,8 @@ namespace ui {
       }
 
       virtual ui::dial::Position positionAt(float value) const {
-        if (value < mRange.min()) return mRadix.min();
-        if (value > mRange.max()) return mRadix.max();
+        if (value < mRange.min()) return ui::dial::Position::min();
+        if (value > mRange.max()) return ui::dial::Position::max();
         return mRadix.positionAt(value - mRange.min());
       }
 
@@ -38,6 +38,8 @@ namespace ui {
 
       virtual void move(ui::dial::Position &p, int change, bool shift, bool fine) {
         mRadix.move(p, change, shift, fine, mWrap);
+        mRadix.print();
+        p.print();
       }
 
     private:

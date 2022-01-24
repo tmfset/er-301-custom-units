@@ -18,21 +18,10 @@ namespace graphics {
         update(str, size);
       }
 
-      void setFontSize(int size) {
-        mSize = size;
-      }
-
-      void setJustifyAlign(JustifyAlign ja) {
-        mJustifyAlign = ja;
-      }
-
-      void setClear(bool clear) {
-        mClear = clear;
-      }
-
-      void setOutline(bool outline) {
-        mOutline = outline;
-      }
+      void setFontSize(int size)            { mSize         = size; }
+      void setJustifyAlign(JustifyAlign ja) { mJustifyAlign = ja; }
+      void setClear(bool clear)             { mClear        = clear; }
+      void setOutline(bool outline)         { mOutline      = outline; }
 
       inline Box bounds(const Box &world) const {
         return Box::wh(mDimensions).justifyAlign(world, mJustifyAlign);
@@ -75,16 +64,14 @@ namespace graphics {
 
   class ParameterDisplay {
     public:
-      inline ParameterDisplay() {}
 
-      inline ~ParameterDisplay() {
-        setParameter(nullptr);
+      inline ParameterDisplay(od::Parameter *param) :
+          mpParameter(param) {
+        mpParameter->attach();
       }
 
-      inline void setParameter(od::Parameter *param) {
-        if (mpParameter) mpParameter->release();
-        mpParameter = param;
-        if (mpParameter) mpParameter->attach();
+      inline ~ParameterDisplay() {
+        mpParameter->release();
       }
 
       inline float setValueInUnits(float v, bool hard) {
@@ -129,7 +116,6 @@ namespace graphics {
 
     private:
       inline float currentValue() {
-        if (!mpParameter) return 0;
         return mShowTarget ? mpParameter->target() : mpParameter->value();
       }
 

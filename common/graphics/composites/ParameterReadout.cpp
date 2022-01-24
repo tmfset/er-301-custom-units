@@ -1,10 +1,11 @@
 #include <graphics/composites/ParameterReadout.h>
 
 namespace graphics {
-  ParameterReadout::ParameterReadout(int l, int b, int w, int h) :
-      od::Graphic(l, b, w, h) {
+  ParameterReadout::ParameterReadout(od::Parameter *param) :
+      od::Graphic(0, 0, 20, 20),
+      mDisplay(param) {
     setCursorOrientation(od::cursorRight);
   }
-  
+
   ParameterReadout::~ParameterReadout() { }
 }

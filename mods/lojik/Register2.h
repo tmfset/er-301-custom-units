@@ -8,7 +8,6 @@
 #include <util/math.h>
 #include <dsp/quantizer.h>
 #include <graphics/interfaces/all.h>
-#include <dsp/objects/CircularParameter.h>
 
 #include <vector>
 
@@ -22,10 +21,10 @@ namespace lojik {
         addOutput(mOut);
         addOutput(mQuantizeTrigger);
 
-        addCircularParameter(mOffset);
-        addCircularParameter(mShift);
-        addCircularParameter(mLength);
-        addCircularParameter(mStride);
+        addParameter(mOffset);
+        addParameter(mShift);
+        addParameter(mLength);
+        addParameter(mStride);
 
         addParameter(mOutputGain);
         addParameter(mOutputBias);
@@ -45,8 +44,6 @@ namespace lojik {
       virtual void process();
 
       inline void processInternal() {
-        updateCircularParameters();
-
         const float *in           = mIn.buffer();
         const float *clockTrigger = mClockTrigger.buffer();
         const float *captureGate  = mCaptureGate.buffer();
@@ -124,10 +121,10 @@ namespace lojik {
       od::Outlet mOut { "Out" };
       od::Outlet mQuantizeTrigger { "Quantize Trigger" };
 
-      dsp::objects::CircularParameter mOffset { "Offset" };
-      dsp::objects::CircularParameter mShift  { "Shift" };
-      dsp::objects::CircularParameter mLength { "Length" };
-      dsp::objects::CircularParameter mStride { "Stride" };
+      od::Parameter mOffset { "Offset" };
+      od::Parameter mShift  { "Shift" };
+      od::Parameter mLength { "Length" };
+      od::Parameter mStride { "Stride" };
 
       od::Parameter mOutputGain { "Output Gain", 1.0f };
       od::Parameter mOutputBias { "Output Bias", 0.0f };
@@ -168,15 +165,6 @@ namespace lojik {
 
       void attach() { Object::attach(); }
       void release() { Object::release(); }
-
-      dsp::objects::CircularParameter* getCircularParameter(const std::string &name) {
-        for (auto *param : mCircularParameters) {
-          if (name == param->name())
-            return param;
-        }
-
-        return 0;
-      }
 
     private:
       template<int max>
@@ -251,18 +239,5 @@ namespace lojik {
       util::four::Trigger mClockTrig;
       util::four::SyncTrigger mCSRTrigger;
       State<REGISTER_MAX> mState;
-
-      void addCircularParameter(dsp::objects::CircularParameter &parameter) {
-        mCircularParameters.push_back(&parameter);
-        own(parameter);
-      }
-
-      void updateCircularParameters() {
-        for (auto *param : mCircularParameters) {
-          param->update();
-        }
-      }
-
-      std::vector<dsp::objects::CircularParameter *> mCircularParameters;
   };
 }

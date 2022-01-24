@@ -7,14 +7,14 @@ namespace lojik {
       mCircleChart(data, 0.5),
       mKeyboard(data),
       mScaleList(data),
-      mOffsetReadout(0, 0, 20, 8),
-      mShiftReadout(0, 0, 20, 8),
-      mLengthReadout(0, 0, 20, 8),
-      mStrideReadout(0, 0, 20, 8) {
-    configureReadout(mOffsetReadout, data.getParameter("Offset"));
-    configureReadout(mShiftReadout, data.getParameter("Shift"));
-    configureReadout(mLengthReadout, data.getParameter("Length"));
-    configureReadout(mStrideReadout, data.getParameter("Stride"));
+      mOffsetReadout(data.getParameter("Offset")),
+      mShiftReadout(data.getParameter("Shift")),
+      mLengthReadout(data.getParameter("Length")),
+      mStrideReadout(data.getParameter("Stride")) {
+    configureReadout(mOffsetReadout);
+    configureReadout(mShiftReadout);
+    configureReadout(mLengthReadout);
+    configureReadout(mStrideReadout);
     configureReadouts();
   }
 }

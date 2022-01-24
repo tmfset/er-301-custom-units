@@ -22,8 +22,7 @@ function Readout:init(args)
   local column    = args.column    or app.BUTTON1_CENTER
   local row       = args.row       or app.GRID5_CENTER1
 
-  self.readout = common.ParameterReadout(0, 0, ply, 10)
-  self.readout:setParameter(param)
+  self.readout = common.ParameterReadout(param)
   self.readout:setAttributes(units, dialMap)
   self.readout:setPrecision(precision)
   self.readout:setCenter(column, row)
@@ -57,6 +56,7 @@ end
 
 function Readout:onFocus()
   if not self:hasParentFocus("encoder") then self:focusParent() end
+  Encoder.set(self.encoderState)
   self.readout:save()
 end
 
@@ -74,6 +74,15 @@ end
 
 function Readout:onRelease(focused)
   if focused then self:doKeyboardSet() end
+end
+
+function Readout:onDialPress()
+  if self.encoderState == Encoder.Coarse then
+    self.encoderState = Encoder.Fine
+  else
+    self.encoderState = Encoder.Coarse
+  end
+  Encoder.set(self.encoderState)
 end
 
 function Readout:onEncoder(change, shifted)

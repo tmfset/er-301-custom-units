@@ -56,6 +56,10 @@ function Split:subPressed(i, shifted)
   return self:subView():subPressed(i)
 end
 
+function Split:dialPressed(shifted)
+  return self:subView():dialPressed(shifted)
+end
+
 function Split:encoder(change, shifted)
   return self:subView():encoder(change, shifted)
 end

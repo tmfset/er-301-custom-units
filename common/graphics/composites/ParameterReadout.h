@@ -15,12 +15,9 @@
 namespace graphics {
   class ParameterReadout : public od::Graphic {
     public:
-      ParameterReadout(int l, int b, int w, int h);
-      ~ParameterReadout();
+      ParameterReadout(od::Parameter *param);
 
-      void setParameter(od::Parameter *param) {
-        mDisplay.setParameter(param);
-      }
+      virtual ~ParameterReadout();
 
       void setAttributes(util::Units units, ui::DialMap *map) {
         mDisplay.setUnits(units);
@@ -36,7 +33,7 @@ namespace graphics {
       }
 
       void setValueInUnits(float value) {
-        mDisplay.setValueInUnits(value, false);
+        mDisplay.setValueInUnits(value, true);
       }
 
       void setFontSize(int size) {
