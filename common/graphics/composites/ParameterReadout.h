@@ -48,11 +48,24 @@ namespace graphics {
         mCursorState.orientation = orientation;
       }
 
-      void save()    { mDialState.save(); }
-      void zero()    { mDialState.zero(); }
-      void restore() { mDialState.restore(); }
+      void save() {
+        mDialState.save();
+      }
+
+      void zero() {
+        mDialState.zero();
+        setValueInUnits(mDialState.value());
+      }
+
+      void restore() {
+        mDialState.restore();
+        setValueInUnits(mDialState.value());
+      }
 
       void encoder(int change, bool shifted, bool fine) {
+        if (mDisplay.hasMoved()) {
+          mDialState.set(mDisplay.lastValueInUnits());
+        }
         mDialState.move(change, shifted, fine);
         setValueInUnits(mDialState.value());
       }

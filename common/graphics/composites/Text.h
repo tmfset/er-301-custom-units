@@ -64,7 +64,6 @@ namespace graphics {
 
   class ParameterDisplay {
     public:
-
       inline ParameterDisplay(od::Parameter *param) :
           mpParameter(param) {
         mpParameter->attach();
@@ -106,6 +105,10 @@ namespace graphics {
         return true;
       }
 
+      inline bool hasMoved() {
+        return mLastValue != currentValue();
+      }
+
       inline float lastValueInUnits() {
         return mLastValueInUnits;
       }
@@ -120,7 +123,7 @@ namespace graphics {
       }
 
       od::Parameter *mpParameter;
-      bool  mForceRefresh = false;
+      bool  mForceRefresh = true;
       float mLastValue = 0;
       float mLastValueInUnits = 0;
 

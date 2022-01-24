@@ -252,27 +252,27 @@ function Register:onLoadViews()
       offset = {
         branch      = self.branches.offset,
         gainBias    = self.objects.offset,
-        gainDialMap = DialMap.count.span(self.max, 0, true)(4, 1, 0.1, 0.01),
-        biasDialMap = DialMap.count.zeroTo(self.max, 0, true)(4, 1, 0.1, 0.01),
+        gainDialMap = DialMap.count.span(self.max, 0, true)(4, 1, 0.25, 0.1),
+        biasDialMap = DialMap.count.zeroTo(self.max, 0, true)(4, 1, 0.25, 0.1),
         precision   = 0
       },
       shift = {
         branch      = self.branches.shift,
         gainBias    = self.objects.shift,
-        gainDialMap = DialMap.count.span(self.max, 0, true)(4, 1, 0.1, 0.01),
-        biasDialMap = DialMap.count.zeroTo(self.max, 0, true)(4, 1, 0.1, 0.01)
+        gainDialMap = DialMap.count.span(self.max, 0, true)(4, 1, 0.25, 0.1),
+        biasDialMap = DialMap.count.zeroTo(self.max, 0, true)(4, 1, 0.25, 0.1)
       },
       length = {
         branch      = self.branches.length,
         gainBias    = self.objects.length,
-        gainDialMap = DialMap.count.span(self.max)(4, 1, 0.1, 0.01),
-        biasDialMap = DialMap.count.zeroTo(self.max)(4, 1, 0.1, 0.01)
+        gainDialMap = DialMap.count.span(self.max)(4, 1, 0.25, 0.1),
+        biasDialMap = DialMap.count.zeroTo(self.max)(4, 1, 0.25, 0.1)
       },
       stride = {
         branch      = self.branches.stride,
         gainBias    = self.objects.stride,
-        gainDialMap = DialMap.count.span(self.max, 0, true)(4, 1, 0.1, 0.01),
-        biasDialMap = DialMap.count.zeroTo(self.max, 0, true)(4, 1, 0.1, 0.01)
+        gainDialMap = DialMap.count.span(self.max, 0, true)(4, 1, 0.25, 0.1),
+        biasDialMap = DialMap.count.zeroTo(self.max, 0, true)(4, 1, 0.25, 0.1)
       }
     }
   }, {
