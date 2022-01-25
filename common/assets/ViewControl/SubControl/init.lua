@@ -9,8 +9,11 @@ function Control:init(args)
   self.parent   = args.parent or app.logError("%s.init: missing parent.", self)
   self.name     = args.name or app.logError("%s.init: missing name.", self)
   self.position = args.position or app.logError("%s.init: missing position.", self)
-  self.button   = app.SubButton(self.name, self.position)
-  self:addGraphic(self.button)
+
+  if (args.label == nil) or args.label then
+    self.button = app.SubButton(self.name, self.position)
+    self:addGraphic(self.button)
+  end
 
   self.parent:addControl(self.position, self)
 end

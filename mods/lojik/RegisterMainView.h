@@ -9,7 +9,7 @@
 #include <graphics/composites/CircleChart.h>
 #include <graphics/composites/Keyboard.h>
 #include <graphics/composites/ScaleList.h>
-#include <graphics/composites/ParameterReadout.h>
+#include <graphics/controls/ReadoutView.h>
 #include <dsp/slew.h>
 #include <Register2.h>
 
@@ -20,7 +20,7 @@ namespace lojik {
 
       virtual ~RegisterMainView() { }
 
-      inline graphics::ParameterReadout* getCursorController(int i) {
+      inline graphics::ReadoutView* getCursorController(int i) {
         switch (i) {
           case 0: return &mOffsetReadout;
           case 1: return &mShiftReadout;
@@ -31,7 +31,7 @@ namespace lojik {
       }
 
     private:
-      inline void configureReadout(graphics::ParameterReadout &readout) {
+      inline void configureReadout(graphics::ReadoutView &readout) {
         own(readout);
         addChild(&readout);
         readout.setPrecision(0);
@@ -87,9 +87,9 @@ namespace lojik {
 
       graphics::ScaleList mScaleList;
 
-      graphics::ParameterReadout mOffsetReadout;
-      graphics::ParameterReadout mShiftReadout;
-      graphics::ParameterReadout mLengthReadout;
-      graphics::ParameterReadout mStrideReadout;
+      graphics::ReadoutView mOffsetReadout;
+      graphics::ReadoutView mShiftReadout;
+      graphics::ReadoutView mLengthReadout;
+      graphics::ReadoutView mStrideReadout;
   };
 }

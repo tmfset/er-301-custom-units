@@ -273,6 +273,11 @@ function Register:onLoadViews()
         gainBias    = self.objects.stride,
         gainDialMap = DialMap.count.span(self.max, 0, true)(4, 1, 0.25, 0.1),
         biasDialMap = DialMap.count.zeroTo(self.max, 0, true)(4, 1, 0.25, 0.1)
+      },
+      quantize = {
+        branch      = self.branches.scale,
+        gainBias    = self.objects.scale,
+        gainDialMap = DialMap.count.span(self.max)(4, 1, 0.25, 0.1)
       }
     }
   }, {

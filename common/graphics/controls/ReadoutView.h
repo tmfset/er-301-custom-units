@@ -13,11 +13,11 @@
 #include <util/Units.h>
 
 namespace graphics {
-  class ParameterReadout : public od::Graphic {
+  class ReadoutView : public od::Graphic {
     public:
-      ParameterReadout(od::Parameter *param);
+      ReadoutView(od::Parameter *param);
 
-      virtual ~ParameterReadout();
+      virtual ~ReadoutView();
 
       void setAttributes(util::Units units, ui::DialMap *map) {
         mDisplay.setUnits(units);

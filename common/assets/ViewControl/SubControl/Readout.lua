@@ -13,7 +13,7 @@ Readout:include(Base)
 function Readout:init(args)
   Base.init(self, args)
 
-  local param = args.parameter or app.logError("%s.addReadout: missing parameter.", self)
+  local param = args.parameter or app.logError("%s: missing parameter.", self)
   param:enableSerialization()
 
   local units     = args.units     or common.unitNone
@@ -22,7 +22,7 @@ function Readout:init(args)
   local column    = args.column    or app.BUTTON1_CENTER
   local row       = args.row       or app.GRID5_CENTER1
 
-  self.readout = common.ParameterReadout(param)
+  self.readout = common.ReadoutView(param)
   self.readout:setAttributes(units, dialMap)
   self.readout:setPrecision(precision)
   self.readout:setCenter(column, row)

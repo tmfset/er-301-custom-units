@@ -5,7 +5,8 @@
 #include <graphics/interfaces/all.h>
 #include <graphics/PagedGraphic.h>
 
-#include <graphics/composites/ParameterReadout.h>
+#include <graphics/controls/ReadoutView.h>
+#include <graphics/controls/ScaleListView.h>
 
 #include <ui/DialMap.h>
 #include <ui/LinearDialMap.h>
@@ -19,5 +20,6 @@
 %include <graphics/PagedGraphic.h>
 %include <ui/DialMap.h>
 %include <ui/LinearDialMap.h>
-%include <graphics/composites/ParameterReadout.h>
+%include <graphics/controls/ReadoutView.h>
+%include <graphics/controls/ScaleListView.h>
 %include <util/Units.h>

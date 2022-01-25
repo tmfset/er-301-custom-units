@@ -5,6 +5,7 @@ local Class = require "Base.Class"
 local UnitShared = require "common.assets.UnitShared"
 local Base       = require "common.assets.ViewControl.Split.Paged"
 local GainBias   = require "common.assets.ViewControl.SubView.GainBias"
+local Scale      = require "common.assets.ViewControl.SubView.Scale"
 
 local ply = app.SECTION_PLY
 
@@ -54,6 +55,15 @@ function RegisterView:init(args)
     gainBias    = args.stride.gainBias,
     gainDialMap = args.stride.gainDialMap,
     biasDialMap = args.stride.biasDialMap,
+  })
+
+  self:addSubView(Scale {
+    name        = "Quantize",
+    branch      = args.quantize.branch,
+    precision   = 0,
+    gainBias    = args.quantize.gainBias,
+    gainDialMap = args.quantize.gainDialMap,
+    scaleSource = self.register
   })
 
   local width = args.width or 2
