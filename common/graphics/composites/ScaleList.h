@@ -17,7 +17,7 @@ namespace graphics {
         mData.release();
       }
 
-      void draw(
+      Box draw(
         od::FrameBuffer &fb,
         const Box &world,
         int size
@@ -27,6 +27,9 @@ namespace graphics {
 
         auto window = ListWindow::from(world.vertical(), size, 2)
           .scrollTo(current, length);
+
+        auto currentLb = world.leftBottom();
+        auto currentRt = world.rightTop();
 
         for (int i = 0; i < length; i++) {
           auto y = window.globalCenterFromRight(i);
@@ -40,12 +43,18 @@ namespace graphics {
 
           auto isCurrent = i == current;
           auto box = Box::lbwh(xy, wh);
+          if (isCurrent) {
+            currentLb = box.leftBottom();
+            currentRt = box.rightTop();
+          }
 
           auto text = Text(name, size);
           text.setJustifyAlign(LEFT_MIDDLE);
           text.setOutline(isCurrent);
           text.draw(fb, WHITE, box);
         }
+
+        return Box::lbrt(currentLb, currentRt);
       }
     private:
       HasScaleBook &mData;

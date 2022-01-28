@@ -36,12 +36,13 @@ function Scale:init(args)
   }
 
   ScaleList {
-    parent   = self,
-    position = 3,
-    name     = "scale",
-    source   = args.scaleSource,
-    column   = app.BUTTON3_CENTER,
-    row      = app.GRID5_CENTER4
+    parent    = self,
+    position  = 3,
+    name      = "scale",
+    parameter = args.gainBias:getParameter("Bias"),
+    source    = args.scaleSource,
+    column    = app.BUTTON3_CENTER,
+    row       = app.GRID5_CENTER4
   }
 end
 

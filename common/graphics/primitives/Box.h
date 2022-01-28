@@ -252,8 +252,8 @@ namespace graphics {
         switch (state.orientation) {
           case od::cursorDown:  xy = topCenter().offset(0, offset);      break;
           case od::cursorUp:    xy = bottomCenter().offset(0, -offset);  break;
-          case od::cursorLeft:  xy = rightCenter().offset(offset, 0); break;
-          case od::cursorRight: xy = leftCenter().offset(-offset, 0); break;
+          case od::cursorLeft:  xy = rightCenter().offset(offset, -1); break;
+          case od::cursorRight: xy = leftCenter().offset(-offset, -1); break;
         }
 
         state.x = xy.x();
