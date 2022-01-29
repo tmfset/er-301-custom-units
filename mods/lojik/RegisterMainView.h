@@ -57,6 +57,10 @@ namespace lojik {
 
         auto world = graphics::Box::extractWorld(*this);
 
+        drawCenter(fb, world.withWidth(2 * SECTION_PLY).recenterOn(world));
+      }
+
+      void drawCenter(od::FrameBuffer &fb, const graphics::Box &world) {
         auto top = world.splitTop(0.333);
         auto bottom = world.splitBottom(0.666);
 
@@ -70,15 +74,15 @@ namespace lojik {
 
         auto size = 8;
 
-        auto local = world.withHeight(8).atLeftBottom(0, 2);
+        auto local = world.withHeight(8).atLeftBottom(world.leftBottom());
 
         auto left = local.splitLeft(0.5);
-        left.splitLeftPad(0.5, 2).applyTo(mOffsetReadout);
-        left.splitRightPad(0.5, 2).applyTo(mShiftReadout);
+        left.splitLeftPad(0.5, 2).applyTo(mOffsetReadout, *this);
+        left.splitRightPad(0.5, 2).applyTo(mShiftReadout, *this);
 
         auto right = local.splitRight(0.5);
-        right.splitLeftPad(0.5, 2).applyTo(mLengthReadout);
-        right.splitRightPad(0.5, 2).applyTo(mStrideReadout);
+        right.splitLeftPad(0.5, 2).applyTo(mLengthReadout, *this);
+        right.splitRightPad(0.5, 2).applyTo(mStrideReadout, *this);
       }
 
       graphics::HChart mChart;

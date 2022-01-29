@@ -66,8 +66,8 @@ function RegisterView:init(args)
     scaleSource = self.register
   })
 
-  local width = args.width or 2
-  self.graphic = lojik.RegisterMainView(self.register, 0, 0, width * ply, app.SCREEN_HEIGHT)
+  local width = args.width or 3
+  self.graphic = lojik.RegisterMainView(self.register, 0, 0, 3 * ply, app.SCREEN_HEIGHT)
   self:setControlGraphic(self.graphic)
   for i = 1, width do
     self:addSpotDescriptor {

@@ -9,8 +9,53 @@ local ScaleList = require "common.assets.ViewControl.SubControl.ScaleList"
 local Scale = Class {}
 Scale:include(Base)
 
+local overlay = (function ()
+  local instructions = app.DrawingInstructions()
+
+  local line1 = app.GRID5_LINE1
+  local line4 = app.GRID5_LINE4
+
+  local center3 = app.GRID5_CENTER3
+
+  local col1 = app.BUTTON1_CENTER
+  local col2 = app.BUTTON2_CENTER
+  local col3 = app.BUTTON3_CENTER
+
+  -- multiply
+  instructions:circle(col2, center3, 8)
+  instructions:line(col2 - 3, center3 - 3, col2 + 3, center3 + 3)
+  instructions:line(col2 - 3, center3 + 3, col2 + 3, center3 - 3)
+
+  -- sum
+  -- instructions:circle(col3, center3, 8)
+  -- instructions:hline(col3 - 5, col3 + 5, center3)
+  -- instructions:vline(col3, center3 - 5, center3 + 5)
+
+  -- arrow: branch to gain
+  instructions:hline(col1 + 20, col2 - 9, center3)
+  instructions:triangle(col2 - 12, center3, 0, 3)
+
+  -- arrow: gain to bias
+  instructions:hline(col2 + 9, col3 - 8, center3)
+  instructions:triangle(col3 - 11, center3, 0, 3)
+
+  -- arrow: bias to title
+  -- instructions:vline(col3, center3 + 8, line1 - 2)
+  -- instructions:triangle(col3, line1 - 2, 90, 3)
+
+  return instructions
+end)()
+
+function Scale:addDrawing()
+  local drawing = app.Drawing(0, 0, 128, 64)
+  drawing:add(overlay)
+  self.graphic:addChild(drawing)
+end
+
 function Scale:init(args)
   Base.init(self, args)
+
+  self:addDrawing()
 
   Chain {
     parent   = self,
@@ -32,7 +77,7 @@ function Scale:init(args)
     editMessage   = string.format("'%s' modulation gain.", self.name),
     commitMessage = string.format("'%s' gain updated.", self.name),
     column        = app.BUTTON2_CENTER,
-    row           = app.GRID5_CENTER4
+    row           = app.GRID5_CENTER4 - 1
   }
 
   ScaleList {

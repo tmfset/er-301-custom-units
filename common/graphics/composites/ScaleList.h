@@ -36,7 +36,7 @@ namespace graphics {
           if (!window.visible(y)) continue;
 
           auto name = mData.getScaleName(i);
-          //auto size = mData.getScaleSize(i);
+          auto scaleLength = mData.getScaleSize(i);
 
           auto wh = world.widthHeight().atY(size);
           auto xy = world.leftCenter().atY(y);

@@ -175,8 +175,8 @@ namespace graphics {
         return extractFrom(graphic.getWorldRect());
       }
 
-      inline void applyTo(od::Graphic &graphic) const {
-        graphic.setPosition(left(), bottom());
+      inline void applyTo(od::Graphic &graphic, od::Graphic &parent) const {
+        graphic.setPosition(left() - parent.mWorldLeft, bottom() - parent.mWorldBottom);
         graphic.setSize(width(), height());
       }
 

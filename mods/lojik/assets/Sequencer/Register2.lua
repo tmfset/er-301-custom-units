@@ -281,7 +281,7 @@ function Register:onLoadViews()
       }
     }
   }, {
-    expanded = { "inputGain", "register", "outputGain" }
+    expanded = { "register" }
   }
 end
 
