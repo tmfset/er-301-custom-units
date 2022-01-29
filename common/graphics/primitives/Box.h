@@ -151,6 +151,11 @@ namespace graphics {
       inline Box atTop(float top)       const { return atBottom(top).offsetY(-height()); }
       inline Box atCenterY(float y)     const { return cwh(center().atY(y), widthHeight()); }
 
+      inline Box fromLeft(float out)   const { return withWidth(out).atRight(left()); }
+      inline Box fromRight(float out)  const { return withWidth(out).atLeft(right()); }
+      inline Box fromBottom(float out) const { return withHeight(out).atTop(bottom()); }
+      inline Box fromTop(float out)    const { return withHeight(out).atBottom(top()); }
+
       inline Box alignLeft(const Box &within)    const { return atLeft(within.left()); }
       inline Box alignRight(const Box &within)   const { return atRight(within.right()); }
       inline Box alignCenterX(const Box &within) const { return atCenterX(within.centerX()); }

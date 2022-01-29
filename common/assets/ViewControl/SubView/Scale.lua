@@ -46,4 +46,9 @@ function Scale:init(args)
   }
 end
 
+function Scale:onFocused()
+  self:setFocusedPosition(3)
+  Base.onFocused(self)
+end
+
 return Scale

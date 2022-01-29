@@ -76,7 +76,7 @@ function GainBias:init(args)
     editMessage   = string.format("'%s' modulation gain.", self.name),
     commitMessage = string.format("'%s' gain updated.", self.name),
     column        = app.BUTTON2_CENTER,
-    row           = app.GRID5_CENTER4
+    row           = app.GRID5_CENTER4 - 1
   }
 
   Readout {
@@ -90,7 +90,7 @@ function GainBias:init(args)
     editMessage   = string.format("'%s' modulation bias.", self.name),
     commitMessage = string.format("'%s' bias updated.", self.name),
     column        = app.BUTTON3_CENTER,
-    row           = app.GRID5_CENTER4
+    row           = app.GRID5_CENTER4 - 1
   }
 end
 
