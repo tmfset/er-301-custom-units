@@ -19,6 +19,7 @@
 #include <Register.h>
 #include <Register2.h>
 #include <RegisterMainView.h>
+#include <controls/main/QuantizerView.h>
 #include <Euclid.h>
 #include <EuclidCircle.h>
 #include <Chance.h>
@@ -40,6 +41,7 @@
 %include <Register.h>
 %include <Register2.h>
 %include <RegisterMainView.h>
+%include <controls/main/QuantizerView.h>
 %include <Euclid.h>
 %include <EuclidCircle.h>
 %include <Chance.h>

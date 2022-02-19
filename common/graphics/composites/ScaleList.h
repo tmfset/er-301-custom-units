@@ -6,6 +6,8 @@
 #include <graphics/composites/Text.h>
 #include <graphics/interfaces/all.h>
 
+#include <dsp/slew.h>
+
 namespace graphics {
   class ScaleList {
     public:
@@ -25,8 +27,10 @@ namespace graphics {
         auto length = mData.getScaleBookSize();
         auto current = mData.getScaleBookIndex();
 
-        auto window = ListWindow::from(world.vertical(), size, 2)
-          .scrollTo(current, length);
+        auto slewCurrent = mIndexSlew.process(mIndexSlewRate, current);
+
+        auto window = ListWindow::from(world.vertical(), size, 1)
+          .scrollTo(slewCurrent, length);
 
         auto currentLb = world.leftBottom();
         auto currentRt = world.rightTop();
@@ -41,22 +45,28 @@ namespace graphics {
           auto wh = world.widthHeight().atY(size);
           auto xy = world.leftCenter().atY(y);
 
+          auto color = GRAY10;
+
           auto isCurrent = i == current;
           auto box = Box::lbwh(xy, wh);
           if (isCurrent) {
             currentLb = box.leftBottom();
             currentRt = box.rightTop();
+            color = WHITE;
           }
 
           auto text = Text(name, size);
           text.setJustifyAlign(LEFT_MIDDLE);
-          text.setOutline(isCurrent);
-          text.draw(fb, WHITE, box);
+          //text.setOutline(isCurrent);
+          text.draw(fb, color, box);
         }
 
         return Box::lbrt(currentLb, currentRt);
       }
+
     private:
+      slew::SlewRate mIndexSlewRate = slew::SlewRate::fromRate(0.1, GRAPHICS_REFRESH_PERIOD);
+      slew::Slew mIndexSlew;
       HasScaleBook &mData;
   };
 }

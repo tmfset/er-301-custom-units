@@ -47,4 +47,10 @@ namespace graphics {
       virtual void attach() = 0;
       virtual void release() = 0;
   };
+
+  class Quantizer : public HasScale, public HasScaleBook {
+    public:
+      Quantizer();
+      virtual ~Quantizer();
+  };
 }

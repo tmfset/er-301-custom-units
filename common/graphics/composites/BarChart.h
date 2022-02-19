@@ -6,36 +6,49 @@
 #include <graphics/interfaces/all.h>
 #include <graphics/primitives/all.h>
 
+#include <dsp/slew.h>
+
 namespace graphics {
-  class HChart {
+  class Chart {
     public:
-      inline HChart(HasChart &data) :
-          mChartData(data) {
-        mChartData.attach();
+      Chart(HasChart &data) :
+          mData(data) {
+        mData.attach();
       }
 
-      inline ~HChart() {
-        mChartData.release();
+      virtual ~Chart() {
+        mData.release();
       }
 
-      inline void draw(od::FrameBuffer &fb, const Box& world, int width, int pad) {
-        auto fit = 16;
+    protected:
+      HasChart &mData;
+  };
 
-        width = util::fdr(world.horizontal().segment(fit, pad));
+  class HChart : protected Chart {
+    public:
+      HChart(HasChart &data) : Chart(data) { }
+      virtual ~HChart() { }
+
+      inline void draw(od::FrameBuffer &fb, const Box& world, int pad) {
+        auto fit = 8;
+
+        int width = util::fdr(world.horizontal().segment(fit, pad));
         auto inner = Range::fromSegment(fit, pad, width).atCenter(world.horizontal());
 
-        auto length  = mChartData.getChartSize();
-        auto current = mChartData.getChartCurrentIndex();
-        auto base    = mChartData.getChartBaseIndex();
+        auto length  = mData.getChartSize();
+        auto current = mData.getChartCurrentIndex();
+        auto base    = mData.getChartBaseIndex();
+
+        auto slewCurrent = mIndexSlew.process(mIndexSlewRate, current);
 
         auto window = ListWindow::from(inner, width, pad)
-          .scrollTo(current, length);
+          .scrollTo(slewCurrent, length);
 
         for (int i = 0; i < length; i++) {
           auto x = window.globalCenterFromLeft(i);
           if (!window.visible(x)) continue;
 
-          auto value = mChartData.getChartValue(i);
+          auto value = mData.getChartValue(i);
           auto wh = v2d::of(width, value * world.height() / 2.0f);
           auto xy = world.center().atX(x);
 
@@ -48,6 +61,48 @@ namespace graphics {
       }
 
     private:
-      HasChart &mChartData;
+      slew::SlewRate mIndexSlewRate = slew::SlewRate::fromRate(0.05, GRAPHICS_REFRESH_PERIOD);
+      slew::Slew mIndexSlew;
+  };
+
+  class IChart : protected Chart {
+    public:
+      IChart(HasChart &data) : Chart(data) { }
+      virtual ~IChart() { }
+
+      inline void draw(od::FrameBuffer &fb, const Box &world, int pad) {
+        auto fit = 12;
+
+        int height = util::fdr(world.vertical().segment(fit, pad));
+        auto inner = Range::fromSegment(fit, pad, height).atCenter(world.vertical());
+
+        auto length  = mData.getChartSize();
+        auto current = mData.getChartCurrentIndex();
+        auto base    = mData.getChartBaseIndex();
+
+        auto slewCurrent = mIndexSlew.process(mIndexSlewRate, current);
+
+        auto window = ListWindow::from(inner, height, pad)
+          .scrollTo(slewCurrent, length);
+
+        for (int i = 0; i < length; i++) {
+          auto y = window.globalCenterFromRight(i);
+          if (!window.visible(y)) continue;
+
+          auto value = mData.getChartValue(i);
+          auto wh = v2d::of(value * world.width() / 2.0f, height);
+          auto xy = world.center().atY(y);
+
+          auto isCurrent = i == current;
+          auto isBase    = i == base;
+          Box::clwh(xy, wh).fill(fb, isCurrent ? GRAY12 : GRAY10);
+          if (isBase) Box::cs(xy, height + 2).trace(fb, GRAY5);
+          if (isCurrent) Box::cs(xy, height + 2).trace(fb, WHITE);
+        }
+      }
+
+    private:
+      slew::SlewRate mIndexSlewRate = slew::SlewRate::fromRate(0.05, GRAPHICS_REFRESH_PERIOD);
+      slew::Slew mIndexSlew;
   };
 }

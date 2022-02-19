@@ -14,7 +14,7 @@
 namespace lojik {
   #define REGISTER_MAX 128
 
-  class Register2 : public od::Object, public graphics::HasChart, public graphics::HasScale, public graphics::HasScaleBook {
+  class Register2 : public od::Object, public graphics::HasChart, public graphics::Quantizer {
     public:
       Register2() {
         addInput(mIn);

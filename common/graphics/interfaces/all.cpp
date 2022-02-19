@@ -9,4 +9,7 @@ namespace graphics {
 
   HasScaleBook::HasScaleBook() { }
   HasScaleBook::~HasScaleBook() { }
+
+  Quantizer::Quantizer() { }
+  Quantizer::~Quantizer() { }
 }

@@ -16,7 +16,10 @@ namespace graphics {
       static inline Box ltrb(const v2d &lt, const v2d &rb) { return lbrt(lt.atY(rb), rb.atY(lt)); }
       static inline Box lbwh(const v2d &lb, const v2d &wh) { return lbrt(lb, lb + wh); }
       static inline Box rbwh(const v2d &rb, const v2d &wh) { return lbwh(rb.offsetX(-wh), wh); }
+
+      static inline Box clwh(const v2d &cl, const v2d &wh) { return lbwh(cl.offsetY(-wh / 2.0f), wh); }
       static inline Box cbwh(const v2d &cb, const v2d &wh) { return lbwh(cb.offsetX(-wh / 2.0f), wh); }
+
       static inline Box  cwh(const v2d &c,  const v2d &wh) { return _cwh(c, wh.abs()); }
       static inline Box   cs(const v2d &c,  float s)       { return cwh(c, v2d::of(s)); }
       static inline Box   wh(const v2d &wh)                { return lbwh(v2d::zero(), wh); }
@@ -151,10 +154,15 @@ namespace graphics {
       inline Box atTop(float top)       const { return atBottom(top).offsetY(-height()); }
       inline Box atCenterY(float y)     const { return cwh(center().atY(y), widthHeight()); }
 
-      inline Box fromLeft(float out)   const { return withWidth(out).atRight(left()); }
-      inline Box fromRight(float out)  const { return withWidth(out).atLeft(right()); }
-      inline Box fromBottom(float out) const { return withHeight(out).atTop(bottom()); }
-      inline Box fromTop(float out)    const { return withHeight(out).atBottom(top()); }
+      inline Box outLeft(float out)   const { return withWidth(out).atRight(left()); }
+      inline Box outRight(float out)  const { return withWidth(out).atLeft(right()); }
+      inline Box outBottom(float out) const { return withHeight(out).atTop(bottom()); }
+      inline Box outTop(float out)    const { return withHeight(out).atBottom(top()); }
+
+      inline Box inLeft(float in)   const { return withWidth(in).atLeft(left()); }
+      inline Box inRight(float in)  const { return withWidth(in).atRight(right()); }
+      inline Box inBottom(float in) const { return withHeight(in).atBottom(bottom()); }
+      inline Box inTop(float in)    const { return withHeight(in).atTop(top()); }
 
       inline Box alignLeft(const Box &within)    const { return atLeft(within.left()); }
       inline Box alignRight(const Box &within)   const { return atRight(within.right()); }
@@ -173,6 +181,11 @@ namespace graphics {
 
       static inline Box extractWorld(od::Graphic &graphic) {
         return extractFrom(graphic.getWorldRect());
+      }
+
+      inline void applyTo(od::Graphic &graphic) const {
+        graphic.setPosition(left(), bottom());
+        graphic.setSize(width(), height());
       }
 
       inline void applyTo(od::Graphic &graphic, od::Graphic &parent) const {

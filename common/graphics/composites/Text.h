@@ -2,6 +2,7 @@
 
 #include <string>
 
+#include <od/objects/Parameter.h>
 #include <od/graphics/FrameBuffer.h>
 #include <od/ui/DialState.h>
 #include <graphics/primitives/all.h>
@@ -23,18 +24,23 @@ namespace graphics {
       void setClear(bool clear)             { mClear        = clear; }
       void setOutline(bool outline)         { mOutline      = outline; }
 
-      inline Box bounds(const Box &world) const {
-        return Box::wh(mDimensions).justifyAlign(world, mJustifyAlign);
+      inline Box bounds(const Box &world, bool vertical) const {
+        auto dimensions = vertical ? mDimensions.swap() : mDimensions;
+        return Box::wh(dimensions).justifyAlign(world, mJustifyAlign);
       }
 
       inline Box draw(
         od::FrameBuffer &fb,
         od::Color color,
-        const Box &world
+        const Box &world,
+        bool vertical = false
       ) const {
-        auto _bounds = bounds(world);
+        auto _bounds = bounds(world, vertical);
         if (mClear) _bounds.clear(fb);
-        fb.text(color, _bounds.left(), _bounds.bottom(), mValue.c_str(), mSize);
+
+        if (vertical) fb.vtext(color, _bounds.left(), _bounds.bottom(), mValue.c_str(), mSize);
+        else fb.text(color, _bounds.left(), _bounds.bottom(), mValue.c_str(), mSize);
+
         if (mOutline) _bounds.outline(fb, WHITE, 2);
         return _bounds;
       }
@@ -155,10 +161,6 @@ namespace graphics {
 
       void setFontSize(int size) {
         mText.setFontSize(size);
-      }
-
-      inline Box bounds(const Box &world) {
-        return mText.bounds(world);
       }
 
       inline Box draw(od::FrameBuffer &fb, od::Color color, Box &world) {

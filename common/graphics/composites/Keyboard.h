@@ -29,7 +29,7 @@ namespace graphics {
       return runRise * v2d::of((float)key + offset, isBlackKey(key) ? 1.0f : 0.0f);
     }
 
-    static inline v2d keyPositionInterpolate(const v2d &runRise, float key) {
+    static inline v2d keyPositionInterpolate(const v2d &runRise, float key, bool vertical) {
       // 2.3  -> 2, 3
       // 10.2 -> 10, 11
       // 11.2 -> 11, 12
@@ -39,7 +39,9 @@ namespace graphics {
       auto keyHigh = util::fur(key);
       auto low = keyPositionInt(runRise, keyLow);
       auto high = keyPositionInt(runRise, keyHigh);
-      return low.lerp(high, key - keyLow);
+
+      auto result = low.lerp(high, key - keyLow);
+      return vertical ? result.swap() : result;
     }
 
     static Circle scale(const Circle &base, float value) {
@@ -51,26 +53,27 @@ namespace graphics {
       od::FrameBuffer &fb,
       HasScale &data,
       const Circle &base,
-      const v2d &runRise
+      const v2d &runRise,
+      bool vertical = false
     ) {
       auto size      = data.getScaleSize();
       auto isEmpty   = size == 0;
 
       auto detected  = data.getDetectedCentValue() / 100.0f;
-      base.offset(keyPositionInterpolate(runRise, detected)).fill(fb, GRAY3);
+      base.offset(keyPositionInterpolate(runRise, detected, vertical)).fill(fb, GRAY3);
 
       if (!isEmpty) {
         auto quantized = data.getQuantizedCentValue() / 100.0f;
-        scale(base, quantized).offset(keyPositionInterpolate(runRise, quantized)).fill(fb, GRAY10);
+        scale(base, quantized).offset(keyPositionInterpolate(runRise, quantized, vertical)).fill(fb, GRAY10);
       }
 
       for (int i = 0; i < 12; i++) {
-        base.offset(keyPositionInterpolate(runRise, i)).trace(fb, GRAY5);
+        base.offset(keyPositionInterpolate(runRise, i, vertical)).trace(fb, GRAY5);
       }
 
       for (int i = 0; i < size; i++) {
         float key = data.getScaleCentValue(i) / 100.0f;
-        scale(base, key).offset(keyPositionInterpolate(runRise, key)).trace(fb, GRAY13);
+        scale(base, key).offset(keyPositionInterpolate(runRise, key, vertical)).trace(fb, GRAY13);
       }
     }
   };
@@ -107,16 +110,15 @@ namespace graphics {
 
       auto text = Text(mScaleData.getScaleName(), 8);
       text.setJustifyAlign(CENTER_TOP);
-      text.draw(fb, color, world.fromBottom(8));
+      text.draw(fb, color, world.outBottom(8));
     }
 
     HasScale &mScaleData;
   };
 
   struct IKeyboard {
-    inline IKeyboard(HasScale &data, float pad) :
-        mScaleData(data),
-        mPad(pad) {
+    inline IKeyboard(HasScale &data) :
+        mScaleData(data) {
       mScaleData.attach();
     }
 
@@ -124,20 +126,31 @@ namespace graphics {
       mScaleData.release();
     }
     
-    inline void draw(od::FrameBuffer &fb, const Box &world) const {
-      auto key = world.scale(1.0f / 2.0f, 1.0f / 7.0f).minSquare();
-      auto bounds = key.scale(2.0f, 7.0f);
+    inline void draw(od::FrameBuffer &fb, const Box &world, float scale) const {
+      auto inner = world.padY(2 + 1);//.padBottom(8 + 2).padTop(2 + 1).offsetY(-1);
 
-      auto aligned  = key.atRightBottom(bounds);
-      auto diameter = aligned.minDimension();
-      auto radius   = diameter / 2.0f;
+      auto key     = inner.segmentQSquare(2, 7);
+      auto runRise = key.widthHeight().scale(0.5f, -1).quantize();
 
-      Keyboard::draw(
-        fb,
-        mScaleData,
-        aligned.pad(mPad).minCircle(),
-        v2d::of(radius, -diameter)
-      );
+      auto bounds = Box::wh(runRise.scale(14, 2).swap()).recenterOn(inner);
+      auto base   = key.atRightBottom(bounds).minCircle().scale(scale);
+
+      //key.atRightBottom(bounds).trace(fb, WHITE);
+      //bounds.trace(fb, WHITE);
+
+      Keyboard::draw(fb, mScaleData, base, runRise, true);
+
+      auto octave = mScaleData.getDetectedOctaveValue();
+      auto arrowBase = base.center.atX(bounds.right()).offsetX(3);
+      if (octave < 0) Point(arrowBase.offset(Keyboard::keyPosition(runRise, 0).swap())).arrowsDown(fb, GRAY10, -octave, 3, 0.9);
+      if (octave > 0) Point(arrowBase.offset(Keyboard::keyPosition(runRise, 11).swap())).arrowsUp(fb, GRAY10, octave, 3, 0.9);
+
+      // auto size = mScaleData.getScaleSize();
+      // auto color = size == 0 ? GRAY5 : GRAY13;
+
+      // auto text = Text(mScaleData.getScaleName(), 5);
+      // text.setJustifyAlign(RIGHT_MIDDLE);
+      // text.draw(fb, color, bounds.fromRight(10), true);
     }
 
     HasScale &mScaleData;

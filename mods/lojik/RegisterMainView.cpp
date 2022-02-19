@@ -1,8 +1,8 @@
 #include "RegisterMainView.h"
 
 namespace lojik {
-  RegisterMainView::RegisterMainView(Register2 &data, int left, int bottom, int width, int height) :
-      od::Graphic(left, bottom, width, height),
+  RegisterMainView::RegisterMainView(Register2 &data) :
+      graphics::MainControl(1),
       mChart(data),
       mCircleChart(data, 0.5),
       mKeyboard(data),
@@ -11,8 +11,8 @@ namespace lojik {
       mShiftReadout(data.getParameter("Shift")),
       mLengthReadout(data.getParameter("Length")),
       mStrideReadout(data.getParameter("Stride")) {
-    configureReadout(mOffsetReadout);
-    configureReadout(mShiftReadout);
+    //configureReadout(mOffsetReadout);
+    //configureReadout(mShiftReadout);
     configureReadout(mLengthReadout);
     configureReadout(mStrideReadout);
     configureReadouts();

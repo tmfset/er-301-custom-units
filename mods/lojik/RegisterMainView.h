@@ -9,14 +9,15 @@
 #include <graphics/composites/CircleChart.h>
 #include <graphics/composites/Keyboard.h>
 #include <graphics/composites/ScaleList.h>
+#include <graphics/controls/MainControl.h>
 #include <graphics/controls/ReadoutView.h>
 #include <dsp/slew.h>
 #include <Register2.h>
 
 namespace lojik {
-  class RegisterMainView : public od::Graphic {
+  class RegisterMainView : public graphics::MainControl {
     public:
-      RegisterMainView(Register2 &data, int left, int bottom, int width, int height);
+      RegisterMainView(Register2 &data);
 
       virtual ~RegisterMainView() { }
 
@@ -33,7 +34,7 @@ namespace lojik {
     private:
       inline void configureReadout(graphics::ReadoutView &readout) {
         own(readout);
-        addChild(&readout);
+        //addChild(&readout);
         readout.setPrecision(0);
         readout.setFontSize(8);
       }
@@ -45,7 +46,7 @@ namespace lojik {
         mShiftReadout.setJustifyAlign(LEFT_MIDDLE);
         mShiftReadout.setCursorOrientation(od::cursorLeft);
 
-        mLengthReadout.setJustifyAlign(RIGHT_MIDDLE);
+        mLengthReadout.setJustifyAlign(CENTER_MIDDLE);
         mLengthReadout.setCursorOrientation(od::cursorRight);
 
         mStrideReadout.setJustifyAlign(LEFT_MIDDLE);
@@ -56,38 +57,20 @@ namespace lojik {
         Graphic::draw(fb);
 
         auto world = graphics::Box::extractWorld(*this);
+        mChart.draw(fb, world.splitTop(0.8).withHeight(21).padX(3), 2);
 
-        drawCenter(fb, world.withWidth(2 * SECTION_PLY).recenterOn(world));
-      }
+        auto bottom = world.inBottom(12);
 
-      void drawCenter(od::FrameBuffer &fb, const graphics::Box &world) {
-        auto top = world.splitTop(0.333);
-        auto bottom = world.splitBottom(0.666);
+        bottom.outTop(10).applyTo(mLengthReadout);
 
-        //mCircleChart.draw(fb, left.scaleHeight(0.75));
+        mLengthReadout.draw(fb);
 
-        mChart.draw(fb, bottom.padY(10), 4, 2);
-
-        mKeyboard.draw(fb, top, 0.85);
-
-        //mScaleList.draw(fb, world, 10);
-
-        auto size = 8;
-
-        auto local = world.withHeight(8).atLeftBottom(world.leftBottom());
-
-        auto left = local.splitLeft(0.5);
-        left.splitLeftPad(0.5, 2).applyTo(mOffsetReadout, *this);
-        left.splitRightPad(0.5, 2).applyTo(mShiftReadout, *this);
-
-        auto right = local.splitRight(0.5);
-        right.splitLeftPad(0.5, 2).applyTo(mLengthReadout, *this);
-        right.splitRightPad(0.5, 2).applyTo(mStrideReadout, *this);
+        mLengthText.draw(fb, WHITE, bottom);
       }
 
       graphics::HChart mChart;
       graphics::CircleChart mCircleChart;
-      graphics::HKeyboard mKeyboard;
+      graphics::IKeyboard mKeyboard;
 
       graphics::ScaleList mScaleList;
 
@@ -95,5 +78,7 @@ namespace lojik {
       graphics::ReadoutView mShiftReadout;
       graphics::ReadoutView mLengthReadout;
       graphics::ReadoutView mStrideReadout;
+
+      graphics::Text mLengthText { "OSLS", 8 };
   };
 }

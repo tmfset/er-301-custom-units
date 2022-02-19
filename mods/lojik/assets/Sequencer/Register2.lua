@@ -12,6 +12,7 @@ local DialMap = require "common.assets.DialMap"
 local UnitShared = require "common.assets.UnitShared"
 local RegisterShared = require "lojik.Sequencer.RegisterShared"
 local RegisterView = require "lojik.ViewControl.RegisterView"
+local QuantizerView = require "lojik.ViewControl.Quantizer"
 
 local Register = Class {}
 Register:include(Unit)
@@ -279,9 +280,16 @@ function Register:onLoadViews()
         gainBias    = self.objects.scale,
         gainDialMap = DialMap.count.span(self.max)(4, 1, 0.25, 0.1)
       }
+    },
+    quantizer = QuantizerView {
+      name        = "quantizer",
+      quantizer   = self.objects.register,
+      branch      = self.branches.scale,
+      gainBias    = self.objects.scale,
+      gainDialMap = DialMap.count.span(self.max)(4, 1, 0.25, 0.1)
     }
   }, {
-    expanded = { "register" }
+    expanded = { "register", "quantizer" }
   }
 end
 
