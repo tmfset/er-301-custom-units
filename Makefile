@@ -42,7 +42,7 @@ am335x-docker:
 	docker build docker/er-301-am335x-build-env/ -t er-301-am335x-build-env --platform=linux/amd64
 
 release:
-	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units --platform=linux/amd64 $(docker_image)  \
+	docker run -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units $(docker_image)  \
 		make -j all ARCH=am335x PROFILE=release
 
 testing:

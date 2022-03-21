@@ -29,7 +29,7 @@ namespace graphics {
 
         auto slewCurrent = mIndexSlew.process(mIndexSlewRate, current);
 
-        auto window = ListWindow::from(world.vertical(), size, 1)
+        auto window = ListWindow::from(world.vertical(), size, 2)
           .scrollTo(slewCurrent, length);
 
         auto currentLb = world.leftBottom();

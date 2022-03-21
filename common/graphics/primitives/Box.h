@@ -110,8 +110,8 @@ namespace graphics {
       inline float top()       const { return rightTop().y(); }
       inline v2d   topCenter() const { return center().atY(top()); }
 
-      inline Range horizontal() const { return Range::from(left(), right()); }
-      inline Range vertical()   const { return Range::from(bottom(), top()); }
+      inline Range horizontal() const { return Range::lr(left(), right()); }
+      inline Range vertical()   const { return Range::lr(bottom(), top()); }
 
       inline Box intersect(const Box& other) const {
         return lbrt(
@@ -238,31 +238,35 @@ namespace graphics {
       }
 
       inline bool containsX(float x) const {
-        return x > leftBottom().x() && x < rightTop().x();
+        return x > left() && x < right();
       }
 
       inline void fill(od::FrameBuffer &fb, od::Color color) const {
-        fb.fill(color, leftBottom().x(), leftBottom().y(), rightTop().x(), rightTop().y());
+        fb.fill(color, left(), bottom(), right(), top());
       }
 
       inline void clear(od::FrameBuffer &fb) const {
-        fb.clear(leftBottom().x(), leftBottom().y(), rightTop().x(), rightTop().y());
+        fb.clear(left(), bottom(), right(), top());
       }
 
       inline void lineTopIn(od::FrameBuffer &fb, od::Color color, int dotting = 0) const {
-        fb.hline(color, leftBottom().x() + 1, rightTop().x() - 1, rightTop().y(), dotting);
+        fb.hline(color, left() + 1, right() - 1, top(), dotting);
       }
 
       inline void lineBottomIn(od::FrameBuffer &fb, od::Color color, int dotting = 0) const {
-        fb.hline(color, leftBottom().x() + 1, rightTop().x() - 1, leftBottom().y(), dotting);
+        fb.hline(color, left() + 1, right() - 1, bottom(), dotting);
+      }
+
+      inline void traceRight(od::FrameBuffer &fb, od::Color color, int dotting = 0) const {
+        fb.vline(color, right(), bottom(), top(), dotting);
       }
 
       inline void trace(od::FrameBuffer &fb, od::Color color) const {
-        fb.box(color, leftBottom().x(), leftBottom().y(), rightTop().x(), rightTop().y());
+        fb.box(color, left(), bottom(), right(), top());
       }
 
       inline void outline(od::FrameBuffer &fb, od::Color color, int by = 1) const {
-        fb.box(color, leftBottom().x() - by, leftBottom().y() - by, rightTop().x() + by, rightTop().y() + by);
+        fb.box(color, left() - by, bottom() - by, right() + by, top() + by);
       }
 
       inline void pointAtMe(od::CursorState &state, int offset = 10) const {

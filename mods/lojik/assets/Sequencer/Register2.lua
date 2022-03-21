@@ -32,9 +32,9 @@ end
 
 function Register:onLoadGraph(channelCount)
   --local clock   = self:addComparatorControl("clock",  app.COMPARATOR_TRIGGER_ON_RISE)
-  local captureGate = self:addComparatorControl("captureGate", app.COMPARATOR_TOGGLE)
-  local shiftGate   = self:addComparatorControl("shiftGate", app.COMPARATOR_GATE)
-  local resetGate   = self:addComparatorControl("resetGate", app.COMPARATOR_GATE)
+  --local captureGate = self:addComparatorControl("captureGate", app.COMPARATOR_TOGGLE)
+  --local shiftGate   = self:addComparatorControl("shiftGate", app.COMPARATOR_GATE)
+  --local resetGate   = self:addComparatorControl("resetGate", app.COMPARATOR_GATE)
 
   local offset  = self:addParameterAdapterControl("offset")
   local shift   = self:addParameterAdapterControl("shift")
@@ -51,9 +51,9 @@ function Register:onLoadGraph(channelCount)
 
   local register = self:addObject("register", lojik.Register2())
   connect(self, "In1", register, "Clock")
-  connect(captureGate, "Out", register, "Capture")
-  connect(shiftGate,   "Out", register, "Shift")
-  connect(resetGate,   "Out", register, "Reset")
+  --connect(captureGate, "Out", register, "Capture")
+  --connect(shiftGate,   "Out", register, "Shift")
+  --connect(resetGate,   "Out", register, "Reset")
 
   tie(register, "Offset", offset, "Out")
   tie(register, "Shift",  shift,  "Out")
@@ -193,7 +193,7 @@ function Register:onLoadViews()
       initialBias   = 0
     },
     outputGain   = GainBias {
-      button        = "oGain",
+      button        = "gain",
       description   = "Output Gain",
       branch        = self.branches.outputGain,
       gainbias      = self.objects.outputGain,
@@ -289,7 +289,7 @@ function Register:onLoadViews()
       gainDialMap = DialMap.count.span(self.max)(4, 1, 0.25, 0.1)
     }
   }, {
-    expanded = { "register", "quantizer" }
+    expanded = { "register", "outputGain", "quantizer" }
   }
 end
 

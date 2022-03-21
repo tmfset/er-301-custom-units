@@ -36,7 +36,7 @@ namespace graphics {
         Graphic::draw(fb);
 
         auto world = Box::extractWorld(*this);
-        auto bounds = mView.draw(fb, world, 8);
+        auto bounds = mView.draw(fb, world, 5);
         bounds.pointAtMe(mCursorState);
       }
 #endif

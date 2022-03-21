@@ -5,55 +5,57 @@
 namespace graphics {
   class Range {
     public:
-      static inline Range from(float left, float right) {
-        return _from(util::fmin(left, right), util::fmax(left, right));
+      /**
+       * Safe ctors to build valid ranges.
+       */
+      static inline Range lr(float l, float r) { return _lr(util::fmin(l, r), util::fmax(l, r)); }
+      static inline Range lw(float l, float w) { return _lw(l, util::fmax(0, w)); }
+      static inline Range rw(float r, float w) { return _rw(r, util::fmax(0, w)); }
+      static inline Range cs(float c, float s) { return _cs(c, util::fabs(s)); }
+      static inline Range cw(float c, float w) { return _cw(c, util::fabs(w)); }
+      static inline Range sw(float s, float w) { return w > 0 ? _lw(s, w) : _rw(s, w); }
+
+      inline Range fromLeft(float width) const { return lw(left(), width); }
+      inline Range fromRight(float width) const { return rw(right(), width); }
+
+      /**
+       * Move, preserving size.
+       */
+      inline Range atLeft(float l)   const { return _lw(l, width()); }
+      inline Range atRight(float r)  const { return _rw(r, width()); }
+      inline Range atCenter(float c) const { return _cw(c, width()); }
+
+      /**
+       * Align within another range.
+       */
+      inline Range alignLeft(const Range &r)   const { return atLeft(r.left()); }
+      inline Range alignRight(const Range &r)  const { return atRight(r.right()); }
+      inline Range alignCenter(const Range &r) const { return atCenter(r.center()); }
+
+      inline Range justify(const Range &within, od::Justification j) const {
+        switch (j) {
+          case od::justifyLeft:   return alignLeft(within);
+          case od::justifyCenter: return alignCenter(within);
+          case od::justifyRight:  return alignRight(within);
+        }
+        return alignLeft(within);
       }
 
-      static inline Range fromLeft(float left, float width) {
-        return _fromLeft(left, util::fmax(0, width));
-      }
-      inline Range fromLeft(float width) const {
-        return fromLeft(left(), width);
-      }
+      /**
+       * Clamp things with this range.
+       */
+      inline float clamp(float v)             const { return util::fclamp(v, left(), right()); }
+      inline Range clamp(const Range &r)      const { return _lw(clamp(r.left()), clamp(r.right())); }
+      inline Range clampLeft(const Range &r)  const { return _lw(clamp(r.left()), r.width()); }
+      inline Range clampRight(const Range &r) const { return _rw(clamp(r.right()), r.width()); }
 
-      static inline Range fromRight(float right, float width) {
-        return _fromRight(right, util::fmax(0, width));
-      }
-      inline Range fromRight(float width) const {
-        return fromRight(right(), width);
-      }
-
-      static inline Range fromSide(float side, float width) {
-        return width > 0 ? _fromLeft(side, width) : _fromRight(side, width);
-      }
-
-      static inline Range fromCenterSpan(float center, float span) {
-        return _fromCenterSpan(center, util::fabs(span));
-      }
-      static inline Range fromCenterWidth(float center, float width) {
-        return _fromCenterWidth(center, util::fabs(width));
-      }
-
-      inline Range atCenter(float c) const {
-        return _fromCenterSpan(c, halfWidth());
-      }
-      inline Range atCenter(const Range &other) const {
-        return atCenter(other.center());
-      }
-
-      inline float clamp(float v) const {
-        return util::fclamp(v, left(), right());
-      }
-      inline Range clamp(const Range &other) const {
-        return _from(clamp(other.left()), clamp(other.right()));
-      }
-      inline Range clampLeft(const Range &other) const {
-        return _fromLeft(clamp(other.left()), other.width());
-      }
-      inline Range clampRight(const Range &other) const {
-        return _fromRight(clamp(other.right()), other.width());
-      }
-
+      /**
+       * Fit the other range inside this one, ensuring:
+       * 
+       * if it's too far left, move it right,
+       * if it's too far right, move it left,
+       * and if it's too large, shrink it down.
+       */
       inline Range insert(const Range &other) const {
         return _fromLeft(util::max(0, width() - other.width()))
           .clampLeft(other)
@@ -80,30 +82,17 @@ namespace graphics {
       inline float center()    const { return left() + halfWidth(); }
 
     private:
-      static inline Range _from(float left, float right) {
-        return Range { left, right };
-      }
+      /**
+       * Unsafe ctors, to build from valid values.
+       */
+      static inline Range _lr(float l, float r) { return Range { l, r }; }
+      static inline Range _lw(float l, float w) { return Range { l, l + w }; }
+      static inline Range _rw(float r, float w) { return Range { r - w, r }; }
+      static inline Range _cs(float c, float s) { return Range { c - s, c + s }; }
+      static inline Range _cw(float c, float w) { return _cs(c, w / 2.0f); }
 
-      static inline Range _fromLeft(float left, float width) {
-        return Range { left, left + width };
-      }
-      inline Range _fromLeft(float width) const {
-        return _fromLeft(left(), width);
-      }
-
-      static inline Range _fromRight(float right, float width) {
-        return Range { right - width, right };
-      }
-      inline Range _fromRight(float width) const {
-        return _fromRight(right(), width);
-      }
-
-      static inline Range _fromCenterSpan(float center, float span)   {
-        return Range { center - span, center + span };
-      }
-      static inline Range _fromCenterWidth(float center, float width) {
-        return _fromCenterSpan(center, width / 2.0f);
-      }
+      inline Range _fromLeft(float width) const { return _lw(left(), width); }
+      inline Range _fromRight(float width) const { return _rw(right(), width); }
 
       inline Range(float left, float right) :
         mLeft(left),

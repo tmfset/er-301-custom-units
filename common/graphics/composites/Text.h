@@ -19,6 +19,11 @@ namespace graphics {
         update(str, size);
       }
 
+      inline Text(std::string str, JustifyAlign justifyAlign, int size) {
+        setJustifyAlign(justifyAlign);
+        update(str, size);
+      }
+
       void setFontSize(int size)            { mSize         = size; }
       void setJustifyAlign(JustifyAlign ja) { mJustifyAlign = ja; }
       void setClear(bool clear)             { mClear        = clear; }
@@ -141,6 +146,12 @@ namespace graphics {
     public:
       inline ParameterText(ParameterDisplay &display) :
         mDisplay(display) { }
+
+      inline ParameterText(ParameterDisplay &display, JustifyAlign JustifyAlign, int fontSize) :
+          mDisplay(display) {
+        setJustifyAlign(JustifyAlign);
+        setFontSize(fontSize);
+      }
 
       void setPrecision(int v) {
         mPrecision = v;

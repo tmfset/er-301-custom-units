@@ -29,11 +29,10 @@ namespace graphics {
       HChart(HasChart &data) : Chart(data) { }
       virtual ~HChart() { }
 
-      inline void draw(od::FrameBuffer &fb, const Box& world, int pad) {
-        auto fit = 8;
+      inline void draw(od::FrameBuffer &fb, const Box& world, int pad, int fit) {
 
         int width = util::fdr(world.horizontal().segment(fit, pad));
-        auto inner = Range::fromSegment(fit, pad, width).atCenter(world.horizontal());
+        auto inner = Range::fromSegment(fit, pad, width).alignCenter(world.horizontal());
 
         auto length  = mData.getChartSize();
         auto current = mData.getChartCurrentIndex();
@@ -54,8 +53,8 @@ namespace graphics {
 
           auto isCurrent = i == current;
           auto isBase    = i == base;
-          Box::cbwh(xy, wh).fill(fb, isCurrent ? GRAY12 : GRAY10);
-          if (isBase) Box::cs(xy, width + 2).trace(fb, GRAY5);
+          Box::cbwh(xy, wh).fill(fb, isCurrent ? GRAY10 : GRAY5);
+          if (isBase) Box::cs(xy, width + 2).trace(fb, GRAY10);
           if (isCurrent) Box::cs(xy, width + 2).trace(fb, WHITE);
         }
       }
@@ -70,11 +69,10 @@ namespace graphics {
       IChart(HasChart &data) : Chart(data) { }
       virtual ~IChart() { }
 
-      inline void draw(od::FrameBuffer &fb, const Box &world, int pad) {
-        auto fit = 12;
+      inline void draw(od::FrameBuffer &fb, const Box &world, int pad, int fit) {
 
         int height = util::fdr(world.vertical().segment(fit, pad));
-        auto inner = Range::fromSegment(fit, pad, height).atCenter(world.vertical());
+        auto inner = Range::fromSegment(fit, pad, height).alignCenter(world.vertical());
 
         auto length  = mData.getChartSize();
         auto current = mData.getChartCurrentIndex();

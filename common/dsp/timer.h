@@ -4,7 +4,7 @@
 #include <hal/simd.h>
 #include <util/math.h>
 
-namespace timer {
+namespace dsp {
   #define DEFAULT_TIMER_DURATION 0.1f
 
   class Timer {
@@ -98,6 +98,46 @@ namespace timer {
 
         float32x4_t mPhase = vdupq_n_f32(0);
         float32x4_t mDelta = vdupq_n_f32(0);
+    };
+  }
+
+  namespace simd {
+    class Timer {
+      public:
+        inline Timer(float samplePeriod) :
+            Timer(samplePeriod, DEFAULT_TIMER_DURATION) { }
+
+        inline Timer(float samplePeriod, float seconds) :
+            mSamplePeriod(samplePeriod) {
+          setDuration(seconds);
+        }
+
+        inline void setDuration(float seconds) {
+          mDelta = mSamplePeriod / util::fmax(seconds, mSamplePeriod);
+        }
+
+        inline uint32x4_t process(uint32x4_t reset) {
+          uint32_t _reset[4], _out[4];
+          vst1q_u32(_reset, reset);
+
+          auto _phase = mPhase;
+          for (int i = 0; i < 4; i++) {
+            _phase -= mDelta;
+
+            auto out = _reset[i] || _phase <= 0.0f;
+            if (out) _phase = 1.0f;
+            _out[i] = util::bcvt(out);
+          }
+
+          mPhase = _phase;
+          return vld1q_u32(_out);
+        }
+
+      private:
+        const float mSamplePeriod;
+
+        float mPhase = 0;
+        float mDelta = 0;
     };
   }
 }

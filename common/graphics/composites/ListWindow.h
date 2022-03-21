@@ -9,12 +9,42 @@ namespace graphics {
         return ListWindow { window, itemSize, itemPad, 0 };
       }
 
-      inline ListWindow scrollTo(float index, int total) const {
-        auto relative = Range::fromLeft(0, relativeEnd(total - 1));
+      /**
+       * Scroll to the specified index and align the list in the window.
+       */
+      inline ListWindow scrollTo(float index, int total, od::Justification justify = od::justifyCenter) const {
+        // Calculate the full range of all items and place our window on the
+        // appropriate center index.
+        auto full     = Range::lw(0, relativeEnd(total - 1));
         auto window   = mWindow.atCenter(relativeCenter(index));
-        auto bounded  = relative.insert(window);
-        return atWindowWithOffset(bounded.atCenter(mWindow), -bounded.left());
+
+        // Fit the relative window
+        auto bounded  = full.insert(window);
+        return atWindowWithOffset(bounded.justify(mWindow, justify), -bounded.left());
       }
+
+      inline bool hVisibleIndex(float i) const {
+        return visible(globalCenterFromLeft(i));
+      }
+
+      inline Box hBox(const Box& world, float i) const {
+        return Box::lbwh(
+          v2d::of(globalStartFromLeft(i), world.bottom()),
+          v2d::of(mItemSize, world.height())
+        );
+      }
+
+      inline bool vVisibleIndex(float i) const {
+        return visible(globalCenterFromRight(i));
+      }
+
+      inline Box vBox(const Box& world, float i) const {
+        return Box::lbwh(
+          v2d::of(world.left(), globalEndFromRight(i)),
+          v2d::of(world.width(), mItemSize)
+        );
+      }
+
 
       inline float globalStartFromLeft(float i)  const { return toGlobalFromLeft(relativeStart(i)); }
       inline float globalCenterFromLeft(float i) const { return toGlobalFromLeft(relativeCenter(i)); }

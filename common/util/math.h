@@ -481,7 +481,12 @@ namespace util {
   inline float  funit(float v) { return fclamp(v, -1, 1); }
   inline float fpunit(float v) { return fclamp(v, 0, 1); }
 
-  inline int mod(int a, int n) { return ((a % n) + n) % n; }
+  inline int mod(int a, int n) {
+    if (a >= n) a -= n;
+    if (a < 0) a += n;
+    return a;
+    //return ((a % n) + n) % n;
+  }
 
   inline int moddst(int a, int b, int n) {
     int m = mod(a - b, n);
@@ -1133,6 +1138,10 @@ namespace util {
       public:
         inline Pitch() {}
         inline Pitch(float32x4_t o, float32x4_t c) : mOctave(o), mCents(c) { }
+
+        static inline Pitch from(float value) {
+          return from(vdupq_n_f32(value));
+        }
 
         static inline Pitch from(float32x4_t value) {
           auto voltage = toVoltage(value);
