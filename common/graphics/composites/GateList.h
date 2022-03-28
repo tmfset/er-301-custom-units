@@ -36,12 +36,11 @@ namespace graphics {
           ).trace(fb, GRAY5);
 
           auto name = Text { "reset", 10 };
-          name.setJustifyAlign(LEFT_BOTTOM);
-          name.draw(fb, WHITE, box);
+          name.draw(fb, WHITE, box, LEFT_BOTTOM);
 
           // auto item = mItems.at(i);
-          // item.mName.draw(fb, WHITE, box);
-          // item.mPrimary.draw(fb, WHITE, box);
+          // item.mName.draw(fb, WHITE, box, CENTER_MIDDLE);
+          // item.mPrimary.draw(fb, WHITE, box, LEFT_BOTTOM);
         }
 
         auto secondary = ListWindow::from(vertical, 6, 2)
@@ -65,7 +64,7 @@ namespace graphics {
     private:
       struct Item {
         Item(std::string name) :
-          mName(name, CENTER_MIDDLE, 12) {}
+          mName(name, 12) {}
 
         Text mName;
       };

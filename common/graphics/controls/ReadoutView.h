@@ -6,6 +6,8 @@
 #include <od/objects/Parameter.h>
 
 #include <graphics/composites/Text.h>
+#include <graphics/composites/FollowableValue.h>
+#include <graphics/composites/FollowableText.h>
 #include <graphics/primitives/all.h>
 
 #include <ui/dial/state.h>
@@ -37,11 +39,11 @@ namespace graphics {
       }
 
       void setFontSize(int size) {
-        mText.setFontSize(size);
+        mText.setSize(size);
       }
 
       void setJustifyAlign(graphics::JustifyAlign ja) {
-        mText.setJustifyAlign(ja);
+        mJustifyAlign = ja;
       }
 
       void setCursorOrientation(od::CursorOrientation orientation) {
@@ -75,14 +77,15 @@ namespace graphics {
         Graphic::draw(fb);
 
         auto world = Box::extractWorld(*this);
-        auto bounds = mText.draw(fb, WHITE, world);
+        auto bounds = mText.draw(fb, WHITE, world, mJustifyAlign);
         bounds.pointAtMe(mCursorState);
       }
 #endif
 
     private:
-      ParameterDisplay mDisplay;
-      ParameterText mText { mDisplay };
+      FollowableValue mDisplay;
+      FollowableText mText { mDisplay };
       ui::dial::State mDialState;
+      JustifyAlign mJustifyAlign = CENTER_MIDDLE;
   };
 }

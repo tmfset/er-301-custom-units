@@ -2,212 +2,88 @@
 
 #include <string>
 
-#include <od/objects/Parameter.h>
 #include <od/graphics/FrameBuffer.h>
-#include <od/ui/DialState.h>
+
 #include <graphics/primitives/all.h>
-
-#include <ui/DialMap.h>
-
-#include <util/Units.h>
 
 namespace graphics {
   class Text {
     public:
-      inline Text() { }
+      inline Text(std::string str) {
+        mRefreshDimensions = true;
+        mText              = str;
+      }
+
       inline Text(std::string str, int size) {
-        update(str, size);
+        mRefreshDimensions = true;
+        mText              = str;
+        mSize              = size;
       }
 
-      inline Text(std::string str, JustifyAlign justifyAlign, int size) {
-        setJustifyAlign(justifyAlign);
-        update(str, size);
+      void setText(std::string str) {
+        mRefreshDimensions = true;
+        mText              = str;
       }
 
-      void setFontSize(int size)            { mSize         = size; }
-      void setJustifyAlign(JustifyAlign ja) { mJustifyAlign = ja; }
-      void setClear(bool clear)             { mClear        = clear; }
-      void setOutline(bool outline)         { mOutline      = outline; }
+      void setSize(int size) {
+        mRefreshDimensions = true;
+        mSize              = size;
+      }
 
-      inline Box bounds(const Box &world, bool vertical) const {
-        auto dimensions = vertical ? mDimensions.swap() : mDimensions;
-        return Box::wh(dimensions).justifyAlign(world, mJustifyAlign);
+      void setClear(bool clear) {
+        mClear = clear;
+      }
+
+      void setOutline(bool outline) {
+        mOutline = outline;
+      }
+
+      void setVertical(bool vertical) {
+        mRefreshDimensions = true;
+        mVertical          = vertical;
       }
 
       inline Box draw(
         od::FrameBuffer &fb,
         od::Color color,
         const Box &world,
-        bool vertical = false
-      ) const {
-        auto _bounds = bounds(world, vertical);
+        JustifyAlign justifyAlign
+      ) {
+        updateDimensions();
+
+        auto _bounds = bounds(world, justifyAlign);
         if (mClear) _bounds.clear(fb);
 
-        if (vertical) fb.vtext(color, _bounds.left(), _bounds.bottom(), mValue.c_str(), mSize);
-        else fb.text(color, _bounds.left(), _bounds.bottom(), mValue.c_str(), mSize);
+        if (mVertical) fb.vtext(color, _bounds.left(), _bounds.bottom(), mText.c_str(), mSize);
+        else fb.text(color, _bounds.left(), _bounds.bottom(), mText.c_str(), mSize);
 
         if (mOutline) _bounds.outline(fb, WHITE, 2);
         return _bounds;
       }
 
-      inline void update(std::string str) {
-        update(str, mSize);
+    private:
+      inline Box bounds(const Box &world, JustifyAlign justifyAlign) const {
+        auto dimensions = mVertical ? mDimensions.swap() : mDimensions;
+        return Box::wh(dimensions).justifyAlign(world, justifyAlign);
       }
 
-      inline void update(std::string str, int size) {
-        mValue = str;
-        mSize = size;
+      inline void updateDimensions() {
+        if (!mRefreshDimensions) return;
+        mRefreshDimensions = false;
 
         int width, height;
-        od::getTextSize(mValue.c_str(), &width, &height, size);
+        od::getTextSize(mText.c_str(), &width, &height, mSize);
         mDimensions = v2d::of(width, height);
       }
 
-    private:
-      std::string mValue;
-      int mSize;
-      v2d mDimensions;
+      std::string mText;
 
-      JustifyAlign mJustifyAlign = CENTER_MIDDLE;
-      bool mClear = true;
-      bool mOutline = false;
-  };
+      int  mSize     = 10;
+      bool mClear    = true;
+      bool mOutline  = false;
+      bool mVertical = false;
 
-  class ParameterDisplay {
-    public:
-      inline ParameterDisplay(od::Parameter *param) :
-          mpParameter(param) {
-        mpParameter->attach();
-      }
-
-      inline ~ParameterDisplay() {
-        mpParameter->release();
-      }
-
-      inline float setValueInUnits(float v, bool hard) {
-        auto fromUnits = util::convertFromUnits(v, mUnits);
-
-        if (hard) mpParameter->hardSet(fromUnits);
-        else      mpParameter->softSet(fromUnits);
-
-        return fromUnits;
-      }
-
-      inline void setShowTarget(bool v) {
-        mShowTarget = v;
-      }
-
-      inline void setUnits(util::Units v) {
-        mUnits = v;
-        mForceRefresh = true;
-      }
-
-      inline bool refresh() {
-        auto current = currentValue();
-
-        auto isChanged = mLastValue != current;
-        auto shouldRefresh = mForceRefresh || isChanged;
-        if (!shouldRefresh) return false;
-
-        mForceRefresh = false;
-        mLastValue = current;
-        mLastValueInUnits = util::convertToUnits(mLastValue, mUnits);
-
-        return true;
-      }
-
-      inline bool hasMoved() {
-        return mLastValue != currentValue();
-      }
-
-      inline float lastValueInUnits() {
-        return mLastValueInUnits;
-      }
-
-      inline std::string toString(int precision, bool suppressZeros) {
-        return util::formatQuantity(mLastValueInUnits, mUnits, precision, suppressZeros);
-      }
-
-    private:
-      inline float currentValue() {
-        return mShowTarget ? mpParameter->target() : mpParameter->value();
-      }
-
-      od::Parameter *mpParameter;
-      bool  mForceRefresh = true;
-      float mLastValue = 0;
-      float mLastValueInUnits = 0;
-
-      bool mShowTarget = false;
-      util::Units mUnits = util::unitNone;
-  };
-
-  class ParameterText {
-    public:
-      inline ParameterText(ParameterDisplay &display) :
-        mDisplay(display) { }
-
-      inline ParameterText(ParameterDisplay &display, JustifyAlign JustifyAlign, int fontSize) :
-          mDisplay(display) {
-        setJustifyAlign(JustifyAlign);
-        setFontSize(fontSize);
-      }
-
-      void setPrecision(int v) {
-        mPrecision = v;
-        mForceRefresh = true;
-      }
-
-      void setJustifyAlign(JustifyAlign ja) {
-        mText.setJustifyAlign(ja);
-      }
-
-      void setClear(bool clear) {
-        mText.setClear(clear);
-      }
-
-      void setOutline(bool outline) {
-        mText.setOutline(outline);
-      }
-
-      void setFontSize(int size) {
-        mText.setFontSize(size);
-      }
-
-      inline Box draw(od::FrameBuffer &fb, od::Color color, Box &world) {
-        prepareToSuppressZeros();
-        refresh();
-        return mText.draw(fb, color, world);
-      }
-
-    private:
-      inline void prepareToSuppressZeros() {
-        if (mTimeToSuppressZeros > 0) {
-          mTimeToSuppressZeros--;
-          mForceRefresh = suppressZeros();
-        }
-      }
-
-      inline bool suppressZeros() {
-        return mTimeToSuppressZeros == 0;
-      }
-
-      inline void refresh() {
-        bool isRefreshed = mDisplay.refresh();
-        if (isRefreshed) mTimeToSuppressZeros = GRAPHICS_REFRESH_RATE;
-
-        bool shouldRefresh = mForceRefresh || isRefreshed;
-        if (!shouldRefresh) return;
-
-        mForceRefresh = false;
-        mText.update(mDisplay.toString(mPrecision, suppressZeros()));
-      }
-
-      ParameterDisplay &mDisplay;
-
-      Text  mText;
-      bool  mForceRefresh = true;
-      int   mTimeToSuppressZeros = 0;
-      int   mPrecision = 0;
+      bool mRefreshDimensions = true;
+      v2d  mDimensions;
   };
 }

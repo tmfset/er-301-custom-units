@@ -55,10 +55,7 @@ namespace graphics {
             color = WHITE;
           }
 
-          auto text = Text(name, size);
-          text.setJustifyAlign(LEFT_MIDDLE);
-          //text.setOutline(isCurrent);
-          text.draw(fb, color, box);
+          Text(name, size).draw(fb, color, box, LEFT_MIDDLE);
         }
 
         return Box::lbrt(currentLb, currentRt);

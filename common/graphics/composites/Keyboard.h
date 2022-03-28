@@ -109,8 +109,7 @@ namespace graphics {
       auto color = size == 0 ? GRAY5 : GRAY13;
 
       auto text = Text(mScaleData.getScaleName(), 6);
-      text.setJustifyAlign(CENTER_TOP);
-      text.draw(fb, color, world.outBottom(8));
+      text.draw(fb, color, world.outBottom(8), CENTER_TOP);
     }
 
     HasScale &mScaleData;

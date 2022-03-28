@@ -1,26 +1,29 @@
 #pragma once
 
 #include <od/graphics/Graphic.h>
-#include <od/objects/Parameter.h>
+#include <od/objects/Followable.h>
 
 #include <graphics/composites/Text.h>
+#include <graphics/composites/FollowableValue.h>
 #include <graphics/composites/ScaleList.h>
+
+#include <util/Units.h>
 
 #include <ui/dial/state.h>
 
 namespace graphics {
   class ScaleListView : public od::Graphic {
     public:
-      ScaleListView(HasScaleBook &data, od::Parameter *param);
+      ScaleListView(HasScaleBook &data, od::Followable &followable);
       virtual ~ScaleListView();
 
       void setAttributes(util::Units units, ui::DialMap *map) {
-        mDisplay.setUnits(units);
+        mValue.setUnits(units);
         mDialState.setMap(map);
       }
 
       void setValueInUnits(float value) {
-        mDisplay.setValueInUnits(value, true);
+        mValue.setValueInUnits(value, true);
       }
 
       void encoder(int change, bool shifted, bool fine) {
@@ -42,7 +45,7 @@ namespace graphics {
 #endif
 
     private:
-      ParameterDisplay mDisplay;
+      FollowableValue mValue;
       ui::dial::State mDialState;
       ScaleList mView;
   };
