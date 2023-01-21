@@ -73,6 +73,16 @@ namespace slew {
 
   namespace four {
     struct Slew {
+      inline void setRiseFall(float32x4_t rise, float32x4_t fall) {
+        auto sp = vdupq_n_f32(globalConfig.samplePeriod);
+        auto nsp = vdupq_n_f32(-globalConfig.samplePeriod);
+        rise = vmaxq_f32(rise, sp);
+        fall = vmaxq_f32(fall, sp);
+
+        mRiseCoeff = util::simd::exp_f32(nsp * util::four::invert(rise));
+        mFallCoeff = util::simd::exp_f32(nsp * util::four::invert(fall));
+      }
+
       inline void setRiseFall(float rise, float fall) {
         auto sp = globalConfig.samplePeriod;
         rise = util::fmax(rise, sp);
