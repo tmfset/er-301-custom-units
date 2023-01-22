@@ -1,6 +1,7 @@
 #pragma once
 
 #include <od/objects/heads/TapeHead.h>
+#include <od/objects/adapters/ParameterAdapter.h>
 #include <od/extras/Random.h>
 #include <od/audio/Slice.h>
 #include <od/audio/Sample.h>
@@ -20,13 +21,7 @@ namespace sloop {
 
   class Sloop : public od::TapeHead {
     public:
-      Sloop(od::Parameter *pLength, od::Parameter *pRecordLength, bool stereo) {
-        mpProxyLength = pLength;
-        mpProxyLength->attach();
-
-        mpProxyDubLength = pRecordLength;
-        mpProxyDubLength->attach();
-
+      Sloop(bool stereo) {
         mStereo = stereo;
 
         for (int channel = 0; channel < channels(); channel++) {
@@ -44,11 +39,11 @@ namespace sloop {
         addInput(mRecord);
         addInput(mOverdub);
         addInput(mReset);
-        addInput(mLength);
-        addInput(mDubLength);
 
         addOutput(mResetOut);
 
+        addParameter(mLength);
+        addParameter(mDubLength);
         addParameter(mThrough);
         addParameter(mFeedback);
         addParameter(mFade);
@@ -63,8 +58,6 @@ namespace sloop {
       }
 
       virtual ~Sloop() {
-        mpProxyLength->release();
-        mpProxyDubLength->release();
         if (mpSlices) mpSlices->release();
       }
 
@@ -95,20 +88,17 @@ namespace sloop {
       od::Inlet mRecord    { "Record" };
       od::Inlet mOverdub   { "Overdub" };
       od::Inlet mReset     { "Reset" };
-      od::Inlet mLength    { "Length" };
-      od::Inlet mDubLength { "Overdub Length" };
 
       od::Outlet mResetOut { "Reset Out" };
 
-      od::Parameter mThrough  { "Through",  1.0 };
-      od::Parameter mFeedback { "Feedback", 1.0 };
-      od::Parameter mFade     { "Fade",     0.005 };
-      od::Parameter mFadeIn   { "Fade In",  0.01 };
-      od::Parameter mFadeOut  { "Fade Out", 0.1 };
-      od::Parameter mResetTo  { "Reset To", 0 };
-
-      od::Parameter *mpProxyLength = 0;
-      od::Parameter *mpProxyDubLength = 0;
+      od::Parameter mLength    { "Length", 4 };
+      od::Parameter mDubLength { "Overdub Length", 4 };
+      od::Parameter mThrough   { "Through",  1.0 };
+      od::Parameter mFeedback  { "Feedback", 1.0 };
+      od::Parameter mFade      { "Fade",     0.005 };
+      od::Parameter mFadeIn    { "Fade In",  0.01 };
+      od::Parameter mFadeOut   { "Fade Out", 0.1 };
+      od::Parameter mResetTo   { "Reset To", 0 };
 
       od::Option mLockDubLength { "Lock Overdub Length", CHOICE_YES };
       od::Option mResetFlags { "Reset Flags", 0b010 };
@@ -145,8 +135,7 @@ namespace sloop {
       }
 
       inline int currentLength() {
-        if (mRecordLatch.state()) return currentStep();
-        return mpProxyLength->value();
+        return mLength.value();
       }
 
       inline int visibleMarks() {
@@ -308,14 +297,6 @@ namespace sloop {
         mShadowSlew.setRiseFall(1, fade);
       }
 
-      inline void updateDubLengthLock() {
-        bool shouldBeLocked = mLockDubLength.value() == CHOICE_YES;
-        bool isLocked       = mpProxyDubLength->isTied();
-
-        if (!isLocked && shouldBeLocked) mpProxyDubLength->tie(*mpProxyLength);
-        if (isLocked && !shouldBeLocked) mpProxyDubLength->untie();
-      }
-
       inline void updateManualResetStep(bool force) {
         int  current = currentStep();
         int  resetTo = mResetTo.value();
@@ -342,7 +323,7 @@ namespace sloop {
 
       struct Buffers {
         float *mpIn[2], *mpOut[2], *mpResetOut;
-        float *mpClock, *mpEngage, *mpRecord, *mpOverdub, *mpReset, *mpLength, *mpDubLength;
+        float *mpClock, *mpEngage, *mpRecord, *mpOverdub, *mpReset;
 
         inline Buffers(Sloop &self) {
           int channels = self.channels();
@@ -356,8 +337,6 @@ namespace sloop {
           mpRecord    = self.mRecord.buffer();
           mpOverdub   = self.mOverdub.buffer();
           mpReset     = self.mReset.buffer();
-          mpLength    = self.mLength.buffer();
-          mpDubLength = self.mDubLength.buffer();
           mpResetOut  = self.mResetOut.buffer();
         }
 
@@ -374,8 +353,6 @@ namespace sloop {
         inline float32x4_t record(int offset) const    { return vld1q_f32(mpRecord    + offset); }
         inline float32x4_t overdub(int offset) const   { return vld1q_f32(mpOverdub   + offset); }
         inline float32x4_t reset(int offset) const     { return vld1q_f32(mpReset     + offset); }
-        inline float32x4_t length(int offset) const    { return vld1q_f32(mpLength    + offset); }
-        inline float32x4_t dubLength(int offset) const { return vld1q_f32(mpDubLength + offset); }
 
         inline void resetOut(int offset, float32x4_t value) {
           vst1q_f32(mpResetOut + offset, value);
@@ -389,10 +366,13 @@ namespace sloop {
 
         float32x4_t feedback, through;
 
+        int length, dubLength;
         int resetTo, resetMode;
         bool resetOnDisengage, resetOnEndOfCycle, resetOnOverdub;
 
         inline Constants(Sloop &self) {
+          length            = self.mLength.value();
+          dubLength         = self.mDubLength.value();
           feedback          = vdupq_n_f32(self.mFeedback.value());
           through           = vdupq_n_f32(self.mThrough.value());
           resetTo           = (int)self.mResetTo.value();
@@ -404,12 +384,9 @@ namespace sloop {
       };
 
       struct LoadedVectors {
-        int32_t  length[4], dubLength[4];
         uint32_t clock[4], engage[4], record[4], overdub[4], reset[4];
 
         inline LoadedVectors(const Buffers& buffers, const Constants &constants, int offset) {
-          vst1q_s32(length,    vcvtq_s32_f32(buffers.length(offset)));
-          vst1q_s32(dubLength, vcvtq_s32_f32(buffers.dubLength(offset)));
           vst1q_u32(clock,         vcgtq_f32(buffers.clock(offset),   constants.zero));
           vst1q_u32(engage,        vcgtq_f32(buffers.engage(offset),  constants.zero));
           vst1q_u32(record,        vcgtq_f32(buffers.record(offset),  constants.zero));
@@ -418,11 +395,11 @@ namespace sloop {
         }
       };
 
-      inline void updateLatches(const LoadedVectors &v, int step) {
+      inline void updateLatches(const LoadedVectors &v, const Constants &constants, int step) {
         bool sync = mClockLatch.readTrigger(v.clock[step]);
         mEngageLatch.readGateSyncCount(v.engage[step] && !mPaused, sync);
         mRecordLatch.readSyncCount(v.record[step], sync);
-        mOverdubLatch.readSyncCountMax(v.overdub[step], sync, v.dubLength[step]);
+        mOverdubLatch.readSyncCountMax(v.overdub[step], sync, constants.dubLength);
         mResetLatch.readTriggerSync(v.reset[step] || mResetRequested, sync);
         mResetRequested = false;
       }
@@ -450,7 +427,6 @@ namespace sloop {
 
           if (record) {
             length = mRecordLatch.count() + 1;
-            mpProxyLength->hardSet(length);
           }
 
           bool onRecord  = mRecordLatch.firstOrLast();
@@ -532,8 +508,8 @@ namespace sloop {
 
         ProcessedStep steps[4];
         for (int j = 0; j < 4; j++) {
-          updateLatches(v, j);
-          steps[j] = processStep(constants, v.length[j]);
+          updateLatches(v, constants, j);
+          steps[j] = processStep(constants, constants.length);
         }
 
         return ProcessedInput {

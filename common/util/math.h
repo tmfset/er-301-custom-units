@@ -334,9 +334,6 @@ namespace util {
 #endif
     }
 
-    #define LOG2 0.6931471805599453f
-    #define VPO_LOG_MAX FULLSCALE_IN_VOLTS * LOG2
-
     inline uint32x4_t vld1q_dup_cgtz(const float* p) {
       auto zero = vdupq_n_f32(0);
       return vcgtq_f32(vld1q_dup_f32(p), zero);
@@ -544,15 +541,6 @@ namespace util {
     return powf(10.0f, x * 0.05);
   }
 
-  inline float toVoltage(float x)   { return x * FULLSCALE_IN_VOLTS; }
-  inline float fromVoltage(float x) { return x / FULLSCALE_IN_VOLTS; }
-  inline float toCents(float x)     { return x * CENTS_PER_OCTAVE; }
-  inline float fromCents(float x)   { return x / CENTS_PER_OCTAVE; }
-
-  inline float toOctave(float x) {
-    return (int)(x + FULLSCALE_IN_VOLTS) - FULLSCALE_IN_VOLTS;
-  }
-
   inline float toPercent(float input)   { return input * 100.0f; }
   inline float fromPercent(float input) { return input * 0.01f; }
 
@@ -563,30 +551,6 @@ namespace util {
   inline uint32_t fcgt(const float x, const float threshold) {
     return bcvt(x > threshold);
   }
-
-  struct Trigger {
-    inline uint32_t read(const uint32_t high) {
-      mTrigger = high & mEnable;
-      mEnable = ~high;
-      return mTrigger;
-    }
-
-    uint32_t mEnable  = 0;
-    uint32_t mTrigger = 0;
-  };
-
-  struct Latch {
-    inline uint32_t read(
-      const uint32_t set,
-      const uint32_t reset
-    ) {
-      mState = mState & ~reset;
-      mState = mState | set;
-      return mState;
-    }
-
-    uint32_t mState = 0;
-  };
 
   namespace four {
     inline float32x4_t make(float a, float b) {
@@ -687,30 +651,6 @@ namespace util {
       return fclamp_n(x, 0, 1);
     }
 
-    inline float32x4_t fclamp_freq(float32x4_t x) {
-      return fclamp_n(x, 0.001, globalConfig.sampleRate / 4);
-    }
-
-    inline float32x4_t fscale_vpo(float32x4_t vpo) {
-      return vpo * vdupq_n_f32(VPO_LOG_MAX);
-    }
-
-    inline float32x4_t vpo_scale(float32x4_t f0, float32x4_t vpo) {
-      return f0 * simd::exp_f32(fscale_vpo(vpo));
-    }
-
-    inline float32x4_t vpo_scale_limited(float32x4_t f0, float32x4_t vpo) {
-      return fclamp_freq(vpo_scale(f0, vpo));
-    }
-
-    inline float32x4_t fast_vpo_scale(float32x4_t f0, float32x4_t vpo) {
-      return f0 * simd::fast_exp_f32(fscale_vpo(vpo));
-    }
-
-    inline float32x4_t fast_vpo_scale_limited(float32x4_t f0, float32x4_t vpo) {
-      return fclamp_freq(fast_vpo_scale(f0, vpo));
-    }
-
     // https://en.wikipedia.org/wiki/Division_algorithm#Newton.E2.80.93Raphson_division
     // iterate 3 times for 24 bits of precision
     inline float32x4_t invert(const float32x4_t x) {
@@ -765,53 +705,6 @@ namespace util {
 
       return {{ leftAmount, rightAmount }};
     }
-
-    struct ThreeWay {
-      inline static ThreeWay punit(float32x4_t mix) {
-        mix = fclamp_punit(mix);
-        auto center = vdupq_n_f32(0.5f);
-        auto select = vcltq_f32(mix, center);
-        return ThreeWay { select, twice(vabdq_f32(mix, center)) };
-      }
-
-      inline ThreeWay(uint32_t select, float degree) :
-        mSelect(vdupq_n_u32(select)),
-        mDegree(vdupq_n_f32(degree)) { }
-
-      inline ThreeWay(uint32x4_t select, float32x4_t degree) :
-        mSelect(select),
-        mDegree(degree) { }
-
-      inline float32x4_t mix(float32x4_t bottom, float32x4_t middle, float32x4_t top) const {
-        auto out = vbslq_f32(mSelect, bottom, top);
-        return lerpi(middle, out, mDegree);
-      }
-
-      const uint32x4_t mSelect;
-      const float32x4_t mDegree;
-    };
-
-    struct ThreeWayMix {
-      inline ThreeWayMix(float min, float max, float center) :
-        mMin(vdupq_n_f32(min)),
-        mMax(vdupq_n_f32(max)),
-        mCenter(vdupq_n_f32(center)),
-        mScaleLow(vdupq_n_f32(1.0f / fabs(center - min))),
-        mScaleHigh(vdupq_n_f32(1.0f / fabs(center - max))) { }
-
-      inline ThreeWay prepare(float32x4_t mix) const {
-        mix = fclamp(mix, mMin, mMax);
-        auto select = vcltq_f32(mix, mCenter);
-        auto scale = vbslq_f32(select, mScaleLow, mScaleHigh);
-        return ThreeWay { select, scale * vabdq_f32(mix, mCenter) };
-      }
-
-      const float32x4_t mMin;
-      const float32x4_t mMax;
-      const float32x4_t mCenter;
-      const float32x4_t mScaleLow;
-      const float32x4_t mScaleHigh;
-    };
   }
 
   namespace two {
@@ -915,22 +808,6 @@ namespace util {
       return fclamp_n(x, 0, 1);
     }
 
-    inline float32x2_t fclamp_freq(float32x2_t x) {
-      return fclamp_n(x, 0.001, globalConfig.sampleRate / 4);
-    }
-
-    inline float32x2_t fscale_vpo(float32x2_t vpo) {
-      return vmul_f32(vpo, vdup_n_f32(VPO_LOG_MAX));
-    }
-
-    inline float32x2_t vpo_scale(float32x2_t f0, float32x2_t vpo) {
-      return vmul_f32(f0, exp_f32(vmul_f32(vpo, vdup_n_f32(VPO_LOG_MAX))));
-    }
-
-    inline float32x2_t vpo_scale_limited(float32x2_t f0, float32x2_t vpo) {
-      return fclamp_freq(vpo_scale(f0, vpo));
-    }
-
     // https://en.wikipedia.org/wiki/Division_algorithm#Newton.E2.80.93Raphson_division
     // iterate 3 times for 24 bits of precision
     inline float32x2_t invert(float32x2_t x) {
@@ -941,68 +818,12 @@ namespace util {
       inv = vmul_f32(inv, vrecps_f32(x, inv));
       return inv;
     }
-
-    struct ThreeWay {
-      inline static ThreeWay punit(float32x2_t mix) {
-        mix = fclamp_punit(mix);
-        auto center = vdup_n_f32(0.5f);
-        auto select = vclt_f32(mix, center);
-        return ThreeWay { select, twice(vabd_f32(mix, center)) };
-      }
-
-      inline ThreeWay(uint32_t select, float degree) :
-        mSelect(vdup_n_u32(select)),
-        mDegree(vdup_n_f32(degree)) { }
-
-      inline ThreeWay(uint32x2_t select, float32x2_t degree) :
-        mSelect(select),
-        mDegree(degree) { }
-
-      inline float32x2_t mix(float32x2_t bottom, float32x2_t middle, float32x2_t top) const {
-        auto out = vbsl_f32(mSelect, bottom, top);
-        return lerpi(middle, out, mDegree);
-      }
-
-      const uint32x2_t mSelect;
-      const float32x2_t mDegree;
-    };
-
-    struct ThreeWayMix {
-      inline ThreeWayMix(float min, float max, float center) :
-        mMin(vdup_n_f32(min)),
-        mMax(vdup_n_f32(max)),
-        mCenter(vdup_n_f32(center)),
-        mScaleLow(vdup_n_f32(1.0f / fabs(center - min))),
-        mScaleHigh(vdup_n_f32(1.0f / fabs(center - max))) { }
-
-      inline ThreeWay prepare(float32x2_t mix) const {
-        auto select = vclt_f32(mix, mCenter);
-        auto scale = vbsl_f32(select, mScaleLow, mScaleHigh);
-        return ThreeWay { select, vmul_f32(scale, vabd_f32(mix, mCenter)) };
-      }
-
-      const float32x2_t mMin;
-      const float32x2_t mMax;
-      const float32x2_t mCenter;
-      const float32x2_t mScaleLow;
-      const float32x2_t mScaleHigh;
-    };
   }
 
   namespace four {
     // Round towards zero
     inline float32x4_t frtz(float32x4_t v) {
       return vcvtq_f32_s32(vcvtq_s32_f32(v));
-    }
-
-    inline float32x4_t toVoltage(float32x4_t v)   { return v * vdupq_n_f32(FULLSCALE_IN_VOLTS); }
-    inline float32x4_t fromVoltage(float32x4_t v) { return v * vdupq_n_f32(1.0f / FULLSCALE_IN_VOLTS); }
-    inline float32x4_t toCents(float32x4_t v)     { return v * vdupq_n_f32(CENTS_PER_OCTAVE); }
-    inline float32x4_t fromCents(float32x4_t v)   { return v * vdupq_n_f32(1.0f / CENTS_PER_OCTAVE); }
-
-    inline float32x4_t toOctave(float32x4_t v) {
-      auto fiv = vdupq_n_f32(FULLSCALE_IN_VOLTS);
-      return frtz(v + fiv) - fiv;
     }
 
     inline bool anyFalse(uint32x4_t v) {
@@ -1047,127 +868,5 @@ namespace util {
         fs[vgetq_lane_s32(i, 3)]
       );
     }
-
-    struct TrackAndHold {
-      inline TrackAndHold(float initial) {
-        mValue = vdupq_n_f32(initial);
-      }
-
-      inline void set(const float32x4_t signal) {
-        mValue = signal;
-      }
-
-      inline void track(const uint32x4_t gate, const float32x4_t signal) {
-        mValue = vbslq_f32(gate, signal, mValue);
-      }
-
-      inline void track(const uint32x4_t gate, const TrackAndHold &other) {
-        track(gate, other.value());
-      }
-
-      inline float32x4_t value() const { return mValue; }
-
-      float32x4_t mValue = vdupq_n_f32(0);
-    };
-
-    struct Latch {
-      inline uint32x4_t read(
-        const uint32x4_t set,
-        const uint32x4_t reset
-      ) {
-        mState = mState & ~reset;
-        mState = mState | set;
-        return mState;
-      }
-
-      uint32x4_t mState = vdupq_n_u32(0);
-    };
-
-    struct Trigger {
-      inline uint32x4_t read(const uint32x4_t high) {
-        auto trigger = mEnable & high;
-        mEnable = ~high;
-        return trigger;
-      }
-
-      uint32x4_t mEnable = vdupq_n_u32(0);
-    };
-
-    struct SyncTrigger {
-      inline uint32x4_t read(uint32x4_t high, uint32x4_t sync) {
-        auto trigger = mTrigger.read(high);
-        mLatch = mLatch | trigger; // set
-        auto out = mLatch & sync;
-        mLatch = mLatch & ~sync; // reset
-        return out;
-      }
-
-      uint32x4_t mLatch = vdupq_n_u32(0);
-      Trigger mTrigger;
-    };
-
-    struct Vpo {
-      inline void track(const uint32x4_t gate, const Vpo &other) {
-        mScale.track(gate, other.mScale);
-      }
-
-      inline float32x4_t freq(const float32x4_t f0) const {
-        return f0 * mScale.value();
-      }
-
-      inline float32x4_t freqEnv(const float32x4_t f0, const float32x4_t env) const {
-        return f0 * util::four::lerpi(vdupq_n_f32(1), mScale.value(), env);
-      }
-
-      inline float32x4_t delta(const float32x4_t f0) const {
-        const auto sp = vdupq_n_f32(globalConfig.samplePeriod);
-        return freq(f0) * sp;
-      }
-
-      inline float32x4_t deltaOffset(const float32x4_t f0, const Vpo& offset) const {
-        return delta(offset.freq(f0));
-      }
-
-      inline void configure(const float32x4_t vpo) {
-        mScale.set(util::simd::exp_f32(util::four::fscale_vpo(vpo)));
-      }
-
-      TrackAndHold mScale { 1 };
-    };
-
-    class Pitch {
-      public:
-        inline Pitch() {}
-        inline Pitch(float32x4_t o, float32x4_t c) : mOctave(o), mCents(c) { }
-
-        static inline Pitch from(float value) {
-          return from(vdupq_n_f32(value));
-        }
-
-        static inline Pitch from(float32x4_t value) {
-          auto voltage = toVoltage(value);
-          auto octave  = toOctave(voltage);
-          return Pitch { octave, toCents(voltage - octave) };
-        }
-
-        inline float32x4_t octave() const { return mOctave; }
-        inline float32x4_t cents()  const { return mCents; }
-
-        inline Pitch atCents(float32x4_t cents) const {
-          return Pitch(mOctave, cents);
-        }
-
-        inline Pitch atCents(float cents) const {
-          return atCents(vdupq_n_f32(cents));
-        }
-
-        inline float32x4_t value() const {
-          return fromVoltage(mOctave + fromCents(mCents));
-        }
-
-      private:
-        float32x4_t mOctave = vdupq_n_f32(0);
-        float32x4_t mCents = vdupq_n_f32(0);
-    };
   }
 }

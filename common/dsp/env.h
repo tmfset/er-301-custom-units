@@ -2,6 +2,7 @@
 
 #include <od/config.h>
 #include <util/math.h>
+#include <dsp/latch.h>
 
 namespace env {
   namespace four {
@@ -46,8 +47,8 @@ namespace env {
         mFallCoeff.set(rate_coeff(fall));
       }
 
-      util::four::TrackAndHold mRiseCoeff { 0 };
-      util::four::TrackAndHold mFallCoeff { 0 };
+      dsp::four::TrackAndHold mRiseCoeff { 0 };
+      dsp::four::TrackAndHold mFallCoeff { 0 };
     };
 
     struct SlewEnvelope {
@@ -57,7 +58,7 @@ namespace env {
       ) {
         //auto high = gate;
         auto reset  = vcgtq_f32(mValue, vdupq_n_f32(0.632));
-        auto high   = mLatch.read(gate, reset);
+        auto high   = mLatch.process(gate, reset);
 
         auto coeff  = cf.pick(high);
         auto target = vcvtq_n_f32_u32(high, 32);
@@ -72,7 +73,7 @@ namespace env {
         return mValue;
       }
 
-      util::four::Latch mLatch;
+      dsp::four::SRLatch mLatch;
       float32x4_t mValue = vdupq_n_f32(0);
     };
 
@@ -97,7 +98,7 @@ namespace env {
         const uint32x4_t gate,
         const Coefficients& cf
       ) {
-        auto target = vcvtq_n_f32_u32(mLatch.read(gate, vmvnq_u32(mRising)), 32);
+        auto target = vcvtq_n_f32_u32(mLatch.process(gate, vmvnq_u32(mRising)), 32);
         auto rising   = vcgtq_f32(target, mValue);
         mRising = rising;
 
@@ -109,7 +110,7 @@ namespace env {
         return mValue * mValue * mValue;
       }
 
-      util::four::Latch mLatch;
+      dsp::four::SRLatch mLatch;
       uint32x4_t mRising = vdupq_n_u32(0);
       float32x4_t mValue = vdupq_n_f32(0);
     };
@@ -193,7 +194,7 @@ namespace env {
       return vld1q_f32(_value);
     }
 
-    util::Latch mLatch;
+    dsp::SRLatch mLatch;
     float mValue = 0;
     float mRiseCoeff = 0;
     float mFallCoeff = 0;

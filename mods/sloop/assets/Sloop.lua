@@ -60,13 +60,12 @@ function Sloop:onLoadGraph(channelCount)
   local record    = self:addComparatorControl("record", app.COMPARATOR_GATE)
   local overdub   = self:addComparatorControl("overdub", app.COMPARATOR_GATE)
   local reset     = self:addBranchlessComparatorControl("reset", app.COMPARATOR_TRIGGER_ON_RISE)
-  local length    = self:addGainBiasControl("length")
-  local dubLength = self:addGainBiasControl("dubLength")
+  local length    = self:addParameterAdapterControl("length")
+  local dubLength = self:addParameterAdapterControl("dubLength")
   local feedback  = self:addParameterAdapterControl("feedback")
   local resetTo   = self:addParameterAdapterControl("resetTo")
 
   local head = self:addObject("head", sloop.Sloop(
-    length:getParameter("Bias"),
     dubLength:getParameter("Bias"),
     channelCount > 1
   ))
@@ -76,13 +75,13 @@ function Sloop:onLoadGraph(channelCount)
   connect(record,    "Out", head, "Record")
   connect(overdub,   "Out", head, "Overdub")
   connect(reset,     "Out", head, "Reset")
-  connect(length,    "Out", head, "Length")
-  connect(dubLength, "Out", head, "Overdub Length")
 
   self:addMonoBranch(reset:name(), reset, "In", head, "Reset Out")
 
-  tie(head, "Feedback", feedback, "Out")
-  tie(head, "Reset To", resetTo, "Out")
+  tie(head, "Length",         length,    "Out")
+  tie(head, "Overdub Length", dubLength, "Out")
+  tie(head, "Feedback",       feedback,  "Out")
+  tie(head, "Reset To",       resetTo,   "Out")
 
   for i = 1, channelCount do
     if i > 2 then return end

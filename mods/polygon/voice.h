@@ -6,6 +6,7 @@
 #include <dsp/env.h>
 #include <array>
 #include <util/math.h>
+#include <dsp/latch.h>
 #include <hal/simd.h>
 #include <hal/neon.h>
 #include <memory>
@@ -52,7 +53,7 @@ namespace voice {
       std::array<uint32x4_t, GROUPS>& out
     ) {
       auto current = mCurrent;
-      auto step = mTrigger.read(~gate);
+      auto step = mTrigger.process(~gate);
       if (step) current = c.next(current);
       mCurrent = current;
 
@@ -71,7 +72,7 @@ namespace voice {
     }
 
     int mCurrent = 0;
-    util::Trigger mTrigger;
+    dsp::GateToTrigger mTrigger;
   };
 
   namespace four {
@@ -104,9 +105,9 @@ namespace voice {
         mFilterTrack = filterTrack;
       }
 
-      util::four::Vpo mDetune;
-      util::four::Vpo mFilterMax;
-      util::four::Vpo mFilterVpo;
+      dsp::four::Vpo mDetune;
+      dsp::four::Vpo mFilterMax;
+      dsp::four::Vpo mFilterVpo;
       env::four::Coefficients mEnvCoeff;
       env::two::Coefficients mAgcCoeff;
 
@@ -150,7 +151,7 @@ namespace voice {
         mPan = pan;
       }
 
-      util::four::Vpo mVpo;
+      dsp::four::Vpo mVpo;
       float32x4_t mPan = vdupq_n_f32(0);
     };
 
@@ -186,10 +187,10 @@ namespace voice {
         );
       }
 
-      util::four::Vpo mVpo;
-      util::four::Vpo mDetune;
-      util::four::Vpo mFilterVpo;
-      util::four::Vpo mFilterTrack;
+      dsp::four::Vpo mVpo;
+      dsp::four::Vpo mDetune;
+      dsp::four::Vpo mFilterVpo;
+      dsp::four::Vpo mFilterTrack;
       float32x4_t mPan = vdupq_n_f32(0);
       env::four::Coefficients mEnvCoeff;
     };
@@ -215,7 +216,7 @@ namespace voice {
       ) {
         auto one = vdupq_n_f32(1);
 
-        auto sync = mSyncTrigger.read(gate);
+        auto sync = mSyncTrigger.process(gate);
 
         const auto t2p = osc::shape::TriangleToPulse { shape };
 
@@ -227,7 +228,7 @@ namespace voice {
         return p.val[0] * m.val[0] + p.val[1] * m.val[1];
       }
 
-      util::four::Trigger mSyncTrigger;
+      dsp::four::GateToTrigger mSyncTrigger;
       osc::four::DualPhaseReverseSync mPhase;
     };
 

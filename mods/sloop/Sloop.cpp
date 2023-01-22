@@ -13,7 +13,6 @@ namespace sloop {
     if (mpSample == 0) return;
 
     updateFades();
-    updateDubLengthLock();
     updateManualResetStep(false);
 
     Buffers   buffers   { *this };
