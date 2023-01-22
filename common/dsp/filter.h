@@ -4,6 +4,8 @@
 #include <od/config.h>
 #include <od/AudioThread.h>
 #include <util/math.h>
+#include <dsp/pitch.h>
+#include <dsp/mix.h>
 
 namespace filter {
   enum Processing {
@@ -111,7 +113,7 @@ namespace filter {
         inline void configure(float32x4_t f0, float32x4_t vpo, float32x4_t q) {
           q = util::four::lerpi(vdupq_n_f32(GLOBAL_MIN_Q), vdupq_n_f32(GLOBAL_MAX_Q), q);
           q = util::simd::fast_exp_f32(q);
-          f0 = util::four::vpo_scale_limited(f0, vpo);
+          f0 = dsp::four::vpo_scale_limited(f0, vpo);
           configure(f0, q);
         }
 
@@ -206,7 +208,7 @@ namespace filter {
       };
 
       struct Filter {
-        inline float32x2_t process(const Coefficients &cf, const util::two::ThreeWay &tw, float32x2_t x) {
+        inline float32x2_t process(const Coefficients &cf, const dsp::two::ThreeWay &tw, float32x2_t x) {
           auto v3 = vsub_f32(x, mIc2);
           auto v1 = vadd_f32(vmul_f32(cf.a1(), mIc1), vmul_f32(cf.a2(), v3));
           auto v2 = vadd_f32(mIc2, vadd_f32(vmul_f32(cf.a2(), mIc1), vmul_f32(cf.a3(), v3)));
@@ -304,7 +306,7 @@ namespace filter {
           const float32x4_t _q,
           const Type t
         ) {
-          auto f = util::four::vpo_scale_limited(f0, vpo);
+          auto f = dsp::four::vpo_scale_limited(f0, vpo);
           auto q = util::four::exp_ns_f32(_q, 0.70710678118f, 500.0f);
 
           auto theta = f * vdupq_n_f32(2.0f * M_PI * globalConfig.samplePeriod);

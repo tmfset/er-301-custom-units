@@ -3,6 +3,7 @@
 #include <od/constants.h>
 #include <string>
 #include <util/math.h>
+#include <dsp/pitch.h>
 #include <stdio.h>
 
 namespace util {
@@ -118,7 +119,7 @@ namespace util {
   inline float convertToUnits(float x, Units units) {
     switch (units) {
       case unitDecibels: return toDecibels(x);
-      case unitCents:    return toCents(x);
+      case unitCents:    return dsp::toCents(x);
       case unitPercent:  return toPercent(x);
       default:           return x;
     }
@@ -127,7 +128,7 @@ namespace util {
   inline float convertFromUnits(float x, Units units) {
     switch (units) {
       case unitDecibels: return fromDecibels(x);
-      case unitCents:    return fromCents(x);
+      case unitCents:    return dsp::fromCents(x);
       case unitPercent:  return fromPercent(x);
       default:           return x;
     }

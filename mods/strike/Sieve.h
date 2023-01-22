@@ -68,7 +68,7 @@ namespace strike {
             auto cf = filter::svf::two::Coefficients {
               vld4_dup_f32(ka123 + j * 4)
             };
-            auto tw = util::two::ThreeWay::punit(m.val[j]);
+            auto tw = dsp::two::ThreeWay::punit(m.val[j]);
 
             auto lri = lr + j * 2;
             auto in = vld1_f32(lri);

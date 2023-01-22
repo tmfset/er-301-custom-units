@@ -6,6 +6,7 @@
 #include <hal/constants.h>
 #include <od/config.h>
 
+#include <dsp/pitch.h>
 #include <dsp/timer.h>
 #include <util/math.h>
 #include <util/v2d.h>
@@ -237,7 +238,7 @@ namespace dsp {
       }
 
       inline float32x4_t process(float32x4_t value, uint32x4_t reset) {
-        mDetected = util::four::Pitch::from(value);
+        mDetected = dsp::four::Pitch::from(value);
 
         if (mDisabled)
           return value;
@@ -266,7 +267,7 @@ namespace dsp {
       }
 
       inline float process(float value, uint32_t reset) {
-        mDetected = util::four::Pitch::from(vdupq_n_f32(value));
+        mDetected = dsp::four::Pitch::from(vdupq_n_f32(value));
 
         if (mDisabled) return value;
 
@@ -291,7 +292,7 @@ namespace dsp {
       bool mDisabled = true;
       Quantizer<128> mQuantizer;
 
-      util::four::Pitch mDetected;
+      dsp::four::Pitch mDetected;
       float mCents = 0;
       v2d mBounds = v2d::of(0);
       dsp::simd::Timer mHysteresis { globalConfig.samplePeriod };

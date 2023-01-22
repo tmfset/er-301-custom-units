@@ -80,7 +80,7 @@ namespace lojik {
         auto trig = util::bcvt(clockTrigger[0] > 0);
 
         auto state = mOutState;
-        auto step = mNewClockTrig.read(trig);
+        auto step = mNewClockTrig.process(trig);
 
         if (step) {
           mState.advance();
@@ -293,9 +293,9 @@ namespace lojik {
       dsp::ScaleBook mScaleBook = dsp::ScaleBook::all();
       dsp::ScaleQuantizer mScaleQuantizer { mScaleBook };
 
-      util::Trigger mNewClockTrig;
-      util::four::Trigger mClockTrig;
-      util::four::SyncTrigger mCSRTrigger;
+      dsp::GateToTrigger mNewClockTrig;
+      dsp::four::GateToTrigger mClockTrig;
+      dsp::four::SyncTrigger mCSRTrigger;
       State<REGISTER_MAX> mState;
       float mOutState = 0;
   };

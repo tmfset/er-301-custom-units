@@ -3,6 +3,8 @@
 #include <hal/simd.h>
 
 #include <util/math.h>
+#include <dsp/latch.h>
+#include <dsp/pitch.h>
 
 namespace osc {
   class Frequency {
@@ -23,7 +25,7 @@ namespace osc {
       }
 
       static inline Frequency vpoWidth(const float32x4_t vpo, const float32x4_t f0, const float32x4_t w) {
-        return freqWidth(util::four::vpo_scale_limited(f0, vpo), w);
+        return freqWidth(dsp::four::vpo_scale_limited(f0, vpo), w);
       }
 
       static inline Frequency freqWidth(const float32x4_t f, const float32x4_t w) {
@@ -259,7 +261,7 @@ namespace osc {
 
       uint32_t _offset[4], _o = 0;
       for (int i = 0; i < 4; i++) {
-        if (trigger.read(_sync[i])) { _o = _syncDelta[i]; }
+        if (trigger.process(_sync[i])) { _o = _syncDelta[i]; }
         _offset[i] = _o;
       }
 
@@ -327,7 +329,7 @@ namespace osc {
     }
 
     const float32x4_t cScale = util::four::make(1, 2, 3, 4);
-    util::Trigger trigger;
+    dsp::GateToTrigger trigger;
     float phase = 1.0f;
   };
 
@@ -504,7 +506,7 @@ namespace osc {
   struct Formant {
     Phase mOscPhase;
     float mEnvPhase = 1.0f;
-    util::Trigger mSyncTrigger;
+    dsp::GateToTrigger mSyncTrigger;
     const float32x4_t cScale = util::four::make(1, 2, 3, 4);
 
     inline float32x4_t process(
@@ -518,12 +520,12 @@ namespace osc {
       auto sp = vdupq_n_f32(globalConfig.samplePeriod);
       auto one = vdupq_n_f32(1);
 
-      auto freq = util::four::vpo_scale_limited(f0, vpo);
+      auto freq = dsp::four::vpo_scale_limited(f0, vpo);
       auto pDelta = freq * sp;
       auto pulse = mOscPhase.oscillator(pDelta, sync);
 
       auto formantBase = vbslq_f32(fixed, freq, f0);
-      auto delta = util::four::vpo_scale(formantBase, formant) * sp;
+      auto delta = dsp::four::vpo_scale(formantBase, formant) * sp;
       auto phase = vdupq_n_f32(mEnvPhase) + delta * cScale;
       auto width = vminq_f32(one - sp, vmaxq_f32(barrel, sp));
 
@@ -542,7 +544,7 @@ namespace osc {
 
       uint32_t _offset[4], _o = 0;
       for (int i = 0; i < 4; i++) {
-        auto doSync = _falling[i] & mSyncTrigger.read(_sync[i]);
+        auto doSync = _falling[i] & mSyncTrigger.process(_sync[i]);
         if (doSync) { _o = _syncDelta[i]; }
         _offset[i] = _o;
       }
@@ -571,7 +573,7 @@ namespace osc {
       auto one = vdupq_n_f32(1);
 
       auto width = vminq_f32(one - sp, vmaxq_f32(_width, sp));
-      auto freq = util::four::vpo_scale_limited(f0, vpo);
+      auto freq = dsp::four::vpo_scale_limited(f0, vpo);
       auto phase = mPhase.oscillatorSoftSync(freq * sp, sync, width);
 
       auto falling    = vcgtq_f32(phase, width);
