@@ -52,15 +52,42 @@ namespace graphics {
       fb.pixel(color, v.x(), v.y());
     }
 
-    inline void arrowLeft(od::FrameBuffer &fb, od::Color color) const {
+    inline void arrowLeft(od::FrameBuffer &fb, od::Color color, int size) const {
       fb.pixel(color, v.x(), v.y());
-
-      fb.pixel(color, v.x() + 1, v.y() - 1);
-      fb.pixel(color, v.x() + 2, v.y() - 2);
-
-      fb.pixel(color, v.x() + 1, v.y() + 1);
-      fb.pixel(color, v.x() + 2, v.y() + 2);
+      for (int i = 1; i < size; i++) {
+        fb.pixel(color, v.x() + i, v.y() - i);
+        fb.pixel(color, v.x() + i, v.y() + i);
+      }
     }
+
+    inline void arrowRight(od::FrameBuffer &fb, od::Color color, int size) const {
+      fb.pixel(color, v.x(), v.y());
+      for (int i = 1; i < size; i++) {
+        fb.pixel(color, v.x() - i, v.y() - i);
+        fb.pixel(color, v.x() - i, v.y() + i);
+      }
+    }
+
+    inline void arrowDown(od::FrameBuffer &fb, od::Color color, int size) const {
+      fb.pixel(color, v.x(), v.y());
+      for (int i = 1; i < size; i++) {
+        fb.pixel(color, v.x() - i, v.y() + i);
+        fb.pixel(color, v.x() + i, v.y() + i);
+      }
+    }
+
+    inline void arrowUp(od::FrameBuffer &fb, od::Color color, int size) const {
+      fb.pixel(color, v.x(), v.y());
+      for (int i = 1; i < size; i++) {
+        fb.pixel(color, v.x() - i, v.y() - i);
+        fb.pixel(color, v.x() + i, v.y() - i);
+      }
+    }
+
+    inline void arrowLeft(od::FrameBuffer &fb, od::Color color) const { arrowLeft(fb, color, 3); }
+    inline void arrowRight(od::FrameBuffer &fb, od::Color color) const { arrowRight(fb, color, 3); }
+    inline void arrowDown(od::FrameBuffer &fb, od::Color color) const { arrowDown(fb, color, 3); }
+    inline void arrowUp(od::FrameBuffer &fb, od::Color color) const { arrowUp(fb, color, 3); }
 
     inline void arrowsLeft(od::FrameBuffer &fb, od::Color color, int count, int step) const {
       v2d p = v;
@@ -68,16 +95,6 @@ namespace graphics {
         Point(p).arrowLeft(fb, color);
         p = p + v2d::of(step, 0);
       }
-    }
-
-    inline void arrowRight(od::FrameBuffer &fb, od::Color color) const {
-      fb.pixel(color, v.x(), v.y());
-
-      fb.pixel(color, v.x() - 1, v.y() - 1);
-      fb.pixel(color, v.x() - 2, v.y() - 2);
-
-      fb.pixel(color, v.x() - 1, v.y() + 1);
-      fb.pixel(color, v.x() - 2, v.y() + 2);
     }
 
     inline void arrowsRight(od::FrameBuffer &fb, od::Color color, int count, int step) const {
@@ -88,16 +105,6 @@ namespace graphics {
       }
     }
 
-    inline void arrowDown(od::FrameBuffer &fb, od::Color color) const {
-      fb.pixel(color, v.x(), v.y());
-
-      fb.pixel(color, v.x() - 1, v.y() + 1);
-      fb.pixel(color, v.x() - 2, v.y() + 2);
-
-      fb.pixel(color, v.x() + 1, v.y() + 1);
-      fb.pixel(color, v.x() + 2, v.y() + 2);
-    }
-
     inline void arrowsDown(od::FrameBuffer &fb, od::Color color, int count, int step, float fade = 1) const {
       v2d p = v;
       float c = color;
@@ -106,16 +113,6 @@ namespace graphics {
         p = p + v2d::of(0, step);
         c = c * fade;
       }
-    }
-
-    inline void arrowUp(od::FrameBuffer &fb, od::Color color) const {
-      fb.pixel(color, v.x(), v.y());
-
-      fb.pixel(color, v.x() - 1, v.y() - 1);
-      fb.pixel(color, v.x() - 2, v.y() - 2);
-
-      fb.pixel(color, v.x() + 1, v.y() - 1);
-      fb.pixel(color, v.x() + 2, v.y() - 2);
     }
 
     inline void arrowsUp(od::FrameBuffer &fb, od::Color color, int count, int step, float fade = 1) const {

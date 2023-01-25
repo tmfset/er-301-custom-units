@@ -18,17 +18,33 @@ namespace dsp {
 
       if (mPhase >= mPeriod) {
         mPhase = 0;
-        return 1.0f;
+        return util::bcvt(true);
       }
 
       return 0.0f;
     }
 
     float mThreshold = 0;
-    uint32_t mHysteresis = 2;
+    int mHysteresis = 2;
 
-    uint32_t mCounter = 0;
-    uint32_t mPhase = 0;
-    uint32_t mPeriod = 44000;
+    int mCounter = 0;
+    int mPhase = 0;
+    int mPeriod = 24000;
+  };
+
+  struct TapTempo {
+    void process(uint32_t signal) {
+      mCounter++;
+      if (signal > 0) {
+        if (util::abs(mCounter - mPeriod) > mHysteresis) {
+          mPeriod = mCounter;
+        }
+        mCounter = 0;
+      }
+    };
+
+    int mHysteresis = 2;
+    int mCounter = 0;
+    int mPeriod = 24000;
   };
 }

@@ -57,31 +57,27 @@ end
 function Sloop:onLoadGraph(channelCount)
   local clock     = self:addComparatorControl("clock", app.COMPARATOR_TRIGGER_ON_RISE)
   local engage    = self:addComparatorControl("engage", app.COMPARATOR_TOGGLE, 1)
-  local record    = self:addComparatorControl("record", app.COMPARATOR_GATE)
-  local overdub   = self:addComparatorControl("overdub", app.COMPARATOR_GATE)
-  local reset     = self:addBranchlessComparatorControl("reset", app.COMPARATOR_TRIGGER_ON_RISE)
+  local write     = self:addComparatorControl("write", app.COMPARATOR_GATE)
+  local jump      = self:addBranchlessComparatorControl("jump", app.COMPARATOR_TRIGGER_ON_RISE)
+  local reverse   = self:addComparatorControl("reverse", app.COMPARATOR_TOGGLE)
+
   local length    = self:addParameterAdapterControl("length")
-  local dubLength = self:addParameterAdapterControl("dubLength")
   local feedback  = self:addParameterAdapterControl("feedback")
-  local resetTo   = self:addParameterAdapterControl("resetTo")
+  local jumpValue = self:addParameterAdapterControl("jumpValue")
 
-  local head = self:addObject("head", sloop.Sloop(
-    dubLength:getParameter("Bias"),
-    channelCount > 1
-  ))
+  local head = self:addObject("head", sloop.Sloop2(channelCount > 1))
 
-  connect(clock,     "Out", head, "Clock")
+  connect(clock,     "Out", head, "Tap")
   connect(engage,    "Out", head, "Engage")
-  connect(record,    "Out", head, "Record")
-  connect(overdub,   "Out", head, "Overdub")
-  connect(reset,     "Out", head, "Reset")
+  connect(write,     "Out", head, "Write")
+  connect(jump,      "Out", head, "Jump")
+  connect(reverse,   "Out", head, "Reverse")
 
-  self:addMonoBranch(reset:name(), reset, "In", head, "Reset Out")
+  self:addMonoBranch(jump:name(), jump, "In", head, "Jump Out")
 
   tie(head, "Length",         length,    "Out")
-  tie(head, "Overdub Length", dubLength, "Out")
   tie(head, "Feedback",       feedback,  "Out")
-  tie(head, "Reset To",       resetTo,   "Out")
+  tie(head, "Jump Value",     jumpValue,    "Out")
 
   for i = 1, channelCount do
     if i > 2 then return end
@@ -99,14 +95,6 @@ function Sloop:serialize()
     t.sample = pool.serializeSample(sample)
   end
 
-  local marks = self.objects.head:getClockMarks()
-  t.clockMarks = {}
-  for i = 1, marks:size() do
-    t.clockMarks[i] = marks:get(i - 1)
-  end
-
-  t.currentStep = self.objects.head:currentStep()
-
   return t
 end
 
@@ -123,14 +111,6 @@ function Sloop:deserialize(t)
       Utils.pp(t.sample)
     end
   end
-
-  local marks = self.objects.head:getClockMarks()
-  local saved = t.clockMarks or {}
-  for i = 1, #saved do
-    marks:set(i - 1, saved[i])
-  end
-
-  self.objects.head:setCurrentStep(t.currentStep or 0)
 end
 
 
@@ -416,9 +396,9 @@ function Sloop:onLoadViews()
     },
     clock   = self:gateView("clock", "Clock"),
     engage  = self:gateView("engage", "Engage"),
-    record  = self:gateView("record", "Continuous Record"),
-    overdub = self:gateView("overdub", "Overdub"),
-    reset   = self:gateView("reset", "Manual Reset"),
+    write   = self:gateView("write", "Write"),
+    jump    = self:gateView("jump", "Manual Jump"),
+    reverse = self:gateView("reverse", "Reverse"),
     length  = GainBias {
       button        = "length",
       description   = "Length",
@@ -430,17 +410,17 @@ function Sloop:onLoadViews()
       biasPrecision = 0,
       initialBias   = 4
     },
-    dubLength  = GainBias {
-      button        = "olength",
-      description   = "Overdub Length",
-      branch        = self.branches.dubLength,
-      gainbias      = self.objects.dubLength,
-      range         = self.objects.dubLengthRange,
-      gainMap       = self.intMap(-self.max, self.max),
-      biasMap       = self.intMap(1, self.max),
-      biasPrecision = 0,
-      initialBias   = 4
-    },
+    -- dubLength  = GainBias {
+    --   button        = "olength",
+    --   description   = "Overdub Length",
+    --   branch        = self.branches.dubLength,
+    --   gainbias      = self.objects.dubLength,
+    --   range         = self.objects.dubLengthRange,
+    --   gainMap       = self.intMap(-self.max, self.max),
+    --   biasMap       = self.intMap(1, self.max),
+    --   biasPrecision = 0,
+    --   initialBias   = 4
+    -- },
     feedback   = GainBias {
       button        = "feedback",
       description   = "Feedback",
@@ -452,12 +432,12 @@ function Sloop:onLoadViews()
       biasPrecision = 2,
       initialBias   = 1
     },
-    resetTo   = GainBias {
-      button        = "resetTo",
-      description   = "Reset To",
-      branch        = self.branches.resetTo,
-      gainbias      = self.objects.resetTo,
-      range         = self.objects.resetTo,
+    jumpValue   = GainBias {
+      button        = "jumpValue",
+      description   = "Jump Value",
+      branch        = self.branches.jumpValue,
+      gainbias      = self.objects.jumpValue,
+      range         = self.objects.jumpValue,
       gainMap       = self.intMap(-self.max, self.max),
       biasMap       = self.intMap(-self.max, self.max),
       biasPrecision = 0,
@@ -472,24 +452,6 @@ function Sloop:onLoadViews()
       precision   = 3,
       initial     = 0.005
     },
-    fadeIn   = Fader {
-      button      = "fadeIn",
-      description = "Fade In",
-      param       = self.objects.head:getParameter("Fade In"),
-      map         = Encoder.getMap("[0,10]"),
-      units       = app.unitSecs,
-      precision   = 2,
-      initial     = 0.01
-    },
-    fadeOut   = Fader {
-      button      = "fadeOut",
-      description = "Fade Out",
-      param       = self.objects.head:getParameter("Fade Out"),
-      map         = Encoder.getMap("[0,10]"),
-      units       = app.unitSecs,
-      precision   = 2,
-      initial     = 0.1
-    },
     through   = Fader {
       button      = "through",
       description = "Through",
@@ -500,12 +462,12 @@ function Sloop:onLoadViews()
       initial     = 1
     }
   }, {
-    expanded  = { "clock", "reset", "record", "overdub" },
+    expanded  = { "clock", "jump", "write", "reverse" },
 
     clock     = { "clock",   "wave2", "engage", "length" },
-    reset     = { "reset",   "wave2", "resetTo", "fade" },
-    record    = { "record",  "wave2", "length", "dubLength" },
-    overdub   = { "overdub", "wave2", "feedback", "dubLength" },
+    jump      = { "jump",    "wave2", "jumpValue", "fade" },
+    write     = { "write",   "wave2", "length" },
+    reverse   = { "reverse", "wave2", "feedback" },
 
     collapsed = { "wave2" },
   }

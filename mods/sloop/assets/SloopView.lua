@@ -6,6 +6,11 @@ local Channels = require "Channels"
 local Encoder = require "Encoder"
 local Signal = require "Signal"
 
+local UnitShared = require "common.assets.UnitShared"
+local Base       = require "common.assets.ViewControl.Split.Paged"
+local GainBias   = require "common.assets.ViewControl.SubView.GainBias"
+local Scale      = require "common.assets.ViewControl.SubView.Scale"
+
 local ply = app.SECTION_PLY
 local line1 = app.GRID5_LINE1
 local line4 = app.GRID5_LINE4
@@ -17,12 +22,18 @@ local col1 = app.BUTTON1_CENTER
 local col2 = app.BUTTON2_CENTER
 local col3 = app.BUTTON3_CENTER
 
-local SloopView = Class {}
-SloopView:include(Zoomable)
+local SloopView = Class {
+  type = "SloopView",
+  canEdit = false,
+  canMove = true
+}
+SloopView:include(Base)
+SloopView:include(UnitShared)
 
 function SloopView:init(args)
-  Zoomable.init(self)
-  self:setClassName("SloopView")
+  Base.init(self, args)
+  self.sloop = args.sloop or app.logError("%s.init: missing sloop instance.", self)
+
   local width = args.width or (4 * ply)
   local head = args.head or app.logError("%s: head is missing from args.", self)
   local description = args.description or ""
@@ -59,10 +70,10 @@ function SloopView:init(args)
     encoderState  = Encoder.Coarse
   }
 
-  self.fadeIn = {
+  self.fade = {
     readout       = (function ()
       local graphic = app.Readout(0, 0, ply, 10)
-      local param = args.length or head:getParameter("Fade In")
+      local param = args.length or head:getParameter("Fade")
       param:enableSerialization()
       graphic:setParameter(param)
       graphic:setAttributes(app.unitSecs, Encoder.getMap("[0,10]"))
@@ -72,22 +83,6 @@ function SloopView:init(args)
     end)(),
     message       = "Recording fade in time in seconds.",
     commitMessage = "Updated fade in.",
-    encoderState  = Encoder.Fine
-  }
-
-  self.fadeOut = {
-    readout = (function ()
-      local graphic = app.Readout(0, 0, ply, 10)
-      local param = args.rotate or head:getParameter("Fade Out")
-      param:enableSerialization()
-      graphic:setParameter(param)
-      graphic:setAttributes(app.unitSecs, Encoder.getMap("[0,10]"))
-      graphic:setPrecision(3)
-      graphic:setCenter(col3, center4)
-      return graphic
-    end)(),
-    message       = "Recording fade out time in seconds.",
-    commitMessage = "Updated fade out.",
     encoderState  = Encoder.Fine
   }
 
@@ -106,13 +101,11 @@ function SloopView:init(args)
   -- sub display
   self.subGraphic = app.Graphic(0, 0, 128, 64)
   self.subGraphic:addChild(self.through.readout)
-  self.subGraphic:addChild(self.fadeIn.readout)
-  self.subGraphic:addChild(self.fadeOut.readout)
+  self.subGraphic:addChild(self.fade.readout)
   self.subGraphic:addChild(self.description)
   self.subGraphic:addChild(self.headSub)
   self.subGraphic:addChild(app.SubButton("through",  1))
-  self.subGraphic:addChild(app.SubButton("fade in",  2))
-  self.subGraphic:addChild(app.SubButton("fade out", 3))
+  self.subGraphic:addChild(app.SubButton("fade",  2))
 end
 
 function SloopView:setSample(sample, displayName)
@@ -219,8 +212,7 @@ end
 function SloopView:subReleased(i, shifted)
   local focused = nil;
   if     i == 1 then focused = self.through
-  elseif i == 2 then focused = self.fadeIn
-  elseif i == 3 then focused = self.fadeOut end
+  elseif i == 2 then focused = self.fade end
 
   if focused then
     if self:hasFocus("encoder") then

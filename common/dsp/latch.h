@@ -35,6 +35,39 @@ namespace dsp {
     uint32_t mState = 0;
   };
 
+  namespace two {
+    /**
+      * A set-biased set/reset latch.
+      * 
+      * The latch goes high and stays high with the set input. It goes low
+      * again only when reset goes high.
+      */
+    struct SRLatch {
+      uint32x2_t process(uint32x2_t set, uint32x2_t reset) {
+        mState = vand_u32(mState, vmvn_u32(reset));
+        mState = vorr_u32(mState, set);
+        return mState;
+      }
+
+      /**
+        * The current state of the latch.
+        */
+      uint32x2_t mState = vdup_n_u32(0);
+    };
+
+    struct SyncedCountLatch {
+      uint32x2_t process(uint32x2_t signal, uint32x2_t sync) {
+        auto armed = mArmed.process(signal, vcge_u32(mCount, mMax));
+        mCount = vbsl_u32(vand_u32(armed, sync), vadd_u32(mCount, vdup_n_u32(1)), vdup_n_u32(0));
+        return vcgt_u32(mCount, vdup_n_u32(0));
+      }
+
+      SRLatch mArmed;
+      uint32x2_t mMax = vdup_n_u32(1);
+      uint32x2_t mCount = vdup_n_u32(0);
+    };
+  }
+
   namespace four {
     /**
       * Convert a gate to a trigger.
@@ -98,6 +131,23 @@ namespace dsp {
       }
 
       float32x4_t mValue = vdupq_n_f32(0);
+    };
+
+    struct SyncedCountLatch {
+      uint32x4_t process(uint32x4_t signal, uint32x4_t sync) {
+        auto armed = mArmed.process(signal, vmvnq_u32(signal) & sync);
+        //mCount += (armed & sync) & vdupq_n_u32(1);
+        mCount = armed & (mCount + (sync & vdupq_n_u32(1)));
+        return state();
+      }
+
+      uint32x4_t state() {
+        return vcgtq_u32(mCount, vdupq_n_u32(0));
+      }
+
+      SRLatch mArmed;
+      //uint32x4_t mMax = vdupq_n_u32(10);
+      uint32x4_t mCount = vdupq_n_u32(0);
     };
 
     struct SyncTrigger {

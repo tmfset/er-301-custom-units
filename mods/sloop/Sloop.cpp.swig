@@ -7,6 +7,7 @@
 
 #include <ClockMarks.h>
 #include <Sloop.h>
+#include <Sloop2.h>
 #include <SloopHeadMainDisplay.h>
 #include <SloopHeadSubDisplay.h>
 
@@ -16,5 +17,6 @@
 
 %include <ClockMarks.h>
 %include <Sloop.h>
+%include <Sloop2.h>
 %include <SloopHeadMainDisplay.h>
 %include <SloopHeadSubDisplay.h>

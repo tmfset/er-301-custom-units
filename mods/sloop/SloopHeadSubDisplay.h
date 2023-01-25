@@ -3,12 +3,12 @@
 #include <od/graphics/Graphic.h>
 #include <od/graphics/constants.h>
 #include <od/audio/Sample.h>
-#include <Sloop.h>
+#include <Sloop2.h>
 
 namespace sloop {
   class SloopHeadSubDisplay : public od::Graphic {
     public:
-      SloopHeadSubDisplay(Sloop *sloop) :
+      SloopHeadSubDisplay(Sloop2 *sloop) :
         od::Graphic(0, 0, 128, 64) {
         mpSloop = sloop;
         if (mpSloop) mpSloop->attach();
@@ -20,7 +20,7 @@ namespace sloop {
       }
 
     private:
-      Sloop *mpSloop = 0;
+      Sloop2 *mpSloop = 0;
       std::string mHeadText { "00:00.000" };
       std::string mLoopText { "00:00.000" };
 

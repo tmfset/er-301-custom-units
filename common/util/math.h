@@ -417,7 +417,7 @@ namespace util {
       );
     }
 
-    inline float32x4_t readSample(od::Sample *sample, const int *index, int channel) {
+    inline float32x4_t readSample(od::Sample *sample, const int (&index)[4], int channel) {
       float32x4_t out = vdupq_n_f32(0);
       out = vsetq_lane_f32(sample->get(index[0], channel), out, 0);
       out = vsetq_lane_f32(sample->get(index[1], channel), out, 1);
@@ -426,7 +426,7 @@ namespace util {
       return out;
     }
 
-    inline void writeSample(od::Sample *sample, const int *index, int channel, float32x4_t value) {
+    inline void writeSample(od::Sample *sample, const int (&index)[4], int channel, float32x4_t value) {
       sample->set(index[0], channel, vgetq_lane_f32(value, 0));
       sample->set(index[1], channel, vgetq_lane_f32(value, 1));
       sample->set(index[2], channel, vgetq_lane_f32(value, 2));
@@ -438,6 +438,9 @@ namespace util {
       float32x4_t mComplement;
 
       inline Complement() {}
+
+      inline Complement(float32x4_t value)
+       : Complement(value, vdupq_n_f32(1)) {}
 
       inline Complement(float32x4_t value, float32x4_t one) {
         mValue      = value;
@@ -480,10 +483,7 @@ namespace util {
   inline float fpunit(float v) { return fclamp(v, 0, 1); }
 
   inline int mod(int a, int n) {
-    if (a >= n) a -= n;
-    if (a < 0) a += n;
-    return a;
-    //return ((a % n) + n) % n;
+    return ((a % n) + n) % n;
   }
 
   inline int moddst(int a, int b, int n) {
@@ -566,13 +566,17 @@ namespace util {
       return vld1q_f32(_x);
     }
 
-    inline uint32x4_t make_u32(bool a, bool b, bool c, bool d) {
+    inline uint32x4_t make_u(uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
       uint32_t _x[4];
-      _x[0] = util::bcvt(a);
-      _x[1] = util::bcvt(b);
-      _x[2] = util::bcvt(c);
-      _x[3] = util::bcvt(d);
+      _x[0] = a;
+      _x[1] = b;
+      _x[2] = c;
+      _x[3] = d;
       return vld1q_u32(_x);
+    }
+
+    inline uint32x4_t make_u32(bool a, bool b, bool c, bool d) {
+      return make_u(util::bcvt(a), util::bcvt(b), util::bcvt(c), util::bcvt(d));
     }
 
     inline float32x4_t comp(float32x4_t x) {

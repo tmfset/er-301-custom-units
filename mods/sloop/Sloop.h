@@ -274,11 +274,11 @@ namespace sloop {
         return true;
       }
 
-      inline float32x4_t read(const int* index, int channel) const {
+      inline float32x4_t read(const int (&index)[4], int channel) const {
         return util::simd::readSample(mpSample, index, channel);
       }
 
-      inline void write(const int* index, int channel, float32x4_t value) {
+      inline void write(const int (&index)[4], int channel, float32x4_t value) {
         util::simd::writeSample(mpSample, index, channel, value);
       }
 
@@ -486,12 +486,12 @@ namespace sloop {
             shadowLevel[i]  = steps[i].shadowLevel;
           }
 
-          util::simd::Complement record  { vld1q_f32(recordLevel), constants.one };
-          util::simd::Complement overdub { vld1q_f32(overdubLevel), constants.one };
+          util::simd::Complement record  { vld1q_f32(recordLevel) };
+          util::simd::Complement overdub { vld1q_f32(overdubLevel) };
           float32x4_t max = vmaxq_f32(record.mValue, overdub.mValue);
 
-          input    = util::simd::Complement { max, constants.one };
-          shadow   = util::simd::Complement { vld1q_f32(shadowLevel), constants.one };
+          input    = util::simd::Complement { max };
+          shadow   = util::simd::Complement { vld1q_f32(shadowLevel) };
           feedback = record.mComplement * input.ease(constants.feedback);
           through  = constants.through * input.mComplement;
           resetOut = vld1q_f32(reset);
@@ -518,7 +518,7 @@ namespace sloop {
         };
       }
 
-      inline float32x4_t processSample(const int *index, int channel, const ProcessedLevels &levels, float32x4_t input) {
+      inline float32x4_t processSample(const int (&index)[4], int channel, const ProcessedLevels &levels, float32x4_t input) {
         float32x4_t original = read(index, channel);
 
         float32x4_t update;
@@ -530,7 +530,7 @@ namespace sloop {
         return update;
       }
 
-      inline float32x4_t processShadow(const int *index, int channel, const ProcessedLevels &levels, float32x4_t input) {
+      inline float32x4_t processShadow(const int (&index)[4], int channel, const ProcessedLevels &levels, float32x4_t input) {
         float32x4_t original = read(index, channel);
 
         float32x4_t update;
