@@ -386,14 +386,21 @@ function Sloop:gateView(name, description)
   }
 end
 
+function Sloop:onLoadFinished()
+  local graphic = sloop.SloopHeadMainDisplay(self.objects.head, 0, 0, 4 * app.SECTION_PLY, 64)
+  self:setViewBackground("expanded", graphic)
+end
+
 function Sloop:onLoadViews()
+  --self.pSection = sloop.SloopHeadMainDisplay(self.objects.head, 0, 0, 4, 64)
+  --self:getWindow().addMainGraphic(sloop.SloopHeadMainDisplay(self.objects.head, 0, 0, 4, 64))
   return {
-    wave2 = SloopView {
-      parent = self,
-      head  = self.objects.head,
-      width = 2 * app.SECTION_PLY,
-      description = self:describeBuffer()
-    },
+    -- wave2 = SloopView {
+    --   parent = self,
+    --   head  = self.objects.head,
+    --   width = 2 * app.SECTION_PLY,
+    --   description = self:describeBuffer()
+    -- },
     clock   = self:gateView("clock", "Clock"),
     engage  = self:gateView("engage", "Engage"),
     write   = self:gateView("write", "Write"),

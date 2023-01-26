@@ -6,11 +6,6 @@ local Channels = require "Channels"
 local Encoder = require "Encoder"
 local Signal = require "Signal"
 
-local UnitShared = require "common.assets.UnitShared"
-local Base       = require "common.assets.ViewControl.Split.Paged"
-local GainBias   = require "common.assets.ViewControl.SubView.GainBias"
-local Scale      = require "common.assets.ViewControl.SubView.Scale"
-
 local ply = app.SECTION_PLY
 local line1 = app.GRID5_LINE1
 local line4 = app.GRID5_LINE4
@@ -27,12 +22,10 @@ local SloopView = Class {
   canEdit = false,
   canMove = true
 }
-SloopView:include(Base)
-SloopView:include(UnitShared)
+SloopView:include(Zoomable)
 
 function SloopView:init(args)
-  Base.init(self, args)
-  self.sloop = args.sloop or app.logError("%s.init: missing sloop instance.", self)
+  Zoomable.init(self, args)
 
   local width = args.width or (4 * ply)
   local head = args.head or app.logError("%s: head is missing from args.", self)
